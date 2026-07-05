@@ -32,4 +32,11 @@ class ClotureController extends Controller
             ],
         ], 201);
     }
+
+    public function rouvrir(int $annee): JsonResponse
+    {
+        $this->service->annuler($annee);
+
+        return response()->json(['message' => "Exercice {$annee} rouvert."]);
+    }
 }

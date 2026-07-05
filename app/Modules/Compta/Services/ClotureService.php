@@ -175,6 +175,40 @@ class ClotureService
     }
 
     /**
+     * Rouvre un exercice clôturé : supprime les écritures de résultat et
+     * d'à-nouveaux, puis la ligne d'exercice — ce qui lève le verrou. Seul le
+     * dernier exercice clôturé est rouvrable (la chronologie des à-nouveaux
+     * interdit de rouvrir une année plus ancienne).
+     */
+    public function annuler(int $annee): void
+    {
+        $exercice = Exercice::where('annee', $annee)->first();
+
+        if ($exercice === null) {
+            throw ValidationException::withMessages([
+                'annee' => "L'exercice {$annee} n'est pas clôturé.",
+            ]);
+        }
+
+        if (Exercice::where('annee', '>', $annee)->exists()) {
+            throw ValidationException::withMessages([
+                'annee' => "Rouvrez d'abord l'exercice le plus récent : ".Exercice::max('annee').'.',
+            ]);
+        }
+
+        DB::transaction(function () use ($exercice) {
+            $ecritureIds = array_filter([$exercice->ecriture_resultat_id, $exercice->ecriture_an_id]);
+
+            // On retire d'abord la ligne d'exercice (elle référence les écritures).
+            $exercice->delete();
+
+            // Puis les écritures de clôture et leurs lignes (suppression explicite).
+            EcritureLigne::whereIn('ecriture_id', $ecritureIds)->delete();
+            Ecriture::whereIn('id', $ecritureIds)->delete();
+        });
+    }
+
+    /**
      * Soldes (débit − crédit) par compte sur la période OUVERTE uniquement :
      * depuis le 01/01 suivant la dernière clôture (les à-nouveaux y reportent
      * déjà tout l'historique — compter les années closes doublerait les soldes).

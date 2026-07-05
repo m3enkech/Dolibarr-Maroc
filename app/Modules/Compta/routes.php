@@ -28,6 +28,7 @@ Route::prefix('compta')->group(function () {
 
     Route::get('exercices', [ClotureController::class, 'index']);
     Route::post('exercices/cloturer', [ClotureController::class, 'cloturer']);
+    Route::delete('exercices/{annee}', [ClotureController::class, 'rouvrir']);
 
     Route::get('immobilisations/categories', [ImmobilisationsController::class, 'categories']);
     Route::post('immobilisations/dotations', [ImmobilisationsController::class, 'genererDotations']);

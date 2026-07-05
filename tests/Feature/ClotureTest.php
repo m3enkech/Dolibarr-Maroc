@@ -193,6 +193,63 @@ class ClotureTest extends TestCase
         );
     }
 
+    public function test_reopen_removes_closure_and_lifts_lock(): void
+    {
+        $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $this->venteEncaissee($token);
+        $annee = now()->year;
+        $comptes = collect($this->withToken($token)->getJson('/api/v1/compta/comptes')->json('data'));
+
+        $this->withToken($token)->postJson('/api/v1/compta/exercices/cloturer', ['annee' => $annee])->assertCreated();
+
+        // Les écritures de clôture existent.
+        $this->assertSame(1, $this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=AN')->json('meta.total'));
+
+        // Réouverture.
+        $this->withToken($token)->deleteJson("/api/v1/compta/exercices/{$annee}")->assertOk();
+
+        // L'exercice redevient ouvert, les écritures de clôture ont disparu.
+        $exercice = collect($this->withToken($token)->getJson('/api/v1/compta/exercices')->json('data'))
+            ->firstWhere('annee', $annee);
+        $this->assertSame('ouvert', $exercice['statut']);
+        $this->assertSame(0, $this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=AN')->json('meta.total'));
+        $this->assertSame(0, $this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=OD&search=CLOTURE')->json('meta.total'));
+
+        // Le verrou est levé : on peut de nouveau saisir dans l'exercice.
+        $this->withToken($token)->postJson('/api/v1/compta/ecritures', [
+            'libelle' => 'Après réouverture', 'date_ecriture' => "{$annee}-06-15",
+            'lignes' => [
+                ['compte_id' => $comptes->firstWhere('code', '5141')['id'], 'debit' => 100],
+                ['compte_id' => $comptes->firstWhere('code', '1111')['id'], 'credit' => 100],
+            ],
+        ])->assertCreated();
+    }
+
+    public function test_cannot_reopen_older_year_before_latest(): void
+    {
+        $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $annee = now()->year;
+        $comptes = collect($this->withToken($token)->getJson('/api/v1/compta/comptes')->json('data'));
+
+        // Une écriture N-1 puis clôture N-1 et N.
+        $this->withToken($token)->postJson('/api/v1/compta/ecritures', [
+            'libelle' => 'Apport', 'date_ecriture' => ($annee - 1).'-03-10',
+            'lignes' => [
+                ['compte_id' => $comptes->firstWhere('code', '5141')['id'], 'debit' => 5000],
+                ['compte_id' => $comptes->firstWhere('code', '1111')['id'], 'credit' => 5000],
+            ],
+        ])->assertCreated();
+        $this->withToken($token)->postJson('/api/v1/compta/exercices/cloturer', ['annee' => $annee - 1])->assertCreated();
+        $this->withToken($token)->postJson('/api/v1/compta/exercices/cloturer', ['annee' => $annee])->assertCreated();
+
+        // On ne peut pas rouvrir N-1 tant que N est clos.
+        $this->withToken($token)->deleteJson('/api/v1/compta/exercices/'.($annee - 1))->assertUnprocessable();
+
+        // Rouvrir N d'abord, puis N-1 : OK.
+        $this->withToken($token)->deleteJson("/api/v1/compta/exercices/{$annee}")->assertOk();
+        $this->withToken($token)->deleteJson('/api/v1/compta/exercices/'.($annee - 1))->assertOk();
+    }
+
     public function test_exercices_are_isolated_per_tenant(): void
     {
         $tokenA = $this->registerTenant('Tenant A', 'a@test.ma');

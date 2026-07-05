@@ -283,6 +283,11 @@ Le verrou légal de la comptabilité (piste d'audit).
 Après clôture, la balance et tous les calculs de soldes se bornent à la période
 ouverte (les à-nouveaux portent déjà l'historique) ; l'état TVA exclut le journal AN.
 
+**Réouverture** (`DELETE /compta/exercices/{annee}`) : en cas d'erreur, le dernier
+exercice clôturé peut être rouvert — les écritures de résultat et d'à-nouveaux sont
+supprimées et le verrou levé. Seul l'exercice le plus récent est rouvrable (la
+chronologie des à-nouveaux interdit de rouvrir une année plus ancienne d'abord).
+
 ### 5.6 Immobilisations
 
 Cycle de vie des biens durables.

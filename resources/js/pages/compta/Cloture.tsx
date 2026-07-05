@@ -27,6 +27,18 @@ export default function Cloture() {
         },
     });
 
+    const invalidate = () => {
+        queryClient.invalidateQueries({ queryKey: ['compta-exercices'] });
+        queryClient.invalidateQueries({ queryKey: ['compta-ecritures'] });
+        queryClient.invalidateQueries({ queryKey: ['compta-balance'] });
+    };
+
+    const onError = (fallback: string) => (err: any) => {
+        setMessage(null);
+        const messages = err?.response?.data?.errors;
+        setError(messages ? (Object.values(messages).flat() as string[]).join(' ') : fallback);
+    };
+
     const cloturer = useMutation({
         mutationFn: (annee: number) => api.post('/compta/exercices/cloturer', { annee }),
         onSuccess: ({ data }) => {
@@ -35,18 +47,30 @@ export default function Cloture() {
                 `Exercice ${data.data.annee} clôturé — résultat ${formatMAD(data.data.resultat)}. ` +
                 'Les à-nouveaux ont été générés et l\'exercice est verrouillé.',
             );
-            queryClient.invalidateQueries({ queryKey: ['compta-exercices'] });
-            queryClient.invalidateQueries({ queryKey: ['compta-ecritures'] });
-            queryClient.invalidateQueries({ queryKey: ['compta-balance'] });
+            invalidate();
         },
-        onError: (err: any) => {
-            setMessage(null);
-            const messages = err?.response?.data?.errors;
-            setError(
-                messages ? (Object.values(messages).flat() as string[]).join(' ') : 'Clôture impossible.',
-            );
-        },
+        onError: onError('Clôture impossible.'),
     });
+
+    const rouvrir = useMutation({
+        mutationFn: (annee: number) => api.delete(`/compta/exercices/${annee}`),
+        onSuccess: (_res, annee) => {
+            setError(null);
+            setMessage(`Exercice ${annee} rouvert — les écritures de clôture ont été supprimées et le verrou levé.`);
+            invalidate();
+        },
+        onError: onError('Réouverture impossible.'),
+    });
+
+    const confirmerReouverture = (exercice: ExerciceRow) => {
+        const detail =
+            `Rouvrir l'exercice ${exercice.annee} ?\n\n` +
+            'Les écritures de détermination du résultat et d\'à-nouveaux seront SUPPRIMÉES ' +
+            'et le verrou levé (vous pourrez de nouveau saisir dans cet exercice).';
+        if (window.confirm(detail)) {
+            rouvrir.mutate(exercice.annee);
+        }
+    };
 
     const confirmer = (exercice: ExerciceRow) => {
         const detail =
@@ -64,6 +88,10 @@ export default function Cloture() {
 
     // Seul le plus ancien exercice ouvert est clôturable (chronologie imposée).
     const premierOuvert = data?.find((e) => e.statut === 'ouvert')?.annee;
+    // Seul le dernier exercice clôturé est rouvrable.
+    const dernierCloture = data
+        ?.filter((e) => e.statut === 'cloture')
+        .reduce<number | undefined>((max, e) => (max === undefined || e.annee > max ? e.annee : max), undefined);
 
     return (
         <div className="space-y-4">
@@ -131,6 +159,15 @@ export default function Cloture() {
                                                 🔒 Clôturer
                                             </button>
                                         )}
+                                        {exercice.statut === 'cloture' && exercice.annee === dernierCloture && (
+                                            <button
+                                                onClick={() => confirmerReouverture(exercice)}
+                                                disabled={rouvrir.isPending}
+                                                className="rounded-md border border-amber-400 px-3 py-1.5 text-sm font-medium text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
+                                            >
+                                                🔓 Rouvrir
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             );
@@ -143,7 +180,8 @@ export default function Cloture() {
                 La clôture solde les classes 6 et 7 vers le résultat (1161 bénéfice / 1162 perte),
                 génère les à-nouveaux au 1er janvier suivant (journal AN) et verrouille définitivement
                 l'exercice : plus aucune écriture ni facture ne pourra y être datée. Les exercices se
-                clôturent dans l'ordre chronologique.
+                clôturent dans l'ordre chronologique. En cas d'erreur, « Rouvrir » supprime les
+                écritures de clôture et lève le verrou (seul le dernier exercice clôturé est rouvrable).
             </p>
         </div>
     );

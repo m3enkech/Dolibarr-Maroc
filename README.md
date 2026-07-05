@@ -117,7 +117,8 @@ resources/js/                ← SPA React (TypeScript)
 | POST | `/api/v1/compta/lettrage/auto` | Lettrage automatique par référence (FA-/FF- partagée entre facture et règlements) |
 | POST | `/api/v1/compta/lettrage/delettrer` | Supprime un groupe de lettrage (`{compte_id, code}`) |
 | GET | `/api/v1/compta/exercices` | Exercices : clôturés (figés) et ouverts (produits/charges/résultat calculés) |
-| POST | `/api/v1/compta/exercices/cloturer` | Clôture chronologique et irréversible (`{annee}`) : résultat + à-nouveaux + verrou |
+| POST | `/api/v1/compta/exercices/cloturer` | Clôture chronologique (`{annee}`) : résultat + à-nouveaux + verrou |
+| DELETE | `/api/v1/compta/exercices/{annee}` | Rouvre le dernier exercice clôturé : supprime les écritures de clôture, lève le verrou |
 | GET/POST | `/api/v1/compta/immobilisations` | Registre des biens (catégorie → comptes 23xx/28xx + durée par défaut) |
 | GET | `/api/v1/compta/immobilisations/{id}` | Détail + plan d'amortissement + dotations comptabilisées |
 | POST | `/api/v1/compta/immobilisations/dotations` | Dotation annuelle (`{annee}`) : OD 6161 / 28xx, idempotente |
