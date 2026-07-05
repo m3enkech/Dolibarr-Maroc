@@ -7,6 +7,7 @@ import Ecritures from '@/pages/compta/Ecritures';
 import EtatTva from '@/pages/compta/EtatTva';
 import Immobilisations from '@/pages/compta/Immobilisations';
 import Lettrage from '@/pages/compta/Lettrage';
+import Ouverture from '@/pages/compta/Ouverture';
 import PlanComptable from '@/pages/compta/PlanComptable';
 import type { ComptaMappingRow, Compte } from '@/types';
 
@@ -16,6 +17,7 @@ const TABS = [
     { key: 'balance', label: 'Balance' },
     { key: 'tva', label: 'État TVA' },
     { key: 'immobilisations', label: 'Immobilisations' },
+    { key: 'ouverture', label: 'Balance d\'ouverture' },
     { key: 'cloture', label: 'Clôture' },
     { key: 'plan', label: 'Plan comptable' },
 ] as const;
@@ -72,6 +74,7 @@ export default function ComptaPage() {
             {tab === 'balance' && <Balance />}
             {tab === 'tva' && <EtatTva />}
             {tab === 'immobilisations' && <Immobilisations />}
+            {tab === 'ouverture' && <Ouverture />}
             {tab === 'cloture' && <Cloture />}
             {tab === 'plan' && (
                 <PlanComptable

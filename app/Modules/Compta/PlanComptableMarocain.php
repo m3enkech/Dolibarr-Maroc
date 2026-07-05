@@ -53,6 +53,8 @@ class PlanComptableMarocain
         // Classe 1 — Financement permanent
         ['1111', 'Capital social'],
         ['1141', 'Réserve légale'],
+        ['1151', 'Report à nouveau (solde créditeur)'],
+        ['1152', 'Report à nouveau (solde débiteur)'],
         ['1161', 'Résultat net de l\'exercice (bénéfice)'],
         ['1162', 'Résultat net de l\'exercice (perte)'],
         ['1415', 'Emprunts auprès des établissements de crédit'],

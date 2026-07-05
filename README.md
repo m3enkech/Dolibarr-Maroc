@@ -116,6 +116,9 @@ resources/js/                ← SPA React (TypeScript)
 | GET/POST | `/api/v1/compta/lettrage` | Lignes lettrables d'un compte (`?compte_id=`, `?statut=`) / lettrage manuel équilibré |
 | POST | `/api/v1/compta/lettrage/auto` | Lettrage automatique par référence (FA-/FF- partagée entre facture et règlements) |
 | POST | `/api/v1/compta/lettrage/delettrer` | Supprime un groupe de lettrage (`{compte_id, code}`) |
+| GET | `/api/v1/compta/ouverture/modele` | Modèle Excel de balance d'ouverture (Compte, Libellé, Débit, Crédit) |
+| POST | `/api/v1/compta/ouverture/previsualiser` | Aperçu d'un fichier de balance importé (équilibre, comptes inconnus) |
+| POST | `/api/v1/compta/ouverture/importer` | Reprise des à-nouveaux : crée l'écriture AN au 01/01 depuis le fichier |
 | GET | `/api/v1/compta/exercices` | Exercices : clôturés (figés) et ouverts (produits/charges/résultat calculés) |
 | POST | `/api/v1/compta/exercices/cloturer` | Clôture chronologique (`{annee}`) : résultat + à-nouveaux + verrou |
 | DELETE | `/api/v1/compta/exercices/{annee}` | Rouvre le dernier exercice clôturé (**superadmin uniquement**) : supprime les écritures de clôture, lève le verrou |

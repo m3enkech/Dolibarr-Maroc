@@ -283,6 +283,15 @@ Le verrou légal de la comptabilité (piste d'audit).
 Après clôture, la balance et tous les calculs de soldes se bornent à la période
 ouverte (les à-nouveaux portent déjà l'historique) ; l'état TVA exclut le journal AN.
 
+**Reprise des à-nouveaux / balance d'ouverture** (`/compta/ouverture/*`) : pour
+onboarder une entreprise ayant un historique géré hors de l'app, l'entreprise
+téléverse un fichier Excel/CSV (colonnes Compte, Libellé, Débit, Crédit) de sa
+balance de clôture. L'app le lit (PhpSpreadsheet), affiche un **aperçu** avec
+contrôle d'équilibre et repérage des comptes hors plan, puis génère une **écriture
+d'à-nouveaux (journal AN) datée du 01/01**. Les comptes absents sont créés
+automatiquement ; le report à nouveau (résultat cumulé) va en 1151/1152. Un seul
+import par exercice. Un modèle Excel est téléchargeable.
+
 **Réouverture** (`DELETE /compta/exercices/{annee}`) : en cas d'erreur, le dernier
 exercice clôturé peut être rouvert — les écritures de résultat et d'à-nouveaux sont
 supprimées et le verrou levé. Seul l'exercice le plus récent est rouvrable (la

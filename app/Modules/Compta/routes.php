@@ -5,6 +5,7 @@ use App\Modules\Compta\Http\Controllers\ComptesController;
 use App\Modules\Compta\Http\Controllers\EcrituresController;
 use App\Modules\Compta\Http\Controllers\ImmobilisationsController;
 use App\Modules\Compta\Http\Controllers\LettrageController;
+use App\Modules\Compta\Http\Controllers\OuvertureController;
 use App\Modules\Compta\Http\Controllers\RapportsController;
 use Illuminate\Support\Facades\Route;
 
@@ -25,6 +26,10 @@ Route::prefix('compta')->group(function () {
     Route::get('balance', [RapportsController::class, 'balance']);
     Route::get('tva', [RapportsController::class, 'tva']);
     Route::get('tva/export', [RapportsController::class, 'exportTva']);
+
+    Route::get('ouverture/modele', [OuvertureController::class, 'modele']);
+    Route::post('ouverture/previsualiser', [OuvertureController::class, 'previsualiser']);
+    Route::post('ouverture/importer', [OuvertureController::class, 'importer']);
 
     Route::get('exercices', [ClotureController::class, 'index']);
     Route::post('exercices/cloturer', [ClotureController::class, 'cloturer']);
