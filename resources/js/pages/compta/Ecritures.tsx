@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { Fragment, useState, type FormEvent } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
@@ -6,9 +6,14 @@ import type { Compte, Ecriture, Paginated } from '@/types';
 
 const JOURNAUX: Record<string, { label: string; classes: string }> = {
     VT: { label: 'Ventes', classes: 'bg-emerald-100 text-emerald-700' },
+    AC: { label: 'Achats', classes: 'bg-teal-100 text-teal-700' },
     BQ: { label: 'Trésorerie', classes: 'bg-sky-100 text-sky-700' },
     OD: { label: 'Divers', classes: 'bg-violet-100 text-violet-700' },
 };
+
+// Un journal inconnu ne doit jamais faire tomber la page.
+const journalInfo = (code: string) =>
+    JOURNAUX[code] ?? { label: code, classes: 'bg-slate-200 text-slate-700' };
 
 interface LigneOD {
     compte_id: string;
@@ -247,16 +252,18 @@ export default function Ecritures({ comptes }: { comptes: Compte[] }) {
                             </tr>
                         )}
                         {data?.data.map((ecriture) => (
-                            <>
+                            <Fragment key={ecriture.id}>
                                 <tr
-                                    key={ecriture.id}
                                     onClick={() => setExpanded(expanded === ecriture.id ? null : ecriture.id)}
                                     className="cursor-pointer hover:bg-slate-50"
                                 >
                                     <td className="px-4 py-3 font-mono text-xs font-medium text-emerald-700">{ecriture.numero}</td>
                                     <td className="px-4 py-3 text-slate-600">{ecriture.date_ecriture}</td>
                                     <td className="px-4 py-3">
-                                        <span className={`rounded px-1.5 py-0.5 text-xs ${JOURNAUX[ecriture.journal].classes}`}>
+                                        <span
+                                            className={`rounded px-1.5 py-0.5 text-xs ${journalInfo(ecriture.journal).classes}`}
+                                            title={journalInfo(ecriture.journal).label}
+                                        >
                                             {ecriture.journal}
                                         </span>
                                     </td>
@@ -273,7 +280,7 @@ export default function Ecritures({ comptes }: { comptes: Compte[] }) {
                                     </td>
                                 </tr>
                                 {expanded === ecriture.id && (
-                                    <tr key={`${ecriture.id}-detail`}>
+                                    <tr>
                                         <td colSpan={6} className="bg-slate-50 px-8 py-3">
                                             <table className="w-full text-xs">
                                                 <thead className="text-slate-500">
@@ -302,7 +309,7 @@ export default function Ecritures({ comptes }: { comptes: Compte[] }) {
                                         </td>
                                     </tr>
                                 )}
-                            </>
+                            </Fragment>
                         ))}
                     </tbody>
                 </table>

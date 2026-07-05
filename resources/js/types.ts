@@ -210,7 +210,7 @@ export interface EcritureLigne {
 
 export interface Ecriture {
     id: number;
-    journal: 'VT' | 'BQ' | 'OD';
+    journal: 'VT' | 'AC' | 'BQ' | 'OD';
     numero: string;
     date_ecriture: string;
     libelle: string;
