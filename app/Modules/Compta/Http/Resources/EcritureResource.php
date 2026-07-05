@@ -24,6 +24,7 @@ class EcritureResource extends JsonResource
                 'libelle' => $ligne->libelle,
                 'debit' => $ligne->debit,
                 'credit' => $ligne->credit,
+                'lettrage' => $ligne->lettrage,
             ])),
             'total_debit' => $this->whenLoaded('lignes', fn () => number_format(
                 (float) $this->lignes->sum('debit'), 2, '.', '',

@@ -100,7 +100,7 @@ class ComptaService
         }
 
         $lignes = [
-            ['compte' => $this->compteParDefaut('clients'), 'debit' => (float) $document->total_ttc, 'credit' => 0],
+            ['compte' => $this->compteParDefaut('clients'), 'debit' => (float) $document->total_ttc, 'credit' => 0, 'tiers_id' => $document->tiers_id],
         ];
 
         if ($htMarchandises > 0) {
@@ -139,7 +139,7 @@ class ComptaService
             libelle: "Encaissement {$document->code} — ".($paiement->reference ?: $paiement->mode),
             lignes: [
                 ['compte' => $this->compteParDefaut($cle), 'debit' => (float) $paiement->montant, 'credit' => 0],
-                ['compte' => $this->compteParDefaut('clients'), 'debit' => 0, 'credit' => (float) $paiement->montant],
+                ['compte' => $this->compteParDefaut('clients'), 'debit' => 0, 'credit' => (float) $paiement->montant, 'tiers_id' => $document->tiers_id],
             ],
             reference: $document->code,
             documentVenteId: $document->id,
@@ -181,7 +181,7 @@ class ComptaService
             $lignes[] = ['compte' => $this->compteParDefaut('tva_recuperable'), 'debit' => (float) $document->total_tva, 'credit' => 0];
         }
 
-        $lignes[] = ['compte' => $this->compteParDefaut('fournisseurs'), 'debit' => 0, 'credit' => (float) $document->total_ttc];
+        $lignes[] = ['compte' => $this->compteParDefaut('fournisseurs'), 'debit' => 0, 'credit' => (float) $document->total_ttc, 'tiers_id' => $document->tiers_id];
 
         $reference = $document->ref_fournisseur
             ? "{$document->code} / {$document->ref_fournisseur}"
@@ -213,7 +213,7 @@ class ComptaService
             date: $paiement->date_paiement->format('Y-m-d'),
             libelle: "Règlement fournisseur {$document->code} — ".($paiement->reference ?: $paiement->mode),
             lignes: [
-                ['compte' => $this->compteParDefaut('fournisseurs'), 'debit' => (float) $paiement->montant, 'credit' => 0],
+                ['compte' => $this->compteParDefaut('fournisseurs'), 'debit' => (float) $paiement->montant, 'credit' => 0, 'tiers_id' => $document->tiers_id],
                 ['compte' => $this->compteParDefaut($cle), 'debit' => 0, 'credit' => (float) $paiement->montant],
             ],
             reference: $document->code,
@@ -228,6 +228,7 @@ class ComptaService
 
         $lignes = collect($data['lignes'])->map(fn (array $ligne) => [
             'compte' => Compte::findOrFail($ligne['compte_id']),
+            'tiers_id' => $ligne['tiers_id'] ?? null,
             'libelle' => $ligne['libelle'] ?? null,
             'debit' => (float) ($ligne['debit'] ?? 0),
             'credit' => (float) ($ligne['credit'] ?? 0),
@@ -292,6 +293,7 @@ class ComptaService
             foreach ($lignes as $ligne) {
                 $ecriture->lignes()->create([
                     'compte_id' => $ligne['compte']->id,
+                    'tiers_id' => $ligne['tiers_id'] ?? null,
                     'libelle' => $ligne['libelle'] ?? null,
                     'debit' => $ligne['debit'],
                     'credit' => $ligne['credit'],

@@ -4,11 +4,13 @@ import { api } from '@/lib/api';
 import Balance from '@/pages/compta/Balance';
 import Ecritures from '@/pages/compta/Ecritures';
 import EtatTva from '@/pages/compta/EtatTva';
+import Lettrage from '@/pages/compta/Lettrage';
 import PlanComptable from '@/pages/compta/PlanComptable';
 import type { ComptaMappingRow, Compte } from '@/types';
 
 const TABS = [
     { key: 'ecritures', label: 'Écritures' },
+    { key: 'lettrage', label: 'Lettrage' },
     { key: 'balance', label: 'Balance' },
     { key: 'tva', label: 'État TVA' },
     { key: 'plan', label: 'Plan comptable' },
@@ -60,6 +62,9 @@ export default function ComptaPage() {
             </div>
 
             {tab === 'ecritures' && <Ecritures comptes={comptesData?.data ?? []} />}
+            {tab === 'lettrage' && (
+                <Lettrage comptes={comptesData?.data ?? []} mappings={mappings ?? []} />
+            )}
             {tab === 'balance' && <Balance />}
             {tab === 'tva' && <EtatTva />}
             {tab === 'plan' && (

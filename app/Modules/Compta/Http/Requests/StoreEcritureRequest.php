@@ -3,6 +3,7 @@
 namespace App\Modules\Compta\Http\Requests;
 
 use App\Modules\Compta\Models\Compte;
+use App\Modules\Tiers\Models\Tiers;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreEcritureRequest extends FormRequest
@@ -22,6 +23,11 @@ class StoreEcritureRequest extends FormRequest
             'lignes.*.compte_id' => ['required', 'integer', function (string $attribute, mixed $value, \Closure $fail) {
                 if (! Compte::whereKey($value)->where('is_active', true)->exists()) {
                     $fail('Ce compte n\'existe pas.');
+                }
+            }],
+            'lignes.*.tiers_id' => ['nullable', 'integer', function (string $attribute, mixed $value, \Closure $fail) {
+                if ($value !== null && ! Tiers::whereKey($value)->exists()) {
+                    $fail('Ce tiers n\'existe pas.');
                 }
             }],
             'lignes.*.libelle' => ['nullable', 'string', 'max:255'],
