@@ -468,11 +468,13 @@ Créer son entreprise via l'écran « Créer mon entreprise » (ou
 
 - [ ] Rapprochement bancaire (nécessite un format de relevé bancaire marocain)
 - [ ] Comptabilité analytique (axes, ventilation)
-- [ ] États financiers : bilan, CPC générés depuis la balance ; liasse / ETIC
+- [x] États de synthèse : Bilan (actif/passif équilibré) et CPC (résultat par niveau)
+      générés depuis la balance. Reste : liasse détaillée / ETIC (tableaux annexes)
 - [x] Export SIMPL-TVA (relevé de déductions EDI + CA, format DGI ADC082F-15I)
-- [ ] **Facturation électronique DGI** — obligatoire au Maroc en 2026 (modèle
-      « clearance », formats UBL 2.1 / CII). Palier 10-200 M DH de CA entré en vigueur
-      le 01/07/2026 ; modalités précisées par décret d'application à surveiller.
+- [~] **Facturation électronique DGI** — génération de la facture **UBL 2.1** (XML)
+      faite (`/ventes/documents/{id}/efacture`). La **transmission « clearance »** à la
+      plateforme DGI reste à brancher une fois l'API officielle publiée (décret
+      d'application). Palier 10-200 M DH entré en vigueur le 01/07/2026.
 - [ ] Phase 6 — RH & Projets (congés, notes de frais, temps passé)
 - [ ] PDF bon de commande fournisseur, transferts inter-entrepôts, stock minimum
 - [ ] Passage PostgreSQL, rôles/permissions fins, facturation SaaS des abonnements

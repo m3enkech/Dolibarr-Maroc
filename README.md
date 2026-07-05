@@ -113,6 +113,8 @@ resources/js/                ← SPA React (TypeScript)
 | GET/PUT | `/api/v1/compta/mappings` | Comptes par défaut (clients, ventes, TVA, banque, caisse…) — l'adaptation sans saisie |
 | GET/POST | `/api/v1/compta/ecritures` | Journal (VT/BQ/OD) / écriture manuelle OD — partie double vérifiée serveur |
 | GET | `/api/v1/compta/balance` | Balance générale — `?du=`, `?au=` |
+| GET | `/api/v1/compta/etats-synthese` | États de synthèse CGNC : Bilan (actif/passif) + CPC (résultat) |
+| GET | `/api/v1/ventes/documents/{id}/efacture` | Facture électronique UBL 2.1 (XML) — factures validées |
 | GET/POST | `/api/v1/compta/lettrage` | Lignes lettrables d'un compte (`?compte_id=`, `?statut=`) / lettrage manuel équilibré |
 | POST | `/api/v1/compta/lettrage/auto` | Lettrage automatique par référence (FA-/FF- partagée entre facture et règlements) |
 | POST | `/api/v1/compta/lettrage/delettrer` | Supprime un groupe de lettrage (`{compte_id, code}`) |

@@ -74,6 +74,16 @@ export default function VenteDetail() {
         URL.revokeObjectURL(url);
     };
 
+    const telechargerEfacture = async () => {
+        const response = await api.get(`/ventes/documents/${id}/efacture`, { responseType: 'blob' });
+        const url = URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${doc?.code ?? 'facture'}-efacture.xml`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     const ajouterPaiement = (e: FormEvent) => {
         e.preventDefault();
         action.mutate(
@@ -171,6 +181,15 @@ export default function VenteDetail() {
                         <button onClick={telechargerPdf} className={btnSecondary}>
                             ⬇ PDF
                         </button>
+                        {doc.type === 'facture' && doc.statut !== 'brouillon' && (
+                            <button
+                                onClick={telechargerEfacture}
+                                className={btnSecondary}
+                                title="Facture électronique UBL 2.1 (format DGI e-facturation)"
+                            >
+                                ⬇ E-facture (XML)
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

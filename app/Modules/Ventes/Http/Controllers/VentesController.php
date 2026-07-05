@@ -8,6 +8,7 @@ use App\Modules\Ventes\Http\Requests\StorePaiementRequest;
 use App\Modules\Ventes\Http\Requests\UpdateDocumentVenteRequest;
 use App\Modules\Ventes\Http\Resources\DocumentVenteResource;
 use App\Modules\Ventes\Models\DocumentVente;
+use App\Modules\Ventes\Services\EFactureService;
 use App\Modules\Ventes\Services\VenteService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -91,6 +92,20 @@ class VentesController extends Controller
         $this->service->ajouterPaiement($document, $request->validated());
 
         return new DocumentVenteResource($document->fresh(['lignes', 'tiers', 'paiements']));
+    }
+
+    public function efacture(DocumentVente $document, EFactureService $efacture)
+    {
+        abort_unless($document->type === DocumentVente::TYPE_FACTURE, 404);
+
+        if ($document->isBrouillon()) {
+            abort(422, 'La facture doit être validée avant de générer la e-facture.');
+        }
+
+        return response($efacture->genererXml($document), 200, [
+            'Content-Type' => 'application/xml',
+            'Content-Disposition' => 'attachment; filename="'.$document->code.'-efacture.xml"',
+        ]);
     }
 
     public function pdf(DocumentVente $document)

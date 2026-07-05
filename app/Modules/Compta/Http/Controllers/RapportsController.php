@@ -9,6 +9,7 @@ use App\Modules\Compta\Models\EcritureLigne;
 use App\Modules\Compta\Models\Exercice;
 use App\Modules\Compta\PlanComptableMarocain;
 use App\Modules\Compta\Services\ComptaService;
+use App\Modules\Compta\Services\EtatsSyntheseService;
 use App\Modules\Compta\Services\TvaExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class RapportsController extends Controller
 {
     public function __construct(private ComptaService $service) {}
+
+    /** États de synthèse CGNC : Bilan + CPC. */
+    public function etatsSynthese(Request $request, EtatsSyntheseService $etats): JsonResponse
+    {
+        return response()->json($etats->calculer($request->date('au')?->format('Y-m-d')));
+    }
 
     /** Export Excel de la déclaration TVA (relevé de déductions + chiffre d'affaires). */
     public function exportTva(Request $request, TvaExportService $export): StreamedResponse
