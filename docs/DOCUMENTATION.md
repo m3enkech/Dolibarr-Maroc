@@ -313,8 +313,11 @@ Cycle de vie des biens durables.
 - **Dotations annuelles automatiques** : écriture OD (débit `6161` / crédits `28xx`
   regroupés), **idempotente** par année et par bien.
 - **Cession** : sortie de l'actif (reprise des amortissements `28xx` + VNA en charge
-  `6511` / annulation de la valeur brute `23xx`) et produit de cession (`5141`/`7511`) ;
-  la plus ou moins-value ressort naturellement dans le résultat. Mise au rebut à 0 gérée.
+  `6511` / annulation de la valeur brute `23xx`) et produit de cession avec **TVA
+  collectée** (`5141` TTC / `7511` HT + `4441` TVA au taux choisi, défaut 20 %, 0 =
+  exonéré pour les immeubles). La TVA de cession alimente automatiquement l'état TVA
+  facturée du mois. La plus ou moins-value ressort dans le résultat. Mise au rebut à
+  0 gérée (pas de produit ni de TVA).
 - L'acquisition **n'est pas re-comptabilisée** (déjà passée via la facture fournisseur
   ou une OD), pour éviter de doubler l'actif.
 

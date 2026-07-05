@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[Fillable([
     'code', 'document_achat_id', 'label', 'category', 'date_acquisition', 'valeur_acquisition',
     'duree_annees', 'compte_immo_id', 'compte_amort_id',
-    'statut', 'date_cession', 'valeur_cession', 'notes',
+    'statut', 'date_cession', 'valeur_cession', 'tva_cession', 'notes',
 ])]
 class Immobilisation extends Model
 {
@@ -28,6 +28,7 @@ class Immobilisation extends Model
             'date_cession' => 'date:Y-m-d',
             'valeur_acquisition' => 'decimal:2',
             'valeur_cession' => 'decimal:2',
+            'tva_cession' => 'decimal:2',
             'duree_annees' => 'integer',
         ];
     }

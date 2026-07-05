@@ -231,9 +231,12 @@ class ImmobilisationService
         $cumul = $immo->cumulAmortissement();
         $vna = round($base - $cumul, 2);
         $date = $data['date_cession'];
-        $prix = (float) ($data['valeur_cession'] ?? 0);
+        $prix = (float) ($data['valeur_cession'] ?? 0); // HT
+        $taux = (float) ($data['tva_rate'] ?? 20);
+        $tva = round($prix * $taux / 100, 2);
+        $ttc = round($prix + $tva, 2);
 
-        return DB::transaction(function () use ($immo, $base, $cumul, $vna, $date, $prix) {
+        return DB::transaction(function () use ($immo, $base, $cumul, $vna, $date, $prix, $tva, $ttc) {
             // 1. Sortie de l'actif : 28xx (débit cumul) + 6511 (débit VNA) / 23xx (crédit brut).
             $lignesSortie = [];
             if ($cumul > self::EPSILON) {
@@ -252,16 +255,21 @@ class ImmobilisationService
                 "CESSION-{$immo->code}",
             );
 
-            // 2. Produit de cession (encaissé en banque) : 5141 / 7511.
+            // 2. Produit de cession (encaissé en banque) : 5141 TTC / 7511 HT + 4441 TVA collectée.
             if ($prix > self::EPSILON) {
+                $lignesProduit = [
+                    ['compte' => $this->compta->compteParCode('5141'), 'debit' => $ttc, 'credit' => 0],
+                    ['compte' => $this->compta->compteParCode('7511'), 'debit' => 0, 'credit' => $prix],
+                ];
+                if ($tva > self::EPSILON) {
+                    $lignesProduit[] = ['compte' => $this->compta->compteParDefaut('tva_facturee'), 'debit' => 0, 'credit' => $tva];
+                }
+
                 $this->compta->ecrire(
                     Ecriture::JOURNAL_TRESORERIE,
                     $date,
                     "Cession immobilisation {$immo->code} — {$immo->label}",
-                    [
-                        ['compte' => $this->compta->compteParCode('5141'), 'debit' => $prix, 'credit' => 0],
-                        ['compte' => $this->compta->compteParCode('7511'), 'debit' => 0, 'credit' => $prix],
-                    ],
+                    $lignesProduit,
                     "CESSION-{$immo->code}",
                 );
             }
@@ -270,6 +278,7 @@ class ImmobilisationService
                 'statut' => Immobilisation::STATUT_CEDE,
                 'date_cession' => $date,
                 'valeur_cession' => $prix,
+                'tva_cession' => $tva,
             ]);
 
             return $immo->fresh(['compteImmo', 'compteAmort', 'dotations']);

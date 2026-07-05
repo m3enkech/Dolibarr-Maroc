@@ -146,11 +146,14 @@ class ImmobilisationTest extends TestCase
         $this->withToken($token)->postJson('/api/v1/compta/immobilisations/dotations', ['annee' => 2024])->assertOk();
         $this->withToken($token)->postJson('/api/v1/compta/immobilisations/dotations', ['annee' => 2025])->assertOk();
 
-        // Cédé 8000 → plus-value (prix > VNA).
+        // Cédé 8000 HT à 20 % → plus-value (prix > VNA).
         $cede = $this->withToken($token)->postJson("/api/v1/compta/immobilisations/{$immo['id']}/ceder", [
-            'date_cession' => '2026-03-31', 'valeur_cession' => 8000,
+            'date_cession' => '2026-03-31', 'valeur_cession' => 8000, 'tva_rate' => 20,
         ]);
-        $cede->assertOk()->assertJsonPath('data.statut', 'cede');
+        $cede->assertOk()
+            ->assertJsonPath('data.statut', 'cede')
+            ->assertJsonPath('data.valeur_cession', '8000.00')
+            ->assertJsonPath('data.tva_cession', '1600.00');
 
         // Sortie de l'actif (OD) : 2926 débit 4800, 6511 débit 7200, 2355 crédit 12000.
         $sortie = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=OD&search=CESSION')->json('data'))->first();
@@ -163,14 +166,37 @@ class ImmobilisationTest extends TestCase
             $lignesSortie->sum(fn ($l) => (float) $l['credit']),
         );
 
-        // Produit de cession (BQ) : 5141 débit 8000, 7511 crédit 8000.
+        // Produit de cession (BQ) : 5141 débit 9600 TTC, 7511 crédit 8000 HT, 4441 crédit 1600 TVA.
         $produit = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=BQ&search=CESSION')->json('data'))->first();
-        $this->assertSame('8000.00', collect($produit['lignes'])->firstWhere('compte_code', '7511')['credit']);
+        $lignesProduit = collect($produit['lignes']);
+        $this->assertSame('9600.00', $lignesProduit->firstWhere('compte_code', '5141')['debit']);
+        $this->assertSame('8000.00', $lignesProduit->firstWhere('compte_code', '7511')['credit']);
+        $this->assertSame('1600.00', $lignesProduit->firstWhere('compte_code', '4441')['credit']);
+
+        // La TVA de cession alimente l'état TVA facturée du mois.
+        $this->withToken($token)->getJson('/api/v1/compta/tva?mois=2026-03')
+            ->assertJsonPath('tva_facturee', '1600.00');
 
         // Une immobilisation cédée ne peut plus l'être.
         $this->withToken($token)->postJson("/api/v1/compta/immobilisations/{$immo['id']}/ceder", [
             'date_cession' => '2026-04-01', 'valeur_cession' => 100,
         ])->assertUnprocessable();
+    }
+
+    public function test_cession_exoneree_sans_tva(): void
+    {
+        $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $immo = $this->creerImmo($token); // 12000/5
+
+        // Cession exonérée (taux 0, ex. immeuble) : pas de 4441, 5141 = prix HT.
+        $this->withToken($token)->postJson("/api/v1/compta/immobilisations/{$immo['id']}/ceder", [
+            'date_cession' => '2026-03-31', 'valeur_cession' => 5000, 'tva_rate' => 0,
+        ])->assertOk()->assertJsonPath('data.tva_cession', '0.00');
+
+        $produit = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=BQ&search=CESSION')->json('data'))->first();
+        $lignesProduit = collect($produit['lignes']);
+        $this->assertSame('5000.00', $lignesProduit->firstWhere('compte_code', '5141')['debit']);
+        $this->assertNull($lignesProduit->firstWhere('compte_code', '4441'));
     }
 
     public function test_cession_of_fully_amortized_asset_at_zero(): void

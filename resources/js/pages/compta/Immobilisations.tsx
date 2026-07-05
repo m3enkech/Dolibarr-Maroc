@@ -132,11 +132,15 @@ export default function Immobilisations() {
     });
 
     const ceder = useMutation({
-        mutationFn: ({ id, date, prix }: { id: number; date: string; prix: number }) =>
-            api.post(`/compta/immobilisations/${id}/ceder`, { date_cession: date, valeur_cession: prix }),
+        mutationFn: ({ id, date, prix, taux }: { id: number; date: string; prix: number; taux: number }) =>
+            api.post(`/compta/immobilisations/${id}/ceder`, {
+                date_cession: date,
+                valeur_cession: prix,
+                tva_rate: taux,
+            }),
         onSuccess: () => {
             setError(null);
-            setMessage('Immobilisation cédée — écritures de sortie générées.');
+            setMessage('Immobilisation cédée — sortie de l\'actif + produit avec TVA collectée générés.');
             invalidate();
         },
         onError,
@@ -161,7 +165,14 @@ export default function Immobilisations() {
         if (!date) return;
         const prixStr = window.prompt('Prix de cession HT en MAD (0 = mise au rebut) :', immo.vna);
         if (prixStr === null) return;
-        ceder.mutate({ id: immo.id, date, prix: parseFloat(prixStr) || 0 });
+        const prix = parseFloat(prixStr) || 0;
+        let taux = 0;
+        if (prix > 0) {
+            const tauxStr = window.prompt('Taux de TVA collectée sur la cession (%) — 0 si exonéré :', '20');
+            if (tauxStr === null) return;
+            taux = parseFloat(tauxStr) || 0;
+        }
+        ceder.mutate({ id: immo.id, date, prix, taux });
     };
 
     const catLabel = (cle: string) => categories?.find((c) => c.cle === cle)?.label ?? cle;

@@ -24,6 +24,7 @@ class ImmobilisationResource extends JsonResource
             'statut' => $this->statut,
             'date_cession' => $this->date_cession?->format('Y-m-d'),
             'valeur_cession' => $this->valeur_cession,
+            'tva_cession' => $this->tva_cession,
             'cumul_amortissement' => number_format($this->cumulAmortissement(), 2, '.', ''),
             'vna' => number_format($this->vna(), 2, '.', ''),
             'notes' => $this->notes,
