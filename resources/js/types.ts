@@ -1,0 +1,196 @@
+export interface Tenant {
+    id: number;
+    name: string;
+    slug: string;
+    plan: string;
+}
+
+export interface User {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    tenant_id: number;
+}
+
+export interface Tiers {
+    id: number;
+    code: string;
+    name: string;
+    is_client: boolean;
+    is_supplier: boolean;
+    ice: string | null;
+    if_number: string | null;
+    rc: string | null;
+    patente: string | null;
+    cnss: string | null;
+    address: string | null;
+    city: string | null;
+    postal_code: string | null;
+    country: string;
+    phone: string | null;
+    email: string | null;
+    website: string | null;
+    contact_name: string | null;
+    notes: string | null;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface Produit {
+    id: number;
+    code: string;
+    name: string;
+    description: string | null;
+    type: 'product' | 'service';
+    sell_price: string;
+    sell_price_ttc: string;
+    buy_price: string | null;
+    tva_rate: string;
+    unit: string | null;
+    barcode: string | null;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export type DocumentType = 'devis' | 'commande' | 'facture';
+export type DocumentStatut = 'brouillon' | 'valide' | 'accepte' | 'refuse' | 'paye';
+
+export interface DocumentVenteLigne {
+    id: number;
+    produit_id: number | null;
+    designation: string;
+    quantite: string;
+    prix_unitaire: string;
+    remise_percent: string;
+    tva_rate: string;
+    montant_ht: string;
+    montant_tva: string;
+    montant_ttc: string;
+    position: number;
+}
+
+export interface Paiement {
+    id: number;
+    date_paiement: string;
+    montant: string;
+    mode: string;
+    reference: string | null;
+    note: string | null;
+}
+
+export interface DocumentVente {
+    id: number;
+    type: DocumentType;
+    code: string;
+    statut: DocumentStatut;
+    tiers_id: number;
+    tiers?: { id: number; code: string; name: string; ice: string | null; city: string | null };
+    date_document: string;
+    date_echeance: string | null;
+    total_ht: string;
+    total_tva: string;
+    total_ttc: string;
+    notes: string | null;
+    validated_at: string | null;
+    lignes?: DocumentVenteLigne[];
+    paiements?: Paiement[];
+    montant_paye?: string;
+    reste_a_payer?: string;
+    source?: { id: number; type: DocumentType; code: string } | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface Entrepot {
+    id: number;
+    code: string;
+    name: string;
+    address: string | null;
+    is_default: boolean;
+    is_active: boolean;
+}
+
+export interface MouvementStock {
+    id: number;
+    type: 'entree' | 'sortie' | 'ajustement' | 'vente';
+    quantite: string;
+    quantite_apres: string;
+    reference: string | null;
+    note: string | null;
+    produit: { id: number; code: string; name: string; unit: string | null } | null;
+    entrepot: { id: number; name: string } | null;
+    created_at: string;
+}
+
+export interface StockNiveau {
+    produit_id: number;
+    code: string;
+    name: string;
+    unit: string | null;
+    quantite: string;
+    valeur_achat: string | null;
+}
+
+export interface Compte {
+    id: number;
+    code: string;
+    label: string;
+    classe: number;
+    classe_label: string;
+    is_system: boolean;
+    is_active: boolean;
+}
+
+export interface ComptaMappingRow {
+    cle: string;
+    label: string;
+    compte_id: number | null;
+    compte_code: string | null;
+    compte_label: string | null;
+}
+
+export interface EcritureLigne {
+    id: number;
+    compte_code: string | null;
+    compte_label: string | null;
+    libelle: string | null;
+    debit: string;
+    credit: string;
+}
+
+export interface Ecriture {
+    id: number;
+    journal: 'VT' | 'BQ' | 'OD';
+    numero: string;
+    date_ecriture: string;
+    libelle: string;
+    reference: string | null;
+    is_auto: boolean;
+    lignes: EcritureLigne[];
+    total_debit: string;
+    created_at: string;
+}
+
+export interface BalanceRow {
+    compte_id: number;
+    code: string;
+    label: string;
+    classe: number;
+    total_debit: string;
+    total_credit: string;
+    solde_debiteur: string;
+    solde_crediteur: string;
+}
+
+export interface Paginated<T> {
+    data: T[];
+    meta: {
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+    };
+}

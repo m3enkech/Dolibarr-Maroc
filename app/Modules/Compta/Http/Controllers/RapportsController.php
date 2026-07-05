@@ -1,0 +1,100 @@
+<?php
+
+namespace App\Modules\Compta\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use App\Modules\Compta\Models\Compte;
+use App\Modules\Compta\Models\EcritureLigne;
+use App\Modules\Compta\PlanComptableMarocain;
+use App\Modules\Compta\Services\ComptaService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class RapportsController extends Controller
+{
+    public function __construct(private ComptaService $service) {}
+
+    /** Balance générale : totaux débit/crédit et solde par compte mouvementé. */
+    public function balance(Request $request): JsonResponse
+    {
+        $this->service->initialiserPlanComptable();
+
+        $totaux = EcritureLigne::query()
+            ->selectRaw('compte_id, SUM(debit) as total_debit, SUM(credit) as total_credit')
+            ->whereHas('ecriture', function ($query) use ($request) {
+                $query->when($request->date('du'), fn ($q, $du) => $q->whereDate('date_ecriture', '>=', $du))
+                    ->when($request->date('au'), fn ($q, $au) => $q->whereDate('date_ecriture', '<=', $au));
+            })
+            ->groupBy('compte_id')
+            ->get()
+            ->keyBy('compte_id');
+
+        $comptes = Compte::whereIn('id', $totaux->keys())->orderBy('code')->get();
+
+        $lignes = $comptes->map(function (Compte $compte) use ($totaux) {
+            $debit = (float) $totaux[$compte->id]->total_debit;
+            $credit = (float) $totaux[$compte->id]->total_credit;
+            $solde = round($debit - $credit, 2);
+
+            return [
+                'compte_id' => $compte->id,
+                'code' => $compte->code,
+                'label' => $compte->label,
+                'classe' => $compte->classe,
+                'total_debit' => number_format($debit, 2, '.', ''),
+                'total_credit' => number_format($credit, 2, '.', ''),
+                'solde_debiteur' => $solde > 0 ? number_format($solde, 2, '.', '') : '0.00',
+                'solde_crediteur' => $solde < 0 ? number_format(-$solde, 2, '.', '') : '0.00',
+            ];
+        })->values();
+
+        return response()->json([
+            'data' => $lignes,
+            'totaux' => [
+                'debit' => number_format((float) $totaux->sum('total_debit'), 2, '.', ''),
+                'credit' => number_format((float) $totaux->sum('total_credit'), 2, '.', ''),
+            ],
+            'classes' => PlanComptableMarocain::CLASSES,
+        ]);
+    }
+
+    /**
+     * État de TVA du mois : TVA facturée (4441) − TVA récupérable (3441+3442)
+     * = TVA due. Le côté récupérable attend le module Achats, mais les comptes
+     * sont déjà mouvementables via écritures manuelles.
+     */
+    public function tva(Request $request): JsonResponse
+    {
+        $this->service->initialiserPlanComptable();
+
+        $mois = $request->string('mois')->toString() ?: now()->format('Y-m');
+        [$annee, $numeroMois] = explode('-', $mois);
+
+        $soldePeriode = function (array $codes, string $sens) use ($annee, $numeroMois): float {
+            $lignes = EcritureLigne::query()
+                ->selectRaw('SUM(debit) as d, SUM(credit) as c')
+                ->whereIn('compte_id', Compte::whereIn('code', $codes)->pluck('id'))
+                ->whereHas('ecriture', fn ($q) => $q
+                    ->whereYear('date_ecriture', $annee)
+                    ->whereMonth('date_ecriture', $numeroMois))
+                ->first();
+
+            $debit = (float) ($lignes->d ?? 0);
+            $credit = (float) ($lignes->c ?? 0);
+
+            return round($sens === 'credit' ? $credit - $debit : $debit - $credit, 2);
+        };
+
+        $facturee = $soldePeriode(['4441'], 'credit');
+        $recuperable = $soldePeriode(['3441', '3442'], 'debit');
+        $due = round($facturee - $recuperable, 2);
+
+        return response()->json([
+            'mois' => $mois,
+            'tva_facturee' => number_format($facturee, 2, '.', ''),
+            'tva_recuperable' => number_format($recuperable, 2, '.', ''),
+            'tva_due' => number_format($due, 2, '.', ''),
+            'credit_tva' => $due < 0 ? number_format(-$due, 2, '.', '') : '0.00',
+        ]);
+    }
+}

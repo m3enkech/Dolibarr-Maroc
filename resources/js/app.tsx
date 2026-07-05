@@ -1,0 +1,65 @@
+import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AuthProvider, RequireAuth } from '@/lib/auth';
+import Layout from '@/components/Layout';
+import Dashboard from '@/pages/Dashboard';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import ProduitForm from '@/pages/catalogue/ProduitForm';
+import ProduitsList from '@/pages/catalogue/ProduitsList';
+import ComptaPage from '@/pages/compta/ComptaPage';
+import StockPage from '@/pages/stock/StockPage';
+import TiersForm from '@/pages/tiers/TiersForm';
+import TiersList from '@/pages/tiers/TiersList';
+import VenteDetail from '@/pages/ventes/VenteDetail';
+import VenteForm from '@/pages/ventes/VenteForm';
+import VentesList from '@/pages/ventes/VentesList';
+
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            retry: 1,
+            refetchOnWindowFocus: false,
+        },
+    },
+});
+
+function App() {
+    return (
+        <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+                <AuthProvider>
+                    <Routes>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/register" element={<Register />} />
+                        <Route
+                            element={
+                                <RequireAuth>
+                                    <Layout />
+                                </RequireAuth>
+                            }
+                        >
+                            <Route path="/" element={<Dashboard />} />
+                            <Route path="/tiers" element={<TiersList />} />
+                            <Route path="/tiers/nouveau" element={<TiersForm />} />
+                            <Route path="/tiers/:id" element={<TiersForm />} />
+                            <Route path="/catalogue" element={<ProduitsList />} />
+                            <Route path="/catalogue/nouveau" element={<ProduitForm />} />
+                            <Route path="/catalogue/:id" element={<ProduitForm />} />
+                            <Route path="/ventes" element={<VentesList />} />
+                            <Route path="/ventes/nouveau" element={<VenteForm />} />
+                            <Route path="/ventes/:id" element={<VenteDetail />} />
+                            <Route path="/ventes/:id/modifier" element={<VenteForm />} />
+                            <Route path="/stock" element={<StockPage />} />
+                            <Route path="/compta" element={<ComptaPage />} />
+                        </Route>
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                </AuthProvider>
+            </BrowserRouter>
+        </QueryClientProvider>
+    );
+}
+
+createRoot(document.getElementById('root')!).render(<App />);
