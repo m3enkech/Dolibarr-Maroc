@@ -6,10 +6,11 @@ use App\Core\Tenancy\BelongsToTenant;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
-    'code', 'name', 'description', 'type',
+    'code', 'name', 'description', 'type', 'categorie_produit_id',
     'sell_price', 'buy_price', 'tva_rate',
     'unit', 'barcode', 'is_active',
 ])]
@@ -20,6 +21,11 @@ class Produit extends Model
     public const TVA_RATES = [0, 7, 10, 14, 20];
 
     protected $table = 'produits';
+
+    public function categorieProduit(): BelongsTo
+    {
+        return $this->belongsTo(CategorieProduit::class);
+    }
 
     protected function casts(): array
     {

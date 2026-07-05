@@ -38,12 +38,28 @@ export interface Tiers {
     updated_at: string;
 }
 
+export interface CategorieProduit {
+    id: number;
+    name: string;
+    compte_vente_id: number | null;
+    compte_vente: string | null;
+    compte_achat_id: number | null;
+    compte_achat: string | null;
+    is_immobilisation: boolean;
+    compte_amortissement_id: number | null;
+    compte_amortissement: string | null;
+    duree_amortissement: number | null;
+    produits_count?: number;
+}
+
 export interface Produit {
     id: number;
     code: string;
     name: string;
     description: string | null;
     type: 'product' | 'service';
+    categorie_produit_id?: number | null;
+    categorie?: string | null;
     sell_price: string;
     sell_price_ttc: string;
     buy_price: string | null;

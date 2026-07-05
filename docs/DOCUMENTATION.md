@@ -150,6 +150,9 @@ Produits **et** services dans un même modèle.
 - **Prix TTC calculé côté serveur** (`sell_price_ttc`), jamais stocké.
 - Prix d'achat, unité, code-barres, actif/inactif.
 - Le type et le code sont immuables après création (le code en dépend).
+- **Catégories comptables** : un produit peut appartenir à une catégorie qui porte
+  ses comptes GL de vente et d'achat (voir §5.8). Facultatif — sans catégorie, les
+  comptes par défaut (par type) s'appliquent.
 
 ### 4.3 Ventes
 
@@ -296,6 +299,26 @@ Cycle de vie des biens durables.
   la plus ou moins-value ressort naturellement dans le résultat. Mise au rebut à 0 gérée.
 - L'acquisition **n'est pas re-comptabilisée** (déjà passée via la facture fournisseur
   ou une OD), pour éviter de doubler l'actif.
+
+### 5.8 Catégories comptables de produits
+
+Les comptes de vente/achat peuvent être définis **au niveau d'une catégorie de
+produits** (les produits en héritent), au lieu du seul mapping global par type.
+
+- Une catégorie porte : `compte_vente`, `compte_achat`, et un indicateur
+  `is_immobilisation` avec `compte_amortissement` + `durée`.
+- **Résolution du compte** à l'écriture : compte de la catégorie du produit →
+  sinon repli sur le mapping global (marchandises/services). Un produit sans
+  catégorie se comporte exactement comme avant.
+- **Immobilisation depuis l'achat** : si la catégorie est de type immobilisation,
+  l'achat via une facture fournisseur (1) débite un compte de classe 2 (`23xx`) au
+  lieu d'une charge, (2) route la TVA vers `3441` (TVA sur immobilisations) au lieu
+  de `3442`, et (3) crée automatiquement le bien dans le registre d'amortissement,
+  **lié à la facture d'achat d'origine**. Une facture mixte (immo + charges) ventile
+  correctement chaque ligne et sépare la TVA `3441`/`3442`.
+
+C'est l'implémentation du modèle Sage/Odoo : les comptes vivent sur le produit (via
+sa catégorie), le moteur d'écriture les résout ligne par ligne.
 
 ### 5.7 États
 

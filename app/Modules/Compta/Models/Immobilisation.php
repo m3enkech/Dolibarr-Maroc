@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
-    'code', 'label', 'category', 'date_acquisition', 'valeur_acquisition',
+    'code', 'document_achat_id', 'label', 'category', 'date_acquisition', 'valeur_acquisition',
     'duree_annees', 'compte_immo_id', 'compte_amort_id',
     'statut', 'date_cession', 'valeur_cession', 'notes',
 ])]
@@ -30,6 +30,11 @@ class Immobilisation extends Model
             'valeur_cession' => 'decimal:2',
             'duree_annees' => 'integer',
         ];
+    }
+
+    public function documentAchat(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Achats\Models\DocumentAchat::class, 'document_achat_id');
     }
 
     public function compteImmo(): BelongsTo

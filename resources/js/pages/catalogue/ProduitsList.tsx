@@ -43,12 +43,20 @@ export default function ProduitsList() {
                     <h1 className="text-xl font-semibold text-slate-900">Catalogue</h1>
                     <p className="mt-1 text-sm text-slate-500">Produits et services</p>
                 </div>
-                <Link
-                    to="/catalogue/nouveau"
-                    className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
-                >
-                    + Nouveau produit
-                </Link>
+                <div className="flex gap-2">
+                    <Link
+                        to="/catalogue/categories"
+                        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                    >
+                        Catégories comptables
+                    </Link>
+                    <Link
+                        to="/catalogue/nouveau"
+                        className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
+                    >
+                        + Nouveau produit
+                    </Link>
+                </div>
             </div>
 
             <div className="flex gap-3">

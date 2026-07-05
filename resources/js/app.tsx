@@ -6,6 +6,7 @@ import Layout from '@/components/Layout';
 import Dashboard from '@/pages/Dashboard';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import CategoriesProduit from '@/pages/catalogue/CategoriesProduit';
 import ProduitForm from '@/pages/catalogue/ProduitForm';
 import ProduitsList from '@/pages/catalogue/ProduitsList';
 import AchatDetail from '@/pages/achats/AchatDetail';
@@ -48,6 +49,7 @@ function App() {
                             <Route path="/tiers/nouveau" element={<TiersForm />} />
                             <Route path="/tiers/:id" element={<TiersForm />} />
                             <Route path="/catalogue" element={<ProduitsList />} />
+                            <Route path="/catalogue/categories" element={<CategoriesProduit />} />
                             <Route path="/catalogue/nouveau" element={<ProduitForm />} />
                             <Route path="/catalogue/:id" element={<ProduitForm />} />
                             <Route path="/ventes" element={<VentesList />} />

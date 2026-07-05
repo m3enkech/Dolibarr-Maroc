@@ -97,6 +97,7 @@ resources/js/                ← SPA React (TypeScript)
 | GET | `/api/v1/produits` | Liste paginée — `?search=` (nom/code/code-barres), `?type=product\|service`, `?page=` |
 | POST | `/api/v1/produits` | Création (code auto PR-/SV-AAAA-NNNNN, TVA limitée aux taux marocains) |
 | GET/PUT/DELETE | `/api/v1/produits/{id}` | Détail (TTC calculé) / mise à jour (code et type immuables) / soft delete |
+| GET/POST/PUT/DELETE | `/api/v1/categories-produit` | Catégories comptables : comptes GL vente/achat, type immobilisation |
 | GET | `/api/v1/ventes/documents` | Liste paginée — `?type=devis\|commande\|facture`, `?statut=`, `?search=` (code/client) |
 | POST | `/api/v1/ventes/documents` | Création brouillon avec lignes (devis DE-, commande CO-, facture PROV-) |
 | GET/PUT/DELETE | `/api/v1/ventes/documents/{id}` | Détail avec lignes+paiements / modification / suppression (brouillon uniquement) |

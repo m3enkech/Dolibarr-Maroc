@@ -2,6 +2,7 @@
 
 namespace App\Modules\Catalogue\Http\Requests;
 
+use App\Modules\Catalogue\Models\CategorieProduit;
 use App\Modules\Catalogue\Models\Produit;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -19,6 +20,11 @@ class StoreProduitRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'type' => ['required', Rule::in(['product', 'service'])],
+            'categorie_produit_id' => ['nullable', 'integer', function (string $attribute, mixed $value, \Closure $fail) {
+                if ($value !== null && ! CategorieProduit::whereKey($value)->exists()) {
+                    $fail('Cette catégorie n\'existe pas.');
+                }
+            }],
 
             'sell_price' => ['required', 'numeric', 'min:0', 'max:9999999999'],
             'buy_price' => ['nullable', 'numeric', 'min:0', 'max:9999999999'],

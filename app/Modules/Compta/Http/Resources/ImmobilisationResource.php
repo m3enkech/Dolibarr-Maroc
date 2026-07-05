@@ -12,6 +12,8 @@ class ImmobilisationResource extends JsonResource
         return [
             'id' => $this->id,
             'code' => $this->code,
+            'document_achat_id' => $this->document_achat_id,
+            'facture_achat' => $this->whenLoaded('documentAchat', fn () => $this->documentAchat?->code),
             'label' => $this->label,
             'category' => $this->category,
             'date_acquisition' => $this->date_acquisition?->format('Y-m-d'),

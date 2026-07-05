@@ -26,6 +26,42 @@ class ImmobilisationService
         private ComptaService $compta,
     ) {}
 
+    /**
+     * Crée automatiquement les immobilisations à partir d'une facture d'achat :
+     * une par ligne dont le produit appartient à une catégorie « immobilisation ».
+     * Le compte d'immo et le compte d'amortissement viennent de la catégorie ;
+     * le bien reste lié à sa facture d'origine.
+     */
+    public function creerDepuisFactureAchat(\App\Modules\Achats\Models\DocumentAchat $facture): int
+    {
+        $facture->loadMissing('lignes.produit.categorieProduit');
+        $crees = 0;
+
+        foreach ($facture->lignes as $ligne) {
+            $categorie = $ligne->produit?->categorieProduit;
+
+            if ($ligne->produit_id === null || $categorie === null || ! $categorie->is_immobilisation) {
+                continue;
+            }
+
+            Immobilisation::create([
+                'code' => $this->sequences->next('IM'),
+                'document_achat_id' => $facture->id,
+                'label' => $ligne->designation,
+                'category' => $categorie->name,
+                'date_acquisition' => $facture->date_document->format('Y-m-d'),
+                'valeur_acquisition' => $ligne->montant_ht, // HT (quantité × PU − remise)
+                'duree_annees' => $categorie->duree_amortissement ?? 5,
+                'compte_immo_id' => $categorie->compte_achat_id,
+                'compte_amort_id' => $categorie->compte_amortissement_id,
+            ]);
+
+            $crees++;
+        }
+
+        return $crees;
+    }
+
     public function create(array $data): Immobilisation
     {
         $this->compta->initialiserPlanComptable();

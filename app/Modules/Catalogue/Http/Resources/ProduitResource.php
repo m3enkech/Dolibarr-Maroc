@@ -15,6 +15,8 @@ class ProduitResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'type' => $this->type,
+            'categorie_produit_id' => $this->categorie_produit_id,
+            'categorie' => $this->whenLoaded('categorieProduit', fn () => $this->categorieProduit?->name),
             'sell_price' => $this->sell_price,
             'sell_price_ttc' => $this->sell_price_ttc,
             'buy_price' => $this->buy_price,

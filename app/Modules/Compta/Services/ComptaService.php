@@ -95,28 +95,24 @@ class ComptaService
      */
     public function ecrireVente(DocumentVente $document): Ecriture
     {
-        $document->loadMissing(['lignes.produit', 'tiers']);
+        $document->loadMissing(['lignes.produit.categorieProduit', 'tiers']);
 
-        $htMarchandises = 0.0;
-        $htServices = 0.0;
-
+        // Compte de vente résolu ligne par ligne : compte de la catégorie du
+        // produit, sinon repli sur le mapping global (marchandises/services).
+        $htParCompte = [];
         foreach ($document->lignes as $ligne) {
-            if ($ligne->produit !== null && $ligne->produit->type === 'product') {
-                $htMarchandises = round($htMarchandises + (float) $ligne->montant_ht, 2);
-            } else {
-                $htServices = round($htServices + (float) $ligne->montant_ht, 2);
-            }
+            $compte = $this->compteVenteLigne($ligne);
+            $htParCompte[$compte->id] = round(($htParCompte[$compte->id] ?? 0) + (float) $ligne->montant_ht, 2);
         }
 
         $lignes = [
             ['compte' => $this->compteParDefaut('clients'), 'debit' => (float) $document->total_ttc, 'credit' => 0, 'tiers_id' => $document->tiers_id],
         ];
 
-        if ($htMarchandises > 0) {
-            $lignes[] = ['compte' => $this->compteParDefaut('ventes_marchandises'), 'debit' => 0, 'credit' => $htMarchandises];
-        }
-        if ($htServices > 0) {
-            $lignes[] = ['compte' => $this->compteParDefaut('ventes_services'), 'debit' => 0, 'credit' => $htServices];
+        foreach ($htParCompte as $compteId => $ht) {
+            if ($ht > 0) {
+                $lignes[] = ['compte' => Compte::find($compteId), 'debit' => 0, 'credit' => $ht];
+            }
         }
         if ((float) $document->total_tva > 0) {
             $lignes[] = ['compte' => $this->compteParDefaut('tva_facturee'), 'debit' => 0, 'credit' => (float) $document->total_tva];
@@ -165,29 +161,36 @@ class ComptaService
      */
     public function ecrireAchat(\App\Modules\Achats\Models\DocumentAchat $document): Ecriture
     {
-        $document->loadMissing(['lignes.produit', 'tiers']);
+        $document->loadMissing(['lignes.produit.categorieProduit', 'tiers']);
 
-        $htMarchandises = 0.0;
-        $htServices = 0.0;
+        // Compte de charge/immobilisation résolu par ligne (catégorie → mapping).
+        // La TVA d'une ligne d'immobilisation va en 3441, celle des charges en 3442.
+        $htParCompte = [];
+        $tvaCharges = 0.0;
+        $tvaImmos = 0.0;
 
         foreach ($document->lignes as $ligne) {
-            if ($ligne->produit !== null && $ligne->produit->type === 'product') {
-                $htMarchandises = round($htMarchandises + (float) $ligne->montant_ht, 2);
+            [$compte, $estImmo] = $this->compteAchatLigne($ligne);
+            $htParCompte[$compte->id] = round(($htParCompte[$compte->id] ?? 0) + (float) $ligne->montant_ht, 2);
+
+            if ($estImmo) {
+                $tvaImmos = round($tvaImmos + (float) $ligne->montant_tva, 2);
             } else {
-                $htServices = round($htServices + (float) $ligne->montant_ht, 2);
+                $tvaCharges = round($tvaCharges + (float) $ligne->montant_tva, 2);
             }
         }
 
         $lignes = [];
-
-        if ($htMarchandises > 0) {
-            $lignes[] = ['compte' => $this->compteParDefaut('achats_marchandises'), 'debit' => $htMarchandises, 'credit' => 0];
+        foreach ($htParCompte as $compteId => $ht) {
+            if ($ht > 0) {
+                $lignes[] = ['compte' => Compte::find($compteId), 'debit' => $ht, 'credit' => 0];
+            }
         }
-        if ($htServices > 0) {
-            $lignes[] = ['compte' => $this->compteParDefaut('achats_services'), 'debit' => $htServices, 'credit' => 0];
+        if ($tvaCharges > 0) {
+            $lignes[] = ['compte' => $this->compteParDefaut('tva_recuperable'), 'debit' => $tvaCharges, 'credit' => 0];
         }
-        if ((float) $document->total_tva > 0) {
-            $lignes[] = ['compte' => $this->compteParDefaut('tva_recuperable'), 'debit' => (float) $document->total_tva, 'credit' => 0];
+        if ($tvaImmos > 0) {
+            $lignes[] = ['compte' => $this->compteParCode('3441'), 'debit' => $tvaImmos, 'credit' => 0];
         }
 
         $lignes[] = ['compte' => $this->compteParDefaut('fournisseurs'), 'debit' => 0, 'credit' => (float) $document->total_ttc, 'tiers_id' => $document->tiers_id];
@@ -250,6 +253,34 @@ class ComptaService
             lignes: $lignes,
             reference: $data['reference'] ?? null,
         );
+    }
+
+    /** Compte de vente d'une ligne : catégorie du produit, sinon mapping global. */
+    private function compteVenteLigne($ligne): Compte
+    {
+        $categorie = $ligne->produit?->categorieProduit;
+
+        if ($categorie && $categorie->compte_vente_id) {
+            return Compte::find($categorie->compte_vente_id);
+        }
+
+        $estProduit = $ligne->produit && $ligne->produit->type === 'product';
+
+        return $this->compteParDefaut($estProduit ? 'ventes_marchandises' : 'ventes_services');
+    }
+
+    /** Compte d'achat d'une ligne + indicateur immobilisation : [Compte, bool]. */
+    private function compteAchatLigne($ligne): array
+    {
+        $categorie = $ligne->produit?->categorieProduit;
+
+        if ($categorie && $categorie->compte_achat_id) {
+            return [Compte::find($categorie->compte_achat_id), (bool) $categorie->is_immobilisation];
+        }
+
+        $estProduit = $ligne->produit && $ligne->produit->type === 'product';
+
+        return [$this->compteParDefaut($estProduit ? 'achats_marchandises' : 'achats_services'), false];
     }
 
     /**

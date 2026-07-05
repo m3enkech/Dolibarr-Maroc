@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
-import type { Produit } from '@/types';
+import type { CategorieProduit, Paginated, Produit } from '@/types';
 
 const TVA_RATES = [20, 14, 10, 7, 0] as const;
 
@@ -11,6 +11,7 @@ interface ProduitFormData {
     name: string;
     description: string;
     type: 'product' | 'service';
+    categorie_produit_id: string;
     sell_price: string;
     buy_price: string;
     tva_rate: string;
@@ -23,6 +24,7 @@ const emptyForm: ProduitFormData = {
     name: '',
     description: '',
     type: 'product',
+    categorie_produit_id: '',
     sell_price: '',
     buy_price: '',
     tva_rate: '20',
@@ -38,6 +40,7 @@ function toPayload(form: ProduitFormData, isEdit: boolean) {
         sell_price: parseFloat(form.sell_price || '0'),
         buy_price: form.buy_price === '' ? null : parseFloat(form.buy_price),
         tva_rate: parseFloat(form.tva_rate),
+        categorie_produit_id: form.categorie_produit_id ? parseInt(form.categorie_produit_id, 10) : null,
         unit: form.unit || null,
         barcode: form.barcode || null,
         is_active: form.is_active,
@@ -65,12 +68,21 @@ export default function ProduitForm() {
         enabled: isEdit,
     });
 
+    const { data: categories } = useQuery({
+        queryKey: ['categories-produit'],
+        queryFn: async () => {
+            const { data } = await api.get<Paginated<CategorieProduit>>('/categories-produit');
+            return data.data;
+        },
+    });
+
     useEffect(() => {
         if (existing) {
             setForm({
                 name: existing.name,
                 description: existing.description ?? '',
                 type: existing.type,
+                categorie_produit_id: existing.categorie_produit_id ? String(existing.categorie_produit_id) : '',
                 sell_price: existing.sell_price,
                 buy_price: existing.buy_price ?? '',
                 tva_rate: String(parseFloat(existing.tva_rate)),
@@ -169,6 +181,25 @@ export default function ProduitForm() {
                                     Service
                                 </label>
                             </div>
+                        </div>
+                        <div>
+                            <label className={label}>
+                                Catégorie comptable{' '}
+                                <span className="font-normal text-slate-400">(comptes GL)</span>
+                            </label>
+                            <select
+                                value={form.categorie_produit_id}
+                                onChange={text('categorie_produit_id')}
+                                className={input}
+                            >
+                                <option value="">— Aucune (comptes par défaut) —</option>
+                                {categories?.map((cat) => (
+                                    <option key={cat.id} value={cat.id}>
+                                        {cat.name}
+                                        {cat.is_immobilisation ? ' (immobilisation)' : ''}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                         <div>
                             <label className={label}>

@@ -4,6 +4,7 @@ namespace App\Modules\Compta;
 
 use App\Modules\Achats\Events\FactureAchatValidee;
 use App\Modules\Achats\Events\PaiementFournisseurEnregistre;
+use App\Modules\Compta\Listeners\CreerImmobilisationsSurAchat;
 use App\Modules\Compta\Listeners\GenererEcritureAchat;
 use App\Modules\Compta\Listeners\GenererEcritureDecaissement;
 use App\Modules\Compta\Listeners\GenererEcritureEncaissement;
@@ -26,6 +27,7 @@ class ComptaServiceProvider extends ServiceProvider
         Event::listen(FactureValidee::class, GenererEcritureVente::class);
         Event::listen(PaiementEnregistre::class, GenererEcritureEncaissement::class);
         Event::listen(FactureAchatValidee::class, GenererEcritureAchat::class);
+        Event::listen(FactureAchatValidee::class, CreerImmobilisationsSurAchat::class);
         Event::listen(PaiementFournisseurEnregistre::class, GenererEcritureDecaissement::class);
     }
 }

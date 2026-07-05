@@ -20,7 +20,7 @@ class ImmobilisationsController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $immos = Immobilisation::query()
-            ->with(['compteImmo', 'compteAmort'])
+            ->with(['compteImmo', 'compteAmort', 'documentAchat'])
             ->when($request->string('statut')->isNotEmpty(), fn ($q) => $q->where('statut', $request->string('statut')->toString()))
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
                 $search = '%'.$request->string('search').'%';

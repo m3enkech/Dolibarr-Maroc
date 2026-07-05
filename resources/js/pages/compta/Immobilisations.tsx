@@ -18,6 +18,7 @@ interface Immo {
     valeur_cession: string | null;
     cumul_amortissement: string;
     vna: string;
+    facture_achat?: string | null;
 }
 
 interface Categorie {
@@ -273,6 +274,11 @@ export default function Immobilisations() {
                                         </button>
                                         <div className="text-xs text-slate-400">
                                             {catLabel(immo.category)} · {immo.duree_annees} ans · {immo.compte_immo}
+                                            {immo.facture_achat && (
+                                                <span className="ml-1 rounded bg-teal-100 px-1.5 py-0.5 text-teal-700">
+                                                    ⇐ {immo.facture_achat}
+                                                </span>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 text-slate-600">{immo.date_acquisition}</td>
