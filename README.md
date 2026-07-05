@@ -21,6 +21,10 @@ Créez votre entreprise via l'écran « Créer mon entreprise » (ou `POST /api/
 
 Tests : `php artisan test` · Typecheck front : `npx tsc --noEmit`
 
+> 📖 **Documentation complète** : [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md) —
+> historique, architecture, détail de chaque module, moteur comptable, tests et
+> feuille de route.
+
 ## Architecture
 
 ```
