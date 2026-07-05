@@ -9,12 +9,33 @@ use App\Modules\Compta\Models\EcritureLigne;
 use App\Modules\Compta\Models\Exercice;
 use App\Modules\Compta\PlanComptableMarocain;
 use App\Modules\Compta\Services\ComptaService;
+use App\Modules\Compta\Services\TvaExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RapportsController extends Controller
 {
     public function __construct(private ComptaService $service) {}
+
+    /** Export Excel de la déclaration TVA (relevé de déductions + chiffre d'affaires). */
+    public function exportTva(Request $request, TvaExportService $export): StreamedResponse
+    {
+        $data = $request->validate([
+            'mois' => ['required', 'regex:/^\d{4}-\d{2}$/'],
+        ]);
+
+        $spreadsheet = $export->build($data['mois']);
+        [$annee, $moisNum] = explode('-', $data['mois']);
+        $filename = "TVA {$moisNum}{$annee}.xlsx";
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
 
     /** Balance générale : totaux débit/crédit et solde par compte mouvementé. */
     public function balance(Request $request): JsonResponse

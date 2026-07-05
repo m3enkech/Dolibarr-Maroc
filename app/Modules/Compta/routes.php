@@ -24,6 +24,7 @@ Route::prefix('compta')->group(function () {
 
     Route::get('balance', [RapportsController::class, 'balance']);
     Route::get('tva', [RapportsController::class, 'tva']);
+    Route::get('tva/export', [RapportsController::class, 'exportTva']);
 
     Route::get('exercices', [ClotureController::class, 'index']);
     Route::post('exercices/cloturer', [ClotureController::class, 'cloturer']);

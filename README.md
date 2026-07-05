@@ -122,6 +122,7 @@ resources/js/                ← SPA React (TypeScript)
 | POST | `/api/v1/compta/immobilisations/dotations` | Dotation annuelle (`{annee}`) : OD 6161 / 28xx, idempotente |
 | POST | `/api/v1/compta/immobilisations/{id}/ceder` | Cession : sortie d'actif (28xx+6511/23xx) + produit (5141/7511) |
 | GET | `/api/v1/compta/tva` | État TVA du mois : facturée (4441) − récupérable (3441+3442) = due (ou crédit) |
+| GET | `/api/v1/compta/tva/export?mois=YYYY-MM` | Classeur Excel DGI : relevé de déductions (EDI) + chiffre d'affaires |
 | GET/POST | `/api/v1/achats/documents` | Commandes CF- / réceptions RE- / factures FF- fournisseur — `?type=`, `?search=` |
 | GET/PUT/DELETE | `…/achats/documents/{id}` | Détail (reste à recevoir par ligne) / modification / suppression (brouillon) |
 | POST | `…/achats/documents/{id}/valider` | Réception : contrôle sur-réception + entrée de stock ; facture : écriture AC + maj prix d'achat |

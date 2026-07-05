@@ -13,6 +13,7 @@ interface TvaResponse {
 
 export default function EtatTva() {
     const [mois, setMois] = useState(() => new Date().toISOString().slice(0, 7));
+    const [exporting, setExporting] = useState(false);
 
     const { data, isLoading } = useQuery({
         queryKey: ['compta-tva', mois],
@@ -24,6 +25,25 @@ export default function EtatTva() {
 
     const enCredit = data ? parseFloat(data.credit_tva) > 0 : false;
 
+    const exporter = async () => {
+        setExporting(true);
+        try {
+            const response = await api.get('/compta/tva/export', {
+                params: { mois },
+                responseType: 'blob',
+            });
+            const [annee, moisNum] = mois.split('-');
+            const url = URL.createObjectURL(response.data);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `TVA ${moisNum}${annee}.xlsx`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } finally {
+            setExporting(false);
+        }
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -34,6 +54,13 @@ export default function EtatTva() {
                     onChange={(e) => setMois(e.target.value)}
                     className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                 />
+                <button
+                    onClick={exporter}
+                    disabled={exporting}
+                    className="ml-auto rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                >
+                    {exporting ? 'Génération…' : '⬇ Export SIMPL-TVA (Excel)'}
+                </button>
             </div>
 
             {isLoading || !data ? (
@@ -70,9 +97,10 @@ export default function EtatTva() {
 
                     <p className="text-xs text-slate-500">
                         Déclaration mensuelle à télédéclarer sur SIMPL-TVA avant le 20 du mois suivant
-                        (régime de l'encaissement le plus courant). La TVA récupérable se remplira
-                        automatiquement avec le futur module Achats ; en attendant, saisissez vos achats
-                        en écriture manuelle (OD) sur les comptes 3441/3442.
+                        (régime de l'encaissement). L'export Excel génère deux feuilles au format DGI :
+                        le <strong>relevé de déductions</strong> (achats fournisseurs réglés dans le mois,
+                        modèle ADC082F-15I) et le <strong>chiffre d'affaires</strong> (factures de vente
+                        du mois).
                     </p>
                 </>
             )}

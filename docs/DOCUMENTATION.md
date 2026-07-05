@@ -300,8 +300,16 @@ Cycle de vie des biens durables.
 ### 5.7 États
 
 - **Balance générale** (filtrable par période), équilibre vérifié.
-- **État de TVA mensuel** : TVA facturée (4441) − TVA récupérable (3441+3442) = TVA due,
-  prêt pour la télédéclaration SIMPL-TVA.
+- **État de TVA mensuel** : TVA facturée (4441) − TVA récupérable (3441+3442) = TVA due.
+- **Export SIMPL-TVA** (`GET /compta/tva/export?mois=YYYY-MM`) : classeur Excel au format
+  officiel de la DGI (modèle ADC082F-15I), généré avec PhpSpreadsheet, avec deux feuilles :
+  - **EDI — Relevé de déductions** (Article 112 du CGI) : une ligne par facture fournisseur
+    réglée dans le mois (régime des encaissements), colonnes `OR, FACT_NUM, DESIGNATION,
+    M_HT, TVA, M_TTC, IF, LIB_FRSS, ICE_FRS, TAUX, ID_PAIE, DATE_PAIE, DATE_FAC`.
+  - **CAMMAAAA — Chiffre d'affaires** : une ligne par facture de vente du mois, avec le
+    moyen de règlement.
+  Les identifiants (ICE, IF, n° de facture) sont écrits en texte pur pour préserver les
+  zéros initiaux (une ICE `001…` ne doit pas devenir un nombre).
 
 ---
 
@@ -417,7 +425,7 @@ Créer son entreprise via l'écran « Créer mon entreprise » (ou
 - [ ] Rapprochement bancaire (nécessite un format de relevé bancaire marocain)
 - [ ] Comptabilité analytique (axes, ventilation)
 - [ ] États financiers : bilan, CPC générés depuis la balance ; liasse / ETIC
-- [ ] Export SIMPL-TVA
+- [x] Export SIMPL-TVA (relevé de déductions EDI + CA, format DGI ADC082F-15I)
 - [ ] **Facturation électronique DGI** — obligatoire au Maroc en 2026 (modèle
       « clearance », formats UBL 2.1 / CII). Palier 10-200 M DH de CA entré en vigueur
       le 01/07/2026 ; modalités précisées par décret d'application à surveiller.
