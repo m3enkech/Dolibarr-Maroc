@@ -113,6 +113,10 @@ resources/js/                ← SPA React (TypeScript)
 | POST | `/api/v1/compta/lettrage/delettrer` | Supprime un groupe de lettrage (`{compte_id, code}`) |
 | GET | `/api/v1/compta/exercices` | Exercices : clôturés (figés) et ouverts (produits/charges/résultat calculés) |
 | POST | `/api/v1/compta/exercices/cloturer` | Clôture chronologique et irréversible (`{annee}`) : résultat + à-nouveaux + verrou |
+| GET/POST | `/api/v1/compta/immobilisations` | Registre des biens (catégorie → comptes 23xx/28xx + durée par défaut) |
+| GET | `/api/v1/compta/immobilisations/{id}` | Détail + plan d'amortissement + dotations comptabilisées |
+| POST | `/api/v1/compta/immobilisations/dotations` | Dotation annuelle (`{annee}`) : OD 6161 / 28xx, idempotente |
+| POST | `/api/v1/compta/immobilisations/{id}/ceder` | Cession : sortie d'actif (28xx+6511/23xx) + produit (5141/7511) |
 | GET | `/api/v1/compta/tva` | État TVA du mois : facturée (4441) − récupérable (3441+3442) = due (ou crédit) |
 | GET/POST | `/api/v1/achats/documents` | Commandes CF- / réceptions RE- / factures FF- fournisseur — `?type=`, `?search=` |
 | GET/PUT/DELETE | `…/achats/documents/{id}` | Détail (reste à recevoir par ligne) / modification / suppression (brouillon) |
@@ -142,6 +146,7 @@ Le CGNC impose des milliers de comptes — aucune PME ne veut les affronter. La 
    ventiler les ventes de conseil sur un sous-compte 71141 — sans toucher au code.
 4. **La partie double est garantie dans un seul endroit** (`ComptaService::creerEcriture`) :
    toute écriture déséquilibrée est rejetée, qu'elle soit automatique ou manuelle.
+- [x] **Immobilisations** : registre des biens durables (8 catégories → comptes CGNC + durée fiscale par défaut, modifiables), **plan d'amortissement linéaire** avec prorata temporis mensuel la 1re année (dernière année absorbe l'arrondi → VNA finale = 0), **dotations annuelles automatiques** (OD 6161 / 28xx groupées, idempotentes par année), **cession** (sortie d'actif 28xx+6511/23xx + produit 5141/7511, plus/moins-value naturelle via le CPC). Les comptes 2832/6511/7511 sont ajoutés au plan et rétro-installés chez les tenants existants. L'acquisition n'est pas re-comptabilisée (déjà faite via facture fournisseur ou OD)
 - [x] **Clôture d'exercice** : détermination du résultat (classes 6/7 soldées vers 1161/1162, journal OD du 31/12), **à-nouveaux** au 01/01 suivant (journal AN, bilan uniquement), verrou irréversible (aucune écriture ni facture ne peut plus être datée dans un exercice clos), clôture chronologique imposée. Après clôture, balance et soldes se calculent sur la période ouverte (les AN portent l'historique) et l'état TVA exclut le journal AN
 - [x] **Lettrage** clients/fournisseurs : codes AAA/AAB par compte, groupes strictement équilibrés, tiers porté par les lignes d'écriture, lettrage automatique par référence, délettrage — prérequis du rapprochement bancaire et du régime TVA des encaissements
 - [x] **Module Achats** : commandes fournisseurs (CF-) → **réceptions partielles** (RE-, cumul reçu/commandé, sur-réception bloquée, entrepôt par réception) → factures fournisseur (FF-, réf. externe). Le stock entre **une seule fois** (réception, ou facture directe sans source), colonne « en commande » dans les niveaux, prix d'achat mis à jour à la facture, écritures AC (6111/6117 + 3442 / 4411) et décaissements BQ — l'état TVA est complet (facturée − récupérable)

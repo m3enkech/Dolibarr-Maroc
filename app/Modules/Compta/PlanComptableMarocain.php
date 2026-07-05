@@ -69,6 +69,7 @@ class PlanComptableMarocain
         ['2355', 'Matériel informatique'],
         ['2356', 'Agencements et aménagements'],
         ['2450', 'Dépôts et cautionnements versés'],
+        ['2832', 'Amortissement des brevets, marques et logiciels'],
         ['2921', 'Amortissement des constructions'],
         ['2922', 'Amortissement des installations techniques'],
         ['2924', 'Amortissement du matériel de transport'],
@@ -123,6 +124,7 @@ class PlanComptableMarocain
         ['6152', 'Charges sociales'],
         ['6161', 'Dotations aux amortissements des immobilisations'],
         ['6311', 'Charges d\'intérêts'],
+        ['6511', 'Valeurs nettes d\'amortissements des immobilisations cédées'],
         ['6514', 'Pénalités et amendes fiscales et pénales'],
         ['6701', 'Impôt sur les sociétés (IS)'],
         ['6702', 'Cotisation minimale (CM)'],
@@ -132,5 +134,6 @@ class PlanComptableMarocain
         ['7114', 'Ventes de services'],
         ['7118', 'Rabais, remises et ristournes accordés'],
         ['7161', 'Produits d\'exploitation divers'],
+        ['7511', 'Produits de cession des immobilisations'],
     ];
 }

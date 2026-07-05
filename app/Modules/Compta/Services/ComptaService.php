@@ -34,17 +34,18 @@ class ComptaService
     public function initialiserPlanComptable(): void
     {
         // Rattrapage inclus : un tenant existant dont le plan est déjà seedé
-        // reçoit les mappings ajoutés par les versions suivantes (ex. achats).
-        $planExiste = Compte::exists();
+        // reçoit les comptes système ET les mappings ajoutés par les versions
+        // suivantes (achats, immobilisations…).
+        $comptesComplets = Compte::where('is_system', true)->count() >= count(PlanComptableMarocain::COMPTES);
         $mappingsComplets = ComptaMapping::count() >= count(PlanComptableMarocain::MAPPINGS_DEFAUT);
 
-        if ($planExiste && $mappingsComplets) {
+        if ($comptesComplets && $mappingsComplets) {
             return;
         }
 
-        DB::transaction(function () use ($planExiste) {
-            if (! $planExiste) {
-                foreach (PlanComptableMarocain::COMPTES as [$code, $label]) {
+        DB::transaction(function () {
+            foreach (PlanComptableMarocain::COMPTES as [$code, $label]) {
+                if (! Compte::where('code', $code)->exists()) {
                     Compte::create([
                         'code' => $code,
                         'label' => $label,
@@ -63,6 +64,13 @@ class ComptaService
                 }
             }
         });
+    }
+
+    public function compteParCode(string $code): Compte
+    {
+        $this->initialiserPlanComptable();
+
+        return Compte::where('code', $code)->firstOrFail();
     }
 
     public function compteParDefaut(string $cle): Compte
