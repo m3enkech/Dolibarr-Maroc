@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['tenant_id', 'name', 'email', 'password', 'role'])]
+#[Fillable(['tenant_id', 'name', 'email', 'password', 'role', 'is_superadmin'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -29,6 +29,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_superadmin' => 'boolean',
         ];
     }
 
@@ -40,5 +41,11 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
+    }
+
+    /** Superadmin plateforme : habilité aux opérations sensibles hors compte entreprise. */
+    public function isSuperadmin(): bool
+    {
+        return (bool) $this->is_superadmin;
     }
 }

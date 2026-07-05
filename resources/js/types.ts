@@ -10,6 +10,7 @@ export interface User {
     name: string;
     email: string;
     role: string;
+    is_superadmin?: boolean;
     tenant_id: number;
 }
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { formatMAD } from '@/lib/format';
 
 interface ExerciceRow {
@@ -18,6 +19,8 @@ export default function Cloture() {
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
     const queryClient = useQueryClient();
+    const { user } = useAuth();
+    const isSuperadmin = user?.is_superadmin === true;
 
     const { data, isLoading } = useQuery({
         queryKey: ['compta-exercices'],
@@ -159,7 +162,7 @@ export default function Cloture() {
                                                 🔒 Clôturer
                                             </button>
                                         )}
-                                        {exercice.statut === 'cloture' && exercice.annee === dernierCloture && (
+                                        {isSuperadmin && exercice.statut === 'cloture' && exercice.annee === dernierCloture && (
                                             <button
                                                 onClick={() => confirmerReouverture(exercice)}
                                                 disabled={rouvrir.isPending}
@@ -180,8 +183,8 @@ export default function Cloture() {
                 La clôture solde les classes 6 et 7 vers le résultat (1161 bénéfice / 1162 perte),
                 génère les à-nouveaux au 1er janvier suivant (journal AN) et verrouille définitivement
                 l'exercice : plus aucune écriture ni facture ne pourra y être datée. Les exercices se
-                clôturent dans l'ordre chronologique. En cas d'erreur, « Rouvrir » supprime les
-                écritures de clôture et lève le verrou (seul le dernier exercice clôturé est rouvrable).
+                clôturent dans l'ordre chronologique. La réouverture (« Rouvrir ») est réservée au
+                superadmin de la plateforme ; les comptes entreprises ne peuvent pas défaire une clôture.
             </p>
         </div>
     );

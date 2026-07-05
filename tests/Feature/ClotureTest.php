@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -21,6 +22,12 @@ class ClotureTest extends TestCase
         $response->assertCreated();
 
         return $response->json('token');
+    }
+
+    /** Promeut l'utilisateur d'un email donné en superadmin plateforme. */
+    private function makeSuperadmin(string $email): void
+    {
+        User::withoutGlobalScopes()->where('email', $email)->update(['is_superadmin' => true]);
     }
 
     /** Facture client validée et payée : 1000 HT / 1200 TTC, encaissée en virement. */
@@ -193,9 +200,32 @@ class ClotureTest extends TestCase
         );
     }
 
+    public function test_company_account_cannot_reopen(): void
+    {
+        $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $this->venteEncaissee($token);
+        $annee = now()->year;
+
+        // L'admin de tenant reste un compte entreprise : réouverture interdite (403).
+        $this->withToken($token)->postJson('/api/v1/compta/exercices/cloturer', ['annee' => $annee])->assertCreated();
+        $this->withToken($token)->deleteJson("/api/v1/compta/exercices/{$annee}")->assertForbidden();
+
+        // La clôture est intacte.
+        $this->withToken($token)->getJson('/api/v1/compta/exercices')
+            ->assertJsonPath('data.'.($this->indexAnnee($token, $annee)).'.statut', 'cloture');
+    }
+
+    private function indexAnnee(string $token, int $annee): int
+    {
+        $data = collect($this->withToken($token)->getJson('/api/v1/compta/exercices')->json('data'));
+
+        return $data->search(fn ($e) => $e['annee'] === $annee);
+    }
+
     public function test_reopen_removes_closure_and_lifts_lock(): void
     {
         $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $this->makeSuperadmin('a@test.ma');
         $this->venteEncaissee($token);
         $annee = now()->year;
         $comptes = collect($this->withToken($token)->getJson('/api/v1/compta/comptes')->json('data'));
@@ -228,6 +258,7 @@ class ClotureTest extends TestCase
     public function test_cannot_reopen_older_year_before_latest(): void
     {
         $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $this->makeSuperadmin('a@test.ma');
         $annee = now()->year;
         $comptes = collect($this->withToken($token)->getJson('/api/v1/compta/comptes')->json('data'));
 

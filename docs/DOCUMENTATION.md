@@ -287,6 +287,10 @@ ouverte (les à-nouveaux portent déjà l'historique) ; l'état TVA exclut le jo
 exercice clôturé peut être rouvert — les écritures de résultat et d'à-nouveaux sont
 supprimées et le verrou levé. Seul l'exercice le plus récent est rouvrable (la
 chronologie des à-nouveaux interdit de rouvrir une année plus ancienne d'abord).
+**Cette opération est réservée au superadmin plateforme** (flag `is_superadmin` sur
+l'utilisateur, middleware `superadmin`) : les comptes entreprises — même les « admin »
+de tenant — reçoivent 403 et ne voient pas le bouton « Rouvrir ». On désigne un
+superadmin en CLI : `php artisan superadmin:set <email>` (ou `--revoke`).
 
 ### 5.6 Immobilisations
 
