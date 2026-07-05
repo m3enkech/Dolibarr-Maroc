@@ -28,6 +28,10 @@ class PlanComptableMarocain
         'banque' => '5141',
         'caisse' => '5161',
         'cheques' => '5111',
+        'fournisseurs' => '4411',
+        'achats_marchandises' => '6111',
+        'achats_services' => '6117',
+        'tva_recuperable' => '3442',
     ];
 
     public const MAPPING_LABELS = [
@@ -38,6 +42,10 @@ class PlanComptableMarocain
         'banque' => 'Banque',
         'caisse' => 'Caisse',
         'cheques' => 'Chèques à encaisser',
+        'fournisseurs' => 'Compte fournisseurs',
+        'achats_marchandises' => 'Achats de marchandises',
+        'achats_services' => 'Achats de services et prestations',
+        'tva_recuperable' => 'TVA récupérable sur charges',
     ];
 
     /** [code, libellé] — la classe est le premier chiffre du code. */

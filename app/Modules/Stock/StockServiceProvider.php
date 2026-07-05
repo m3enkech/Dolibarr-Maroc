@@ -2,7 +2,11 @@
 
 namespace App\Modules\Stock;
 
+use App\Modules\Achats\Events\FactureAchatValidee;
+use App\Modules\Achats\Events\ReceptionValidee;
 use App\Modules\Stock\Listeners\DecrementerStockSurFacture;
+use App\Modules\Stock\Listeners\EntreeStockSurFactureDirecte;
+use App\Modules\Stock\Listeners\EntreeStockSurReception;
 use App\Modules\Ventes\Events\FactureValidee;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
@@ -16,7 +20,9 @@ class StockServiceProvider extends ServiceProvider
             ->prefix('api/v1')
             ->group(__DIR__.'/routes.php');
 
-        // Branchement inter-modules : le stock réagit aux factures validées.
+        // Branchements inter-modules : le stock réagit aux ventes et aux achats.
         Event::listen(FactureValidee::class, DecrementerStockSurFacture::class);
+        Event::listen(ReceptionValidee::class, EntreeStockSurReception::class);
+        Event::listen(FactureAchatValidee::class, EntreeStockSurFactureDirecte::class);
     }
 }

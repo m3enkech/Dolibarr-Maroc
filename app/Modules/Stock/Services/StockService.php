@@ -148,6 +148,36 @@ class StockService
         }
     }
 
+    /**
+     * Entrée de stock générée par les achats : réception validée, ou facture
+     * fournisseur directe (sans document source). Une ligne de mouvement par
+     * ligne produit physique, vers l'entrepôt du document (défaut sinon).
+     */
+    public function entreeAchat(\App\Modules\Achats\Models\DocumentAchat $document): void
+    {
+        $entrepot = $document->entrepot ?? $this->entrepotParDefaut();
+
+        foreach ($document->lignes as $ligne) {
+            if ($ligne->produit_id === null) {
+                continue;
+            }
+
+            $produit = Produit::find($ligne->produit_id);
+
+            if ($produit === null || $produit->type !== 'product') {
+                continue;
+            }
+
+            $this->mouvement(
+                $produit,
+                $entrepot,
+                (float) $ligne->quantite,
+                MouvementStock::TYPE_ACHAT,
+                reference: $document->code,
+            );
+        }
+    }
+
     public function mouvement(
         Produit $produit,
         Entrepot $entrepot,

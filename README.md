@@ -108,7 +108,12 @@ resources/js/                ← SPA React (TypeScript)
 | GET/PUT | `/api/v1/compta/mappings` | Comptes par défaut (clients, ventes, TVA, banque, caisse…) — l'adaptation sans saisie |
 | GET/POST | `/api/v1/compta/ecritures` | Journal (VT/BQ/OD) / écriture manuelle OD — partie double vérifiée serveur |
 | GET | `/api/v1/compta/balance` | Balance générale — `?du=`, `?au=` |
-| GET | `/api/v1/compta/tva` | État TVA du mois : facturée (4441) − récupérable (3441+3442) = due |
+| GET | `/api/v1/compta/tva` | État TVA du mois : facturée (4441) − récupérable (3441+3442) = due (ou crédit) |
+| GET/POST | `/api/v1/achats/documents` | Commandes CF- / réceptions RE- / factures FF- fournisseur — `?type=`, `?search=` |
+| GET/PUT/DELETE | `…/achats/documents/{id}` | Détail (reste à recevoir par ligne) / modification / suppression (brouillon) |
+| POST | `…/achats/documents/{id}/valider` | Réception : contrôle sur-réception + entrée de stock ; facture : écriture AC + maj prix d'achat |
+| POST | `…/achats/documents/{id}/transformer` | Commande → réception (du reste) ou facture ; réception → facture |
+| POST | `…/achats/documents/{id}/paiements` | Règlement fournisseur (écriture BQ, statut "payée" au solde) |
 
 Toutes les routes métier exigent `Authorization: Bearer <token>` et sont isolées par tenant.
 
@@ -132,5 +137,6 @@ Le CGNC impose des milliers de comptes — aucune PME ne veut les affronter. La 
    ventiler les ventes de conseil sur un sous-compte 71141 — sans toucher au code.
 4. **La partie double est garantie dans un seul endroit** (`ComptaService::creerEcriture`) :
    toute écriture déséquilibrée est rejetée, qu'elle soit automatique ou manuelle.
+- [x] **Module Achats** : commandes fournisseurs (CF-) → **réceptions partielles** (RE-, cumul reçu/commandé, sur-réception bloquée, entrepôt par réception) → factures fournisseur (FF-, réf. externe). Le stock entre **une seule fois** (réception, ou facture directe sans source), colonne « en commande » dans les niveaux, prix d'achat mis à jour à la facture, écritures AC (6111/6117 + 3442 / 4411) et décaissements BQ — l'état TVA est complet (facturée − récupérable)
 - [ ] **Phase 6 — RH & Projets** : congés, notes de frais, temps passé
 - [ ] Passage PostgreSQL + rôles/permissions fins (spatie/laravel-permission) + facturation SaaS

@@ -115,7 +115,7 @@ export interface Entrepot {
 
 export interface MouvementStock {
     id: number;
-    type: 'entree' | 'sortie' | 'ajustement' | 'vente';
+    type: 'entree' | 'sortie' | 'ajustement' | 'vente' | 'achat';
     quantite: string;
     quantite_apres: string;
     reference: string | null;
@@ -131,7 +131,54 @@ export interface StockNiveau {
     name: string;
     unit: string | null;
     quantite: string;
+    en_commande: string;
     valeur_achat: string | null;
+}
+
+export type AchatType = 'commande' | 'reception' | 'facture';
+export type AchatStatut = 'brouillon' | 'valide' | 'recue_partielle' | 'recue' | 'paye';
+
+export interface DocumentAchatLigne {
+    id: number;
+    produit_id: number | null;
+    source_ligne_id: number | null;
+    designation: string;
+    quantite: string;
+    quantite_recue: string;
+    reste_a_recevoir: string;
+    prix_unitaire: string;
+    remise_percent: string;
+    tva_rate: string;
+    montant_ht: string;
+    montant_tva: string;
+    montant_ttc: string;
+    position: number;
+}
+
+export interface DocumentAchat {
+    id: number;
+    type: AchatType;
+    code: string;
+    statut: AchatStatut;
+    tiers_id: number;
+    tiers?: { id: number; code: string; name: string; ice: string | null };
+    entrepot_id: number | null;
+    entrepot?: { id: number; name: string } | null;
+    ref_fournisseur: string | null;
+    date_document: string;
+    date_echeance: string | null;
+    total_ht: string;
+    total_tva: string;
+    total_ttc: string;
+    notes: string | null;
+    validated_at: string | null;
+    lignes?: DocumentAchatLigne[];
+    paiements?: Paiement[];
+    montant_paye?: string;
+    reste_a_payer?: string;
+    source?: { id: number; type: AchatType; code: string } | null;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface Compte {

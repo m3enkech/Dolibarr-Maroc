@@ -3,6 +3,7 @@
 use App\Core\CoreServiceProvider;
 use App\Modules\Catalogue\CatalogueServiceProvider;
 use App\Modules\Tiers\TiersServiceProvider;
+use App\Modules\Achats\AchatsServiceProvider;
 use App\Modules\Compta\ComptaServiceProvider;
 use App\Modules\Stock\StockServiceProvider;
 use App\Modules\Ventes\VentesServiceProvider;
@@ -16,6 +17,7 @@ return [
     TiersServiceProvider::class,
     CatalogueServiceProvider::class,
     VentesServiceProvider::class,
+    AchatsServiceProvider::class,
     StockServiceProvider::class,
     ComptaServiceProvider::class,
 ];

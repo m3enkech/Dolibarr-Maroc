@@ -20,6 +20,7 @@ class MouvementStock extends Model
     public const TYPE_SORTIE = 'sortie';
     public const TYPE_AJUSTEMENT = 'ajustement';
     public const TYPE_VENTE = 'vente';
+    public const TYPE_ACHAT = 'achat';
 
     protected $table = 'mouvements_stock';
 

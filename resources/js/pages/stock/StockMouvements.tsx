@@ -8,6 +8,7 @@ const TYPE_BADGES: Record<MouvementStock['type'], { label: string; classes: stri
     sortie: { label: 'Sortie', classes: 'bg-amber-100 text-amber-700' },
     ajustement: { label: 'Ajustement', classes: 'bg-violet-100 text-violet-700' },
     vente: { label: 'Vente', classes: 'bg-sky-100 text-sky-700' },
+    achat: { label: 'Achat', classes: 'bg-teal-100 text-teal-700' },
 };
 
 export default function StockMouvements({ entrepots }: { entrepots: Entrepot[] }) {

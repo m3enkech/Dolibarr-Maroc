@@ -8,6 +8,9 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ProduitForm from '@/pages/catalogue/ProduitForm';
 import ProduitsList from '@/pages/catalogue/ProduitsList';
+import AchatDetail from '@/pages/achats/AchatDetail';
+import AchatForm from '@/pages/achats/AchatForm';
+import AchatsList from '@/pages/achats/AchatsList';
 import ComptaPage from '@/pages/compta/ComptaPage';
 import StockPage from '@/pages/stock/StockPage';
 import TiersForm from '@/pages/tiers/TiersForm';
@@ -51,6 +54,10 @@ function App() {
                             <Route path="/ventes/nouveau" element={<VenteForm />} />
                             <Route path="/ventes/:id" element={<VenteDetail />} />
                             <Route path="/ventes/:id/modifier" element={<VenteForm />} />
+                            <Route path="/achats" element={<AchatsList />} />
+                            <Route path="/achats/nouveau" element={<AchatForm />} />
+                            <Route path="/achats/:id" element={<AchatDetail />} />
+                            <Route path="/achats/:id/modifier" element={<AchatForm />} />
                             <Route path="/stock" element={<StockPage />} />
                             <Route path="/compta" element={<ComptaPage />} />
                         </Route>

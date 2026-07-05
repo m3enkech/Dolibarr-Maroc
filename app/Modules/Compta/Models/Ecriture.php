@@ -16,9 +16,10 @@ class Ecriture extends Model
     use BelongsToTenant;
 
     public const JOURNAL_VENTES = 'VT';
+    public const JOURNAL_ACHATS = 'AC';
     public const JOURNAL_TRESORERIE = 'BQ';
     public const JOURNAL_DIVERS = 'OD';
-    public const JOURNAUX = [self::JOURNAL_VENTES, self::JOURNAL_TRESORERIE, self::JOURNAL_DIVERS];
+    public const JOURNAUX = [self::JOURNAL_VENTES, self::JOURNAL_ACHATS, self::JOURNAL_TRESORERIE, self::JOURNAL_DIVERS];
 
     protected function casts(): array
     {

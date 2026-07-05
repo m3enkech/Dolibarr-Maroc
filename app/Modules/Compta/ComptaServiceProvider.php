@@ -2,6 +2,10 @@
 
 namespace App\Modules\Compta;
 
+use App\Modules\Achats\Events\FactureAchatValidee;
+use App\Modules\Achats\Events\PaiementFournisseurEnregistre;
+use App\Modules\Compta\Listeners\GenererEcritureAchat;
+use App\Modules\Compta\Listeners\GenererEcritureDecaissement;
 use App\Modules\Compta\Listeners\GenererEcritureEncaissement;
 use App\Modules\Compta\Listeners\GenererEcritureVente;
 use App\Modules\Ventes\Events\FactureValidee;
@@ -18,8 +22,10 @@ class ComptaServiceProvider extends ServiceProvider
             ->prefix('api/v1')
             ->group(__DIR__.'/routes.php');
 
-        // Branchements inter-modules : la compta réagit aux événements Ventes.
+        // Branchements inter-modules : la compta réagit aux Ventes et aux Achats.
         Event::listen(FactureValidee::class, GenererEcritureVente::class);
         Event::listen(PaiementEnregistre::class, GenererEcritureEncaissement::class);
+        Event::listen(FactureAchatValidee::class, GenererEcritureAchat::class);
+        Event::listen(PaiementFournisseurEnregistre::class, GenererEcritureDecaissement::class);
     }
 }

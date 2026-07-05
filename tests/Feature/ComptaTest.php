@@ -63,10 +63,11 @@ class ComptaTest extends TestCase
             $this->assertTrue($codes->contains($code), "Compte {$code} manquant");
         }
 
-        // Les 7 comptes par défaut sont mappés.
+        // Les 11 comptes par défaut sont mappés (ventes, trésorerie, achats).
         $mappings = $this->withToken($token)->getJson('/api/v1/compta/mappings')->json('data');
-        $this->assertCount(7, $mappings);
+        $this->assertCount(11, $mappings);
         $this->assertSame('3411', collect($mappings)->firstWhere('cle', 'clients')['compte_code']);
+        $this->assertSame('4411', collect($mappings)->firstWhere('cle', 'fournisseurs')['compte_code']);
     }
 
     public function test_facture_validation_generates_balanced_vt_entry(): void

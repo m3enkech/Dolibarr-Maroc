@@ -36,6 +36,18 @@ class StockController extends Controller
                 ->whereColumn('produit_id', 'produits.id')
                 ->when($entrepotId, fn ($q) => $q->where('entrepot_id', $entrepotId)),
             ])
+            // Quantités attendues : lignes de commandes fournisseur validées
+            // non soldées (reste à recevoir).
+            ->addSelect(['en_commande' => \App\Modules\Achats\Models\DocumentAchatLigne::query()
+                ->selectRaw('COALESCE(SUM(quantite - quantite_recue), 0)')
+                ->whereColumn('produit_id', 'produits.id')
+                ->whereHas('document', fn ($q) => $q
+                    ->where('type', \App\Modules\Achats\Models\DocumentAchat::TYPE_COMMANDE)
+                    ->whereIn('statut', [
+                        \App\Modules\Achats\Models\DocumentAchat::STATUT_VALIDE,
+                        \App\Modules\Achats\Models\DocumentAchat::STATUT_RECUE_PARTIELLE,
+                    ])),
+            ])
             ->orderBy('name')
             ->paginate($request->integer('per_page', 15));
 
@@ -46,6 +58,7 @@ class StockController extends Controller
                 'name' => $produit->name,
                 'unit' => $produit->unit,
                 'quantite' => number_format((float) $produit->stock_quantite, 3, '.', ''),
+                'en_commande' => number_format((float) $produit->en_commande, 3, '.', ''),
                 'valeur_achat' => $produit->buy_price !== null
                     ? number_format((float) $produit->stock_quantite * (float) $produit->buy_price, 2, '.', '')
                     : null,

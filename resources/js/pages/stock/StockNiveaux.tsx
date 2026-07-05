@@ -187,18 +187,19 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                             <th className="px-4 py-3">Code</th>
                             <th className="px-4 py-3">Produit</th>
                             <th className="px-4 py-3 text-right">Quantité</th>
+                            <th className="px-4 py-3 text-right">En commande</th>
                             <th className="px-4 py-3 text-right">Valeur d'achat</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {isLoading && (
                             <tr>
-                                <td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chargement…</td>
+                                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">Chargement…</td>
                             </tr>
                         )}
                         {!isLoading && data?.data.length === 0 && (
                             <tr>
-                                <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
                                     Aucun produit physique au catalogue.
                                 </td>
                             </tr>
@@ -226,6 +227,15 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                                             <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs font-normal text-red-700">
                                                 rupture
                                             </span>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3 text-right tabular-nums text-slate-500">
+                                        {parseFloat(niveau.en_commande) > 0 ? (
+                                            <span className="rounded bg-sky-50 px-1.5 py-0.5 text-sky-700">
+                                                +{parseFloat(niveau.en_commande)}
+                                            </span>
+                                        ) : (
+                                            '—'
                                         )}
                                     </td>
                                     <td className="px-4 py-3 text-right tabular-nums text-slate-600">

@@ -6,6 +6,7 @@ const modules = [
     { to: '/tiers', label: 'Tiers', icon: '👥', enabled: true },
     { to: '/catalogue', label: 'Catalogue', icon: '📦', enabled: true },
     { to: '/ventes', label: 'Ventes', icon: '🧾', enabled: true },
+    { to: '/achats', label: 'Achats', icon: '🛒', enabled: true },
     { to: '/stock', label: 'Stock', icon: '🏬', enabled: true },
     { to: '/compta', label: 'Comptabilité', icon: '⚖', enabled: true },
     { to: '/rh', label: 'RH & Projets', icon: '🗂', enabled: false },
@@ -61,7 +62,7 @@ export default function Layout() {
                     )}
                 </nav>
                 <div className="border-t border-slate-800 px-5 py-4 text-xs text-slate-400">
-                    Phase 5 — Comptabilité
+                    Module Achats
                 </div>
             </aside>
 

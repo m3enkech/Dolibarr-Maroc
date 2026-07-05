@@ -32,25 +32,34 @@ class ComptaService
      */
     public function initialiserPlanComptable(): void
     {
-        if (Compte::exists()) {
+        // Rattrapage inclus : un tenant existant dont le plan est déjà seedé
+        // reçoit les mappings ajoutés par les versions suivantes (ex. achats).
+        $planExiste = Compte::exists();
+        $mappingsComplets = ComptaMapping::count() >= count(PlanComptableMarocain::MAPPINGS_DEFAUT);
+
+        if ($planExiste && $mappingsComplets) {
             return;
         }
 
-        DB::transaction(function () {
-            foreach (PlanComptableMarocain::COMPTES as [$code, $label]) {
-                Compte::create([
-                    'code' => $code,
-                    'label' => $label,
-                    'classe' => (int) $code[0],
-                    'is_system' => true,
-                ]);
+        DB::transaction(function () use ($planExiste) {
+            if (! $planExiste) {
+                foreach (PlanComptableMarocain::COMPTES as [$code, $label]) {
+                    Compte::create([
+                        'code' => $code,
+                        'label' => $label,
+                        'classe' => (int) $code[0],
+                        'is_system' => true,
+                    ]);
+                }
             }
 
             foreach (PlanComptableMarocain::MAPPINGS_DEFAUT as $cle => $code) {
-                ComptaMapping::create([
-                    'cle' => $cle,
-                    'compte_id' => Compte::where('code', $code)->firstOrFail()->id,
-                ]);
+                if (! ComptaMapping::where('cle', $cle)->exists()) {
+                    ComptaMapping::create([
+                        'cle' => $cle,
+                        'compte_id' => Compte::where('code', $code)->firstOrFail()->id,
+                    ]);
+                }
             }
         });
     }
@@ -134,6 +143,80 @@ class ComptaService
             ],
             reference: $document->code,
             documentVenteId: $document->id,
+            isAuto: true,
+        );
+    }
+
+    /**
+     * Écriture d'achat (journal AC) à la validation d'une facture fournisseur :
+     *   Débit  6111 Achats de marchandises (HT lignes produits)
+     *   Débit  6117 Achats de services (HT lignes services et libres)
+     *   Débit  3442 TVA récupérable sur charges
+     *   Crédit 4411 Fournisseurs (TTC)
+     */
+    public function ecrireAchat(\App\Modules\Achats\Models\DocumentAchat $document): Ecriture
+    {
+        $document->loadMissing(['lignes.produit', 'tiers']);
+
+        $htMarchandises = 0.0;
+        $htServices = 0.0;
+
+        foreach ($document->lignes as $ligne) {
+            if ($ligne->produit !== null && $ligne->produit->type === 'product') {
+                $htMarchandises = round($htMarchandises + (float) $ligne->montant_ht, 2);
+            } else {
+                $htServices = round($htServices + (float) $ligne->montant_ht, 2);
+            }
+        }
+
+        $lignes = [];
+
+        if ($htMarchandises > 0) {
+            $lignes[] = ['compte' => $this->compteParDefaut('achats_marchandises'), 'debit' => $htMarchandises, 'credit' => 0];
+        }
+        if ($htServices > 0) {
+            $lignes[] = ['compte' => $this->compteParDefaut('achats_services'), 'debit' => $htServices, 'credit' => 0];
+        }
+        if ((float) $document->total_tva > 0) {
+            $lignes[] = ['compte' => $this->compteParDefaut('tva_recuperable'), 'debit' => (float) $document->total_tva, 'credit' => 0];
+        }
+
+        $lignes[] = ['compte' => $this->compteParDefaut('fournisseurs'), 'debit' => 0, 'credit' => (float) $document->total_ttc];
+
+        $reference = $document->ref_fournisseur
+            ? "{$document->code} / {$document->ref_fournisseur}"
+            : $document->code;
+
+        return $this->creerEcriture(
+            journal: Ecriture::JOURNAL_ACHATS,
+            date: $document->date_document->format('Y-m-d'),
+            libelle: "Facture fournisseur {$reference} — {$document->tiers->name}",
+            lignes: $lignes,
+            reference: $document->code,
+            isAuto: true,
+        );
+    }
+
+    /**
+     * Écriture de décaissement (journal BQ) :
+     *   Débit  4411 Fournisseurs
+     *   Crédit 5141/5161/5111 selon le mode de paiement
+     */
+    public function ecrireDecaissement(
+        \App\Modules\Achats\Models\PaiementFournisseur $paiement,
+        \App\Modules\Achats\Models\DocumentAchat $document,
+    ): Ecriture {
+        $cle = self::MODE_VERS_MAPPING[$paiement->mode] ?? 'banque';
+
+        return $this->creerEcriture(
+            journal: Ecriture::JOURNAL_TRESORERIE,
+            date: $paiement->date_paiement->format('Y-m-d'),
+            libelle: "Règlement fournisseur {$document->code} — ".($paiement->reference ?: $paiement->mode),
+            lignes: [
+                ['compte' => $this->compteParDefaut('fournisseurs'), 'debit' => (float) $paiement->montant, 'credit' => 0],
+                ['compte' => $this->compteParDefaut($cle), 'debit' => 0, 'credit' => (float) $paiement->montant],
+            ],
+            reference: $document->code,
             isAuto: true,
         );
     }
