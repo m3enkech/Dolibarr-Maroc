@@ -19,7 +19,8 @@ class Ecriture extends Model
     public const JOURNAL_ACHATS = 'AC';
     public const JOURNAL_TRESORERIE = 'BQ';
     public const JOURNAL_DIVERS = 'OD';
-    public const JOURNAUX = [self::JOURNAL_VENTES, self::JOURNAL_ACHATS, self::JOURNAL_TRESORERIE, self::JOURNAL_DIVERS];
+    public const JOURNAL_A_NOUVEAUX = 'AN';
+    public const JOURNAUX = [self::JOURNAL_VENTES, self::JOURNAL_ACHATS, self::JOURNAL_TRESORERIE, self::JOURNAL_DIVERS, self::JOURNAL_A_NOUVEAUX];
 
     protected function casts(): array
     {

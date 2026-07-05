@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Compta\Http\Controllers\ClotureController;
 use App\Modules\Compta\Http\Controllers\ComptesController;
 use App\Modules\Compta\Http\Controllers\EcrituresController;
 use App\Modules\Compta\Http\Controllers\LettrageController;
@@ -22,4 +23,7 @@ Route::prefix('compta')->group(function () {
 
     Route::get('balance', [RapportsController::class, 'balance']);
     Route::get('tva', [RapportsController::class, 'tva']);
+
+    Route::get('exercices', [ClotureController::class, 'index']);
+    Route::post('exercices/cloturer', [ClotureController::class, 'cloturer']);
 });

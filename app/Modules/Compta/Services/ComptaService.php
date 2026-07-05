@@ -6,6 +6,7 @@ use App\Core\Sequences\SequenceService;
 use App\Modules\Compta\Models\ComptaMapping;
 use App\Modules\Compta\Models\Compte;
 use App\Modules\Compta\Models\Ecriture;
+use App\Modules\Compta\Models\Exercice;
 use App\Modules\Compta\PlanComptableMarocain;
 use App\Modules\Ventes\Models\DocumentVente;
 use App\Modules\Ventes\Models\Paiement;
@@ -244,8 +245,18 @@ class ComptaService
     }
 
     /**
+     * Point d'entrée réservé aux services du module (clôture d'exercice…).
+     * Le format des lignes est celui de creerEcriture : ['compte' => Compte, 'debit', 'credit', …].
+     */
+    public function ecrire(string $journal, string $date, string $libelle, array $lignes, ?string $reference = null): Ecriture
+    {
+        return $this->creerEcriture($journal, $date, $libelle, $lignes, $reference, null, true);
+    }
+
+    /**
      * Création d'une écriture — partie double garantie ici et nulle part
-     * ailleurs : toute écriture déséquilibrée est rejetée.
+     * ailleurs : toute écriture déséquilibrée est rejetée, et aucun exercice
+     * clôturé ne peut recevoir d'écriture.
      */
     private function creerEcriture(
         string $journal,
@@ -256,6 +267,20 @@ class ComptaService
         ?int $documentVenteId = null,
         bool $isAuto = false,
     ): Ecriture {
+        // Verrou de clôture : la dernière année clôturée (clôture chronologique)
+        // définit l'horizon en dessous duquel plus rien ne peut être écrit.
+        $derniereAnneeCloturee = Exercice::max('annee');
+
+        if ($derniereAnneeCloturee !== null && (int) substr($date, 0, 4) <= (int) $derniereAnneeCloturee) {
+            throw ValidationException::withMessages([
+                'date_ecriture' => sprintf(
+                    'L\'exercice %s est clôturé : aucune écriture ne peut y être ajoutée (datez au plus tôt du 01/01/%d).',
+                    substr($date, 0, 4),
+                    (int) $derniereAnneeCloturee + 1,
+                ),
+            ]);
+        }
+
         $totalDebit = round(array_sum(array_map(fn ($l) => $l['debit'], $lignes)), 2);
         $totalCredit = round(array_sum(array_map(fn ($l) => $l['credit'], $lignes)), 2);
 

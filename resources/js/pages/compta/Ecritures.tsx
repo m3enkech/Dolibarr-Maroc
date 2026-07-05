@@ -9,6 +9,7 @@ const JOURNAUX: Record<string, { label: string; classes: string }> = {
     AC: { label: 'Achats', classes: 'bg-teal-100 text-teal-700' },
     BQ: { label: 'Trésorerie', classes: 'bg-sky-100 text-sky-700' },
     OD: { label: 'Divers', classes: 'bg-violet-100 text-violet-700' },
+    AN: { label: 'À-nouveaux', classes: 'bg-indigo-100 text-indigo-700' },
 };
 
 // Un journal inconnu ne doit jamais faire tomber la page.

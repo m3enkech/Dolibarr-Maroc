@@ -4,7 +4,9 @@ namespace App\Modules\Compta\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Compta\Models\Compte;
+use App\Modules\Compta\Models\Ecriture;
 use App\Modules\Compta\Models\EcritureLigne;
+use App\Modules\Compta\Models\Exercice;
 use App\Modules\Compta\PlanComptableMarocain;
 use App\Modules\Compta\Services\ComptaService;
 use Illuminate\Http\JsonResponse;
@@ -19,10 +21,17 @@ class RapportsController extends Controller
     {
         $this->service->initialiserPlanComptable();
 
+        // Sans borne de début explicite, la balance démarre à l'ouverture de la
+        // période non clôturée : les à-nouveaux portent déjà tout l'historique.
+        $du = $request->date('du');
+        if ($du === null && ($derniereCloture = Exercice::max('annee')) !== null) {
+            $du = ((int) $derniereCloture + 1).'-01-01';
+        }
+
         $totaux = EcritureLigne::query()
             ->selectRaw('compte_id, SUM(debit) as total_debit, SUM(credit) as total_credit')
-            ->whereHas('ecriture', function ($query) use ($request) {
-                $query->when($request->date('du'), fn ($q, $du) => $q->whereDate('date_ecriture', '>=', $du))
+            ->whereHas('ecriture', function ($query) use ($request, $du) {
+                $query->when($du, fn ($q) => $q->whereDate('date_ecriture', '>=', $du))
                     ->when($request->date('au'), fn ($q, $au) => $q->whereDate('date_ecriture', '<=', $au));
             })
             ->groupBy('compte_id')
@@ -76,7 +85,9 @@ class RapportsController extends Controller
                 ->whereIn('compte_id', Compte::whereIn('code', $codes)->pluck('id'))
                 ->whereHas('ecriture', fn ($q) => $q
                     ->whereYear('date_ecriture', $annee)
-                    ->whereMonth('date_ecriture', $numeroMois))
+                    ->whereMonth('date_ecriture', $numeroMois)
+                    // Les à-nouveaux reportent des soldes, pas de la TVA du mois.
+                    ->where('journal', '!=', Ecriture::JOURNAL_A_NOUVEAUX))
                 ->first();
 
             $debit = (float) ($lignes->d ?? 0);

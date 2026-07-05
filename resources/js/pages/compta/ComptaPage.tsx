@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import Balance from '@/pages/compta/Balance';
+import Cloture from '@/pages/compta/Cloture';
 import Ecritures from '@/pages/compta/Ecritures';
 import EtatTva from '@/pages/compta/EtatTva';
 import Lettrage from '@/pages/compta/Lettrage';
@@ -13,6 +14,7 @@ const TABS = [
     { key: 'lettrage', label: 'Lettrage' },
     { key: 'balance', label: 'Balance' },
     { key: 'tva', label: 'État TVA' },
+    { key: 'cloture', label: 'Clôture' },
     { key: 'plan', label: 'Plan comptable' },
 ] as const;
 
@@ -67,6 +69,7 @@ export default function ComptaPage() {
             )}
             {tab === 'balance' && <Balance />}
             {tab === 'tva' && <EtatTva />}
+            {tab === 'cloture' && <Cloture />}
             {tab === 'plan' && (
                 <PlanComptable
                     comptes={comptesData?.data ?? []}
