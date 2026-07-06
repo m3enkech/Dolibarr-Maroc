@@ -66,6 +66,8 @@ export interface Produit {
     buy_price: string | null;
     tva_rate: string;
     unit: string | null;
+    stock_min: string | null;
+    stock_reappro: string | null;
     barcode: string | null;
     is_active: boolean;
     created_at: string;
@@ -132,7 +134,7 @@ export interface Entrepot {
 
 export interface MouvementStock {
     id: number;
-    type: 'entree' | 'sortie' | 'ajustement' | 'vente' | 'achat';
+    type: 'entree' | 'sortie' | 'ajustement' | 'vente' | 'achat' | 'transfert';
     quantite: string;
     quantite_apres: string;
     reference: string | null;
@@ -149,7 +151,43 @@ export interface StockNiveau {
     unit: string | null;
     quantite: string;
     en_commande: string;
+    stock_min: string | null;
+    sous_seuil: boolean;
     valeur_achat: string | null;
+}
+
+export interface StockAlerte {
+    produit_id: number;
+    code: string;
+    name: string;
+    unit: string | null;
+    quantite: string;
+    stock_min: string;
+    stock_reappro: string | null;
+    en_commande: string;
+    suggestion: string;
+}
+
+export type InventaireStatut = 'brouillon' | 'valide';
+
+export interface InventaireLigne {
+    id: number;
+    produit_id: number;
+    quantite_theorique: string;
+    quantite_comptee: string | null;
+    ecart: string | null;
+    produit?: { id: number; code: string; name: string; unit: string | null } | null;
+}
+
+export interface Inventaire {
+    id: number;
+    code: string;
+    statut: InventaireStatut;
+    note: string | null;
+    entrepot?: { id: number; name: string } | null;
+    lignes?: InventaireLigne[];
+    validated_at: string | null;
+    created_at: string;
 }
 
 export type AchatType = 'commande' | 'reception' | 'facture';

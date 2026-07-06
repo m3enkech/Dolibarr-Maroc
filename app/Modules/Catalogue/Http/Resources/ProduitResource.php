@@ -22,6 +22,8 @@ class ProduitResource extends JsonResource
             'buy_price' => $this->buy_price,
             'tva_rate' => $this->tva_rate,
             'unit' => $this->unit,
+            'stock_min' => $this->stock_min,
+            'stock_reappro' => $this->stock_reappro,
             'barcode' => $this->barcode,
             'is_active' => $this->is_active,
             'created_at' => $this->created_at,

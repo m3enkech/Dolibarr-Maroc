@@ -16,6 +16,8 @@ interface ProduitFormData {
     buy_price: string;
     tva_rate: string;
     unit: string;
+    stock_min: string;
+    stock_reappro: string;
     barcode: string;
     is_active: boolean;
 }
@@ -29,6 +31,8 @@ const emptyForm: ProduitFormData = {
     buy_price: '',
     tva_rate: '20',
     unit: '',
+    stock_min: '',
+    stock_reappro: '',
     barcode: '',
     is_active: true,
 };
@@ -42,6 +46,9 @@ function toPayload(form: ProduitFormData, isEdit: boolean) {
         tva_rate: parseFloat(form.tva_rate),
         categorie_produit_id: form.categorie_produit_id ? parseInt(form.categorie_produit_id, 10) : null,
         unit: form.unit || null,
+        // Seuils de réappro : uniquement pertinents pour les produits stockables.
+        stock_min: form.type === 'product' && form.stock_min !== '' ? parseFloat(form.stock_min) : null,
+        stock_reappro: form.type === 'product' && form.stock_reappro !== '' ? parseFloat(form.stock_reappro) : null,
         barcode: form.barcode || null,
         is_active: form.is_active,
     };
@@ -87,6 +94,8 @@ export default function ProduitForm() {
                 buy_price: existing.buy_price ?? '',
                 tva_rate: String(parseFloat(existing.tva_rate)),
                 unit: existing.unit ?? '',
+                stock_min: existing.stock_min !== null ? String(parseFloat(existing.stock_min)) : '',
+                stock_reappro: existing.stock_reappro !== null ? String(parseFloat(existing.stock_reappro)) : '',
                 barcode: existing.barcode ?? '',
                 is_active: existing.is_active,
             });
@@ -277,6 +286,47 @@ export default function ProduitForm() {
                         <span className="font-semibold tabular-nums">{formatMAD(ttc)}</span>
                     </div>
                 </fieldset>
+
+                {form.type === 'product' && (
+                    <fieldset className="rounded-xl bg-white p-5 shadow-sm">
+                        <legend className="sr-only">Réapprovisionnement</legend>
+                        <h2 className="mb-1 font-medium text-slate-900">Réapprovisionnement</h2>
+                        <p className="mb-4 text-xs text-slate-500">
+                            Le seuil déclenche une alerte quand le stock passe en dessous. La quantité
+                            cible sert à suggérer la quantité à commander. Laissez vide pour ne pas suivre.
+                        </p>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label className={label}>
+                                    Seuil d'alerte{' '}
+                                    <span className="font-normal text-slate-400">(stock minimum)</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.001"
+                                    min="0"
+                                    value={form.stock_min}
+                                    onChange={text('stock_min')}
+                                    className={input}
+                                />
+                            </div>
+                            <div>
+                                <label className={label}>
+                                    Quantité cible{' '}
+                                    <span className="font-normal text-slate-400">(à réapprovisionner)</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.001"
+                                    min="0"
+                                    value={form.stock_reappro}
+                                    onChange={text('stock_reappro')}
+                                    className={input}
+                                />
+                            </div>
+                        </div>
+                    </fieldset>
+                )}
 
                 <div className="flex gap-3">
                     <button

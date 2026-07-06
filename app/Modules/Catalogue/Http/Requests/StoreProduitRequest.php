@@ -32,6 +32,11 @@ class StoreProduitRequest extends FormRequest
             'tva_rate' => ['required', 'numeric', Rule::in(Produit::TVA_RATES)],
 
             'unit' => ['nullable', 'string', 'max:20'],
+            // Seuils de réapprovisionnement (produits stockables). stock_reappro
+            // sert de quantité cible pour suggérer la commande ; s'il est fourni,
+            // il doit être au moins égal au seuil d'alerte.
+            'stock_min' => ['nullable', 'numeric', 'min:0', 'max:9999999999'],
+            'stock_reappro' => ['nullable', 'numeric', 'min:0', 'max:9999999999', 'gte:stock_min'],
             'barcode' => ['nullable', 'string', 'max:30'],
             'is_active' => ['boolean'],
         ];

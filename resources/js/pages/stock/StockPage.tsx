@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import Alertes from '@/pages/stock/Alertes';
 import Entrepots from '@/pages/stock/Entrepots';
+import Inventaires from '@/pages/stock/Inventaires';
 import StockMouvements from '@/pages/stock/StockMouvements';
 import StockNiveaux from '@/pages/stock/StockNiveaux';
+import Transferts from '@/pages/stock/Transferts';
 import type { Entrepot } from '@/types';
 
 const TABS = [
     { key: 'niveaux', label: 'Niveaux' },
     { key: 'mouvements', label: 'Mouvements' },
+    { key: 'transferts', label: 'Transferts' },
+    { key: 'alertes', label: 'Réappro' },
+    { key: 'inventaire', label: 'Inventaire' },
     { key: 'entrepots', label: 'Entrepôts' },
 ] as const;
 
@@ -30,7 +36,8 @@ export default function StockPage() {
             <div>
                 <h1 className="text-xl font-semibold text-slate-900">Stock</h1>
                 <p className="mt-1 text-sm text-slate-500">
-                    Niveaux, mouvements et entrepôts — les factures validées sortent le stock automatiquement
+                    Niveaux, mouvements, transferts, réapprovisionnement et inventaire — les factures validées
+                    sortent le stock automatiquement
                 </p>
             </div>
 
@@ -50,6 +57,9 @@ export default function StockPage() {
 
             {tab === 'niveaux' && <StockNiveaux entrepots={entrepots ?? []} />}
             {tab === 'mouvements' && <StockMouvements entrepots={entrepots ?? []} />}
+            {tab === 'transferts' && <Transferts entrepots={entrepots ?? []} />}
+            {tab === 'alertes' && <Alertes entrepots={entrepots ?? []} />}
+            {tab === 'inventaire' && <Inventaires entrepots={entrepots ?? []} />}
             {tab === 'entrepots' && <Entrepots entrepots={entrepots ?? []} />}
         </div>
     );

@@ -223,10 +223,19 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                                         }`}
                                     >
                                         {quantiteNum}
-                                        {quantiteNum < 0 && (
+                                        {quantiteNum < 0 ? (
                                             <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs font-normal text-red-700">
                                                 rupture
                                             </span>
+                                        ) : (
+                                            niveau.sous_seuil && (
+                                                <span
+                                                    className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-700"
+                                                    title={niveau.stock_min ? `Seuil : ${parseFloat(niveau.stock_min)}` : undefined}
+                                                >
+                                                    sous seuil
+                                                </span>
+                                            )
                                         )}
                                     </td>
                                     <td className="px-4 py-3 text-right tabular-nums text-slate-500">
