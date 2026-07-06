@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
@@ -20,11 +21,27 @@ class Produit extends Model
 
     public const TVA_RATES = [0, 7, 10, 14, 20];
 
+    public const TYPE_PRODUCT = 'product';
+    public const TYPE_SERVICE = 'service';
+    public const TYPE_KIT = 'kit';
+    public const TYPES = [self::TYPE_PRODUCT, self::TYPE_SERVICE, self::TYPE_KIT];
+
     protected $table = 'produits';
 
     public function categorieProduit(): BelongsTo
     {
         return $this->belongsTo(CategorieProduit::class);
+    }
+
+    /** Composition du kit (vide pour un produit ou un service). */
+    public function composants(): HasMany
+    {
+        return $this->hasMany(KitComposant::class, 'kit_id');
+    }
+
+    public function isKit(): bool
+    {
+        return $this->type === self::TYPE_KIT;
     }
 
     protected function casts(): array

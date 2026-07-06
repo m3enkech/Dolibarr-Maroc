@@ -41,7 +41,7 @@ export default function VenteForm() {
     const queryClient = useQueryClient();
 
     const [type, setType] = useState<DocumentType>(
-        (['devis', 'commande', 'facture'].includes(searchParams.get('type') ?? '')
+        (['devis', 'commande', 'facture', 'avoir'].includes(searchParams.get('type') ?? '')
             ? searchParams.get('type')
             : 'devis') as DocumentType,
     );

@@ -30,7 +30,7 @@
 </head>
 <body>
 @php
-    $titles = ['devis' => 'Devis', 'commande' => 'Bon de commande', 'facture' => 'Facture'];
+    $titles = ['devis' => 'Devis', 'commande' => 'Bon de commande', 'facture' => 'Facture', 'avoir' => 'Avoir'];
     $fmt = fn ($v) => number_format((float) $v, 2, ',', ' ');
 @endphp
 
@@ -46,6 +46,9 @@
             <div class="doc-code">{{ $document->code }}</div>
             @if ($document->statut === 'brouillon')
                 <div class="brouillon">BROUILLON — NON DÉFINITIF</div>
+            @endif
+            @if ($document->type === 'avoir' && $document->source)
+                <div class="muted" style="margin-top: 2px;">Avoir sur facture {{ $document->source->code }}</div>
             @endif
             <div class="muted" style="margin-top: 6px;">Date : {{ $document->date_document?->format('d/m/Y') }}</div>
             @if ($document->date_echeance)

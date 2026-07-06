@@ -81,7 +81,7 @@ class VentesController extends Controller
     public function transformer(Request $request, DocumentVente $document): DocumentVenteResource
     {
         $data = $request->validate([
-            'type' => ['required', Rule::in([DocumentVente::TYPE_COMMANDE, DocumentVente::TYPE_FACTURE])],
+            'type' => ['required', Rule::in([DocumentVente::TYPE_COMMANDE, DocumentVente::TYPE_FACTURE, DocumentVente::TYPE_AVOIR])],
         ]);
 
         return new DocumentVenteResource($this->service->transformer($document, $data['type']));
@@ -110,7 +110,7 @@ class VentesController extends Controller
 
     public function pdf(DocumentVente $document)
     {
-        $document->load(['lignes', 'tiers', 'tenant', 'paiements']);
+        $document->load(['lignes', 'tiers', 'tenant', 'paiements', 'source']);
 
         // Ventilation de la TVA par taux (exigence des factures marocaines).
         $tvaBreakdown = $document->lignes

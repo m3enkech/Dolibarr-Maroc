@@ -121,10 +121,25 @@ class StockService
 
     /**
      * Sortie de stock générée par la validation d'une facture : une ligne de
-     * mouvement par ligne produit physique (les services ne bougent pas).
-     * Le stock peut passer en négatif — signalé dans l'interface, pas bloquant.
+     * mouvement par ligne produit physique (les services ne bougent pas), et
+     * pour un kit, une sortie par composant physique (quantité ligne × quantité
+     * du composant). Le stock peut passer en négatif — signalé, pas bloquant.
      */
     public function sortieVente(DocumentVente $document): void
+    {
+        $this->mouvementsVente($document, sens: -1, type: MouvementStock::TYPE_VENTE);
+    }
+
+    /**
+     * Retour en stock à la validation d'un avoir : symétrique exact de la
+     * sortie (les composants d'un kit rentrent aussi).
+     */
+    public function retourVente(DocumentVente $document): void
+    {
+        $this->mouvementsVente($document, sens: 1, type: MouvementStock::TYPE_RETOUR);
+    }
+
+    private function mouvementsVente(DocumentVente $document, int $sens, string $type): void
     {
         $entrepot = $this->entrepotParDefaut();
 
@@ -135,15 +150,40 @@ class StockService
 
             $produit = Produit::find($ligne->produit_id);
 
-            if ($produit === null || $produit->type !== 'product') {
+            if ($produit === null) {
+                continue;
+            }
+
+            // Un kit ne stocke rien lui-même : ce sont ses composants qui bougent.
+            if ($produit->isKit()) {
+                foreach ($produit->composants()->with('composant')->get() as $composant) {
+                    if ($composant->composant?->type !== 'product') {
+                        continue;
+                    }
+
+                    $this->mouvement(
+                        $composant->composant,
+                        $entrepot,
+                        $sens * (float) $ligne->quantite * (float) $composant->quantite,
+                        $type,
+                        reference: $document->code,
+                        documentVenteId: $document->id,
+                        note: 'Kit '.$produit->name,
+                    );
+                }
+
+                continue;
+            }
+
+            if ($produit->type !== 'product') {
                 continue;
             }
 
             $this->mouvement(
                 $produit,
                 $entrepot,
-                -(float) $ligne->quantite,
-                MouvementStock::TYPE_VENTE,
+                $sens * (float) $ligne->quantite,
+                $type,
                 reference: $document->code,
                 documentVenteId: $document->id,
             );

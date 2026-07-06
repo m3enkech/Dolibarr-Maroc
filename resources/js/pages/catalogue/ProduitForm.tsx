@@ -7,10 +7,15 @@ import type { CategorieProduit, Paginated, Produit } from '@/types';
 
 const TVA_RATES = [20, 14, 10, 7, 0] as const;
 
+interface ComposantRow {
+    produit_id: string;
+    quantite: string;
+}
+
 interface ProduitFormData {
     name: string;
     description: string;
-    type: 'product' | 'service';
+    type: 'product' | 'service' | 'kit';
     categorie_produit_id: string;
     sell_price: string;
     buy_price: string;
@@ -64,6 +69,7 @@ export default function ProduitForm() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [form, setForm] = useState<ProduitFormData>(emptyForm);
+    const [composants, setComposants] = useState<ComposantRow[]>([]);
     const [error, setError] = useState<string | null>(null);
 
     const { data: existing } = useQuery({
@@ -83,6 +89,16 @@ export default function ProduitForm() {
         },
     });
 
+    // Options de composition d'un kit : produits et services, jamais un kit.
+    const { data: produitsOptions } = useQuery({
+        queryKey: ['produits-composants-options'],
+        queryFn: async () => {
+            const { data } = await api.get<Paginated<Produit>>('/produits', { params: { per_page: 500 } });
+            return data.data.filter((p) => p.type !== 'kit' && String(p.id) !== id);
+        },
+        enabled: form.type === 'kit',
+    });
+
     useEffect(() => {
         if (existing) {
             setForm({
@@ -99,6 +115,12 @@ export default function ProduitForm() {
                 barcode: existing.barcode ?? '',
                 is_active: existing.is_active,
             });
+            setComposants(
+                (existing.composants ?? []).map((c) => ({
+                    produit_id: String(c.produit_id),
+                    quantite: String(parseFloat(c.quantite)),
+                })),
+            );
         }
     }, [existing]);
 
@@ -123,7 +145,13 @@ export default function ProduitForm() {
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         setError(null);
-        mutation.mutate(toPayload(form, isEdit));
+        const payload = toPayload(form, isEdit);
+        if (form.type === 'kit') {
+            payload.composants = composants
+                .filter((c) => c.produit_id !== '' && parseFloat(c.quantite) > 0)
+                .map((c) => ({ produit_id: parseInt(c.produit_id, 10), quantite: parseFloat(c.quantite) }));
+        }
+        mutation.mutate(payload);
     };
 
     const text =
@@ -188,6 +216,17 @@ export default function ProduitForm() {
                                         disabled={isEdit}
                                     />
                                     Service
+                                </label>
+                                <label className="flex items-center gap-2 text-sm text-slate-700">
+                                    <input
+                                        type="radio"
+                                        name="type"
+                                        value="kit"
+                                        checked={form.type === 'kit'}
+                                        onChange={text('type')}
+                                        disabled={isEdit}
+                                    />
+                                    Kit
                                 </label>
                             </div>
                         </div>
@@ -286,6 +325,74 @@ export default function ProduitForm() {
                         <span className="font-semibold tabular-nums">{formatMAD(ttc)}</span>
                     </div>
                 </fieldset>
+
+                {form.type === 'kit' && (
+                    <fieldset className="rounded-xl bg-white p-5 shadow-sm">
+                        <legend className="sr-only">Composition du kit</legend>
+                        <h2 className="mb-1 font-medium text-slate-900">Composition du kit</h2>
+                        <p className="mb-4 text-xs text-slate-500">
+                            La vente du kit sort du stock chaque composant physique (quantité vendue ×
+                            quantité du composant). Les services inclus ne bougent pas le stock.
+                        </p>
+                        <div className="space-y-2">
+                            {composants.map((composant, index) => (
+                                <div key={index} className="flex items-center gap-3">
+                                    <select
+                                        required
+                                        value={composant.produit_id}
+                                        onChange={(e) =>
+                                            setComposants((list) =>
+                                                list.map((c, i) => (i === index ? { ...c, produit_id: e.target.value } : c)),
+                                            )
+                                        }
+                                        className={`${input} flex-1`}
+                                    >
+                                        <option value="">— Choisir un produit ou service —</option>
+                                        {produitsOptions?.map((p) => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.name} ({p.code})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="number"
+                                        step="0.001"
+                                        min="0.001"
+                                        required
+                                        value={composant.quantite}
+                                        onChange={(e) =>
+                                            setComposants((list) =>
+                                                list.map((c, i) => (i === index ? { ...c, quantite: e.target.value } : c)),
+                                            )
+                                        }
+                                        className={`${input} w-28`}
+                                        placeholder="Qté"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setComposants((list) => list.filter((_, i) => i !== index))}
+                                        className="text-red-500 hover:underline"
+                                    >
+                                        Retirer
+                                    </button>
+                                </div>
+                            ))}
+                            {composants.length === 0 && (
+                                <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                                    Aucun composant. Un kit sans composant se vend comme un service (aucun
+                                    mouvement de stock).
+                                </p>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setComposants((list) => [...list, { produit_id: '', quantite: '1' }])}
+                            className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"
+                        >
+                            + Ajouter un composant
+                        </button>
+                    </fieldset>
+                )}
 
                 {form.type === 'product' && (
                     <fieldset className="rounded-xl bg-white p-5 shadow-sm">

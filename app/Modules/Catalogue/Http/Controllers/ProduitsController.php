@@ -27,7 +27,7 @@ class ProduitsController extends Controller
                     ->orWhere('barcode', 'like', $search));
             })
             ->when(
-                in_array($request->string('type')->toString(), ['product', 'service'], true),
+                in_array($request->string('type')->toString(), Produit::TYPES, true),
                 fn ($q) => $q->where('type', $request->string('type')->toString()),
             )
             ->orderBy('name')
@@ -43,7 +43,7 @@ class ProduitsController extends Controller
 
     public function show(Produit $produit): ProduitResource
     {
-        return new ProduitResource($produit);
+        return new ProduitResource($produit->load('composants.composant'));
     }
 
     public function update(UpdateProduitRequest $request, Produit $produit): ProduitResource

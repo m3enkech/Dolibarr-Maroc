@@ -6,7 +6,7 @@ import { formatMAD } from '@/lib/format';
 import { statutClasses, statutLabel, TYPE_LABELS, TYPE_LABELS_PLURAL } from '@/pages/ventes/common';
 import type { DocumentType, DocumentVente, Paginated } from '@/types';
 
-const TABS: DocumentType[] = ['devis', 'commande', 'facture'];
+const TABS: DocumentType[] = ['devis', 'commande', 'facture', 'avoir'];
 
 export default function VentesList() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -37,7 +37,7 @@ export default function VentesList() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-xl font-semibold text-slate-900">Ventes</h1>
-                    <p className="mt-1 text-sm text-slate-500">Devis, commandes et factures</p>
+                    <p className="mt-1 text-sm text-slate-500">Devis, commandes, factures et avoirs</p>
                 </div>
                 <Link
                     to={`/ventes/nouveau?type=${type}`}

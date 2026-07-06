@@ -7,6 +7,8 @@ use App\Modules\Achats\Events\ReceptionValidee;
 use App\Modules\Stock\Listeners\DecrementerStockSurFacture;
 use App\Modules\Stock\Listeners\EntreeStockSurFactureDirecte;
 use App\Modules\Stock\Listeners\EntreeStockSurReception;
+use App\Modules\Stock\Listeners\RetournerStockSurAvoir;
+use App\Modules\Ventes\Events\AvoirValide;
 use App\Modules\Ventes\Events\FactureValidee;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +24,7 @@ class StockServiceProvider extends ServiceProvider
 
         // Branchements inter-modules : le stock réagit aux ventes et aux achats.
         Event::listen(FactureValidee::class, DecrementerStockSurFacture::class);
+        Event::listen(AvoirValide::class, RetournerStockSurAvoir::class);
         Event::listen(ReceptionValidee::class, EntreeStockSurReception::class);
         Event::listen(FactureAchatValidee::class, EntreeStockSurFactureDirecte::class);
     }

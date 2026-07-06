@@ -4,6 +4,7 @@ namespace App\Modules\Ventes\Services;
 
 use App\Core\Sequences\SequenceService;
 use App\Modules\Catalogue\Models\Produit;
+use App\Modules\Ventes\Events\AvoirValide;
 use App\Modules\Ventes\Events\CommandeValidee;
 use App\Modules\Ventes\Events\DevisValide;
 use App\Modules\Ventes\Events\FactureValidee;
@@ -19,6 +20,7 @@ class VenteService
         DocumentVente::TYPE_DEVIS => 'DE',
         DocumentVente::TYPE_COMMANDE => 'CO',
         DocumentVente::TYPE_FACTURE => 'FA',
+        DocumentVente::TYPE_AVOIR => 'AV',
     ];
 
     public function __construct(private SequenceService $sequences) {}
@@ -28,9 +30,9 @@ class VenteService
         return DB::transaction(function () use ($data) {
             $type = $data['type'];
 
-            // Une facture ne reçoit son numéro définitif qu'à la validation :
-            // en brouillon elle porte un numéro provisoire.
-            $code = $type === DocumentVente::TYPE_FACTURE
+            // Factures et avoirs ne reçoivent leur numéro définitif qu'à la
+            // validation : en brouillon ils portent un numéro provisoire.
+            $code = in_array($type, [DocumentVente::TYPE_FACTURE, DocumentVente::TYPE_AVOIR], true)
                 ? $this->sequences->next('PROV')
                 : $this->sequences->next(self::PREFIXES[$type]);
 
@@ -92,8 +94,8 @@ class VenteService
                 'validated_at' => now(),
             ];
 
-            if ($document->type === DocumentVente::TYPE_FACTURE) {
-                $updates['code'] = $this->sequences->next(self::PREFIXES[DocumentVente::TYPE_FACTURE]);
+            if (in_array($document->type, [DocumentVente::TYPE_FACTURE, DocumentVente::TYPE_AVOIR], true)) {
+                $updates['code'] = $this->sequences->next(self::PREFIXES[$document->type]);
             }
 
             $document->update($updates);
@@ -102,6 +104,7 @@ class VenteService
                 DocumentVente::TYPE_DEVIS => event(new DevisValide($document)),
                 DocumentVente::TYPE_COMMANDE => event(new CommandeValidee($document)),
                 DocumentVente::TYPE_FACTURE => event(new FactureValidee($document)),
+                DocumentVente::TYPE_AVOIR => event(new AvoirValide($document)),
             };
 
             return $document->fresh(['lignes', 'tiers']);
@@ -129,8 +132,9 @@ class VenteService
     }
 
     /**
-     * Transforme un devis en commande/facture, ou une commande en facture.
-     * Le nouveau document est un brouillon lié à sa source.
+     * Transforme un devis en commande/facture, une commande en facture, ou une
+     * facture validée/payée en avoir. Le nouveau document est un brouillon lié
+     * à sa source.
      */
     public function transformer(DocumentVente $source, string $targetType): DocumentVente
     {
@@ -139,6 +143,9 @@ class VenteService
                 && in_array($targetType, [DocumentVente::TYPE_COMMANDE, DocumentVente::TYPE_FACTURE], true),
             DocumentVente::TYPE_COMMANDE => $source->statut === DocumentVente::STATUT_VALIDE
                 && $targetType === DocumentVente::TYPE_FACTURE,
+            // Avoir : uniquement depuis une facture émise (validée ou payée).
+            DocumentVente::TYPE_FACTURE => in_array($source->statut, [DocumentVente::STATUT_VALIDE, DocumentVente::STATUT_PAYE], true)
+                && $targetType === DocumentVente::TYPE_AVOIR,
             default => false,
         };
 
@@ -149,7 +156,7 @@ class VenteService
         }
 
         return DB::transaction(function () use ($source, $targetType) {
-            $code = $targetType === DocumentVente::TYPE_FACTURE
+            $code = in_array($targetType, [DocumentVente::TYPE_FACTURE, DocumentVente::TYPE_AVOIR], true)
                 ? $this->sequences->next('PROV')
                 : $this->sequences->next(self::PREFIXES[$targetType]);
 
@@ -183,23 +190,26 @@ class VenteService
         });
     }
 
+    /** Encaissement d'une facture, ou remboursement d'un avoir (même mécanique). */
     public function ajouterPaiement(DocumentVente $document, array $data): Paiement
     {
-        if ($document->type !== DocumentVente::TYPE_FACTURE) {
+        if (! in_array($document->type, [DocumentVente::TYPE_FACTURE, DocumentVente::TYPE_AVOIR], true)) {
             throw ValidationException::withMessages([
-                'montant' => 'Seule une facture peut recevoir un paiement.',
+                'montant' => 'Seule une facture ou un avoir peut recevoir un paiement.',
             ]);
         }
 
         if ($document->statut === DocumentVente::STATUT_BROUILLON) {
             throw ValidationException::withMessages([
-                'montant' => 'Validez la facture avant d\'enregistrer un paiement.',
+                'montant' => 'Validez le document avant d\'enregistrer un paiement.',
             ]);
         }
 
         if ($document->statut === DocumentVente::STATUT_PAYE) {
             throw ValidationException::withMessages([
-                'montant' => 'Cette facture est déjà entièrement payée.',
+                'montant' => $document->type === DocumentVente::TYPE_AVOIR
+                    ? 'Cet avoir est déjà entièrement remboursé.'
+                    : 'Cette facture est déjà entièrement payée.',
             ]);
         }
 

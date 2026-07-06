@@ -19,7 +19,19 @@ class StoreProduitRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'type' => ['required', Rule::in(['product', 'service'])],
+            'type' => ['required', Rule::in(Produit::TYPES)],
+
+            // Composition (kits uniquement) : des produits ou services, jamais un kit.
+            'composants' => ['nullable', 'array'],
+            'composants.*.produit_id' => ['required', 'integer', function (string $attribute, mixed $value, \Closure $fail) {
+                $composant = Produit::find($value);
+                if ($composant === null) {
+                    $fail('Ce composant n\'existe pas.');
+                } elseif ($composant->isKit()) {
+                    $fail('Un kit ne peut pas contenir un autre kit.');
+                }
+            }],
+            'composants.*.quantite' => ['required', 'numeric', 'gt:0'],
             'categorie_produit_id' => ['nullable', 'integer', function (string $attribute, mixed $value, \Closure $fail) {
                 if ($value !== null && ! CategorieProduit::whereKey($value)->exists()) {
                     $fail('Cette catégorie n\'existe pas.');

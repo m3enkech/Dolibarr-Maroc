@@ -178,6 +178,15 @@ export default function VenteDetail() {
                                 → Facture
                             </button>
                         )}
+                        {doc.type === 'facture' && ['valide', 'paye'].includes(doc.statut) && (
+                            <button
+                                onClick={() => transformer.mutate('avoir')}
+                                className={btnSecondary}
+                                title="Créer un avoir (note de crédit) sur cette facture"
+                            >
+                                ↩ Créer un avoir
+                            </button>
+                        )}
                         <button onClick={telechargerPdf} className={btnSecondary}>
                             ⬇ PDF
                         </button>
@@ -249,12 +258,15 @@ export default function VenteDetail() {
                 </div>
             </div>
 
-            {doc.type === 'facture' && doc.statut !== 'brouillon' && (
+            {['facture', 'avoir'].includes(doc.type) && doc.statut !== 'brouillon' && (
                 <div className="rounded-xl bg-white p-5 shadow-sm">
                     <div className="mb-3 flex items-center justify-between">
-                        <h2 className="font-medium text-slate-900">Paiements</h2>
+                        <h2 className="font-medium text-slate-900">
+                            {doc.type === 'avoir' ? 'Remboursements' : 'Paiements'}
+                        </h2>
                         <div className="text-sm text-slate-600">
-                            Payé : <span className="font-medium tabular-nums">{formatMAD(doc.montant_paye ?? 0)}</span>
+                            {doc.type === 'avoir' ? 'Remboursé' : 'Payé'} :{' '}
+                            <span className="font-medium tabular-nums">{formatMAD(doc.montant_paye ?? 0)}</span>
                             {' — '}
                             Reste :{' '}
                             <span className="font-semibold tabular-nums text-slate-900">
@@ -326,7 +338,7 @@ export default function VenteDetail() {
                                 />
                             </div>
                             <button type="submit" disabled={action.isPending} className={btnPrimary}>
-                                Encaisser
+                                {doc.type === 'avoir' ? 'Rembourser' : 'Encaisser'}
                             </button>
                         </form>
                     )}

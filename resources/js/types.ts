@@ -53,14 +53,24 @@ export interface CategorieProduit {
     produits_count?: number;
 }
 
+export interface KitComposant {
+    produit_id: number;
+    quantite: string;
+    name: string | null;
+    code: string | null;
+    type: string | null;
+    unit: string | null;
+}
+
 export interface Produit {
     id: number;
     code: string;
     name: string;
     description: string | null;
-    type: 'product' | 'service';
+    type: 'product' | 'service' | 'kit';
     categorie_produit_id?: number | null;
     categorie?: string | null;
+    composants?: KitComposant[];
     sell_price: string;
     sell_price_ttc: string;
     buy_price: string | null;
@@ -74,7 +84,7 @@ export interface Produit {
     updated_at: string;
 }
 
-export type DocumentType = 'devis' | 'commande' | 'facture';
+export type DocumentType = 'devis' | 'commande' | 'facture' | 'avoir';
 export type DocumentStatut = 'brouillon' | 'valide' | 'accepte' | 'refuse' | 'paye';
 
 export interface DocumentVenteLigne {

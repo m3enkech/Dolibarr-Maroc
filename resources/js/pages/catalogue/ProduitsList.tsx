@@ -80,6 +80,7 @@ export default function ProduitsList() {
                     <option value="">Tous</option>
                     <option value="product">Produits</option>
                     <option value="service">Services</option>
+                    <option value="kit">Kits</option>
                 </select>
             </div>
 
@@ -129,6 +130,10 @@ export default function ProduitsList() {
                                     {produit.type === 'product' ? (
                                         <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
                                             Produit
+                                        </span>
+                                    ) : produit.type === 'kit' ? (
+                                        <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-xs text-indigo-700">
+                                            Kit
                                         </span>
                                     ) : (
                                         <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-700">

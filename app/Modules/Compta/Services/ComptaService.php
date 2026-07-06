@@ -130,22 +130,64 @@ class ComptaService
     }
 
     /**
+     * Écriture d'avoir (journal VT) : contrepassation exacte de la facture.
+     *   Débit  7111/7124 Ventes (HT, ligne par ligne comme la facture)
+     *   Débit  4441 TVA facturée
+     *   Crédit 3411 Clients (TTC)
+     */
+    public function ecrireAvoir(DocumentVente $document): Ecriture
+    {
+        $document->loadMissing(['lignes.produit.categorieProduit', 'tiers']);
+
+        $htParCompte = [];
+        foreach ($document->lignes as $ligne) {
+            $compte = $this->compteVenteLigne($ligne);
+            $htParCompte[$compte->id] = round(($htParCompte[$compte->id] ?? 0) + (float) $ligne->montant_ht, 2);
+        }
+
+        $lignes = [];
+        foreach ($htParCompte as $compteId => $ht) {
+            if ($ht > 0) {
+                $lignes[] = ['compte' => Compte::find($compteId), 'debit' => $ht, 'credit' => 0];
+            }
+        }
+        if ((float) $document->total_tva > 0) {
+            $lignes[] = ['compte' => $this->compteParDefaut('tva_facturee'), 'debit' => (float) $document->total_tva, 'credit' => 0];
+        }
+        $lignes[] = ['compte' => $this->compteParDefaut('clients'), 'debit' => 0, 'credit' => (float) $document->total_ttc, 'tiers_id' => $document->tiers_id];
+
+        return $this->creerEcriture(
+            journal: Ecriture::JOURNAL_VENTES,
+            date: $document->date_document->format('Y-m-d'),
+            libelle: "Avoir {$document->code} — {$document->tiers->name}",
+            lignes: $lignes,
+            reference: $document->code,
+            documentVenteId: $document->id,
+            isAuto: true,
+        );
+    }
+
+    /**
      * Écriture d'encaissement (journal BQ) :
      *   Débit  5141/5161/5111 selon le mode de paiement
      *   Crédit 3411 Clients
+     * Pour un avoir, le paiement est un remboursement : écriture inversée
+     * (débit clients, crédit trésorerie).
      */
     public function ecrireEncaissement(Paiement $paiement, DocumentVente $document): Ecriture
     {
         $cle = self::MODE_VERS_MAPPING[$paiement->mode] ?? 'banque';
+        $montant = (float) $paiement->montant;
+        $estAvoir = $document->type === DocumentVente::TYPE_AVOIR;
+
+        $tresorerie = ['compte' => $this->compteParDefaut($cle), 'debit' => $estAvoir ? 0 : $montant, 'credit' => $estAvoir ? $montant : 0];
+        $clients = ['compte' => $this->compteParDefaut('clients'), 'debit' => $estAvoir ? $montant : 0, 'credit' => $estAvoir ? 0 : $montant, 'tiers_id' => $document->tiers_id];
 
         return $this->creerEcriture(
             journal: Ecriture::JOURNAL_TRESORERIE,
             date: $paiement->date_paiement->format('Y-m-d'),
-            libelle: "Encaissement {$document->code} — ".($paiement->reference ?: $paiement->mode),
-            lignes: [
-                ['compte' => $this->compteParDefaut($cle), 'debit' => (float) $paiement->montant, 'credit' => 0],
-                ['compte' => $this->compteParDefaut('clients'), 'debit' => 0, 'credit' => (float) $paiement->montant, 'tiers_id' => $document->tiers_id],
-            ],
+            libelle: ($estAvoir ? 'Remboursement ' : 'Encaissement ')."{$document->code} — ".($paiement->reference ?: $paiement->mode),
+            lignes: [$tresorerie, $clients],
             reference: $document->code,
             documentVenteId: $document->id,
             isAuto: true,

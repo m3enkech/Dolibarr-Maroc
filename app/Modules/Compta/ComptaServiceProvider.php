@@ -6,9 +6,11 @@ use App\Modules\Achats\Events\FactureAchatValidee;
 use App\Modules\Achats\Events\PaiementFournisseurEnregistre;
 use App\Modules\Compta\Listeners\CreerImmobilisationsSurAchat;
 use App\Modules\Compta\Listeners\GenererEcritureAchat;
+use App\Modules\Compta\Listeners\GenererEcritureAvoir;
 use App\Modules\Compta\Listeners\GenererEcritureDecaissement;
 use App\Modules\Compta\Listeners\GenererEcritureEncaissement;
 use App\Modules\Compta\Listeners\GenererEcritureVente;
+use App\Modules\Ventes\Events\AvoirValide;
 use App\Modules\Ventes\Events\FactureValidee;
 use App\Modules\Ventes\Events\PaiementEnregistre;
 use Illuminate\Support\Facades\Event;
@@ -25,6 +27,7 @@ class ComptaServiceProvider extends ServiceProvider
 
         // Branchements inter-modules : la compta réagit aux Ventes et aux Achats.
         Event::listen(FactureValidee::class, GenererEcritureVente::class);
+        Event::listen(AvoirValide::class, GenererEcritureAvoir::class);
         Event::listen(PaiementEnregistre::class, GenererEcritureEncaissement::class);
         Event::listen(FactureAchatValidee::class, GenererEcritureAchat::class);
         Event::listen(FactureAchatValidee::class, CreerImmobilisationsSurAchat::class);

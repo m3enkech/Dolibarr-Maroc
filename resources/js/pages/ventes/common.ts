@@ -4,12 +4,14 @@ export const TYPE_LABELS: Record<DocumentType, string> = {
     devis: 'Devis',
     commande: 'Commande',
     facture: 'Facture',
+    avoir: 'Avoir',
 };
 
 export const TYPE_LABELS_PLURAL: Record<DocumentType, string> = {
     devis: 'Devis',
     commande: 'Commandes',
     facture: 'Factures',
+    avoir: 'Avoirs',
 };
 
 export const MODES_PAIEMENT: Record<string, string> = {
@@ -23,6 +25,12 @@ export const MODES_PAIEMENT: Record<string, string> = {
 export function statutLabel(doc: Pick<DocumentVente, 'type' | 'statut'>): string {
     if (doc.type === 'facture' && doc.statut === 'valide') {
         return 'À encaisser';
+    }
+    if (doc.type === 'avoir' && doc.statut === 'valide') {
+        return 'À rembourser';
+    }
+    if (doc.type === 'avoir' && doc.statut === 'paye') {
+        return 'Remboursé';
     }
     const labels: Record<DocumentStatut, string> = {
         brouillon: 'Brouillon',
