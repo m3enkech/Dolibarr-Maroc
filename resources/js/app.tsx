@@ -7,6 +7,8 @@ import Landing from '@/pages/Landing';
 import Dashboard from '@/pages/Dashboard';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import Rejoindre from '@/pages/Rejoindre';
+import Equipe from '@/pages/equipe/Equipe';
 import CategoriesProduit from '@/pages/catalogue/CategoriesProduit';
 import ProduitForm from '@/pages/catalogue/ProduitForm';
 import ProduitsList from '@/pages/catalogue/ProduitsList';
@@ -44,6 +46,7 @@ function App() {
                         <Route path="/" element={<Landing />} />
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
+                        <Route path="/rejoindre/:token" element={<Rejoindre />} />
                         {/* Caisse : plein écran, hors du Layout applicatif. */}
                         <Route
                             path="/caisse"
@@ -81,6 +84,7 @@ function App() {
                             <Route path="/crm" element={<CrmPage />} />
                             <Route path="/effets" element={<Effets />} />
                             <Route path="/compta" element={<ComptaPage />} />
+                            <Route path="/equipe" element={<Equipe />} />
                             <Route path="/parametres" element={<Parametres />} />
                         </Route>
                         <Route path="*" element={<Navigate to="/" replace />} />

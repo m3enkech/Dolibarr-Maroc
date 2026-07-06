@@ -406,10 +406,73 @@ export interface PipelineBoard {
     };
 }
 
+export interface Societe {
+    name: string;
+    ice: string | null;
+    if: string | null;
+    rc: string | null;
+    patente: string | null;
+    cnss: string | null;
+    address: string | null;
+    city: string | null;
+    postal_code: string | null;
+    phone: string | null;
+    email: string | null;
+    website: string | null;
+}
+
 export interface Parametres {
     name: string;
     plan: string;
     features: Features;
+    societe: Societe;
+}
+
+export type PermissionLevel = 'none' | 'read' | 'write';
+export type Permissions = Record<string, PermissionLevel>;
+
+export interface EquipeUser {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    role_label: string;
+    is_active: boolean;
+    is_superadmin: boolean;
+    created_at: string;
+}
+
+export interface EquipeInvitation {
+    id: number;
+    email: string;
+    role: string;
+    role_label: string;
+    token: string;
+    expires_at: string;
+}
+
+export interface RoleOption {
+    value: string;
+    label: string;
+}
+
+export interface Subscription {
+    plan: string;
+    plan_label: string;
+    included_seats: number;
+    extra_seats: number;
+    seat_limit: number;
+    seats_used: number;
+    pending_invitations: number;
+    seats_available: number;
+    extra_seat_price: number;
+}
+
+export interface EquipeData {
+    users: EquipeUser[];
+    invitations: EquipeInvitation[];
+    roles: RoleOption[];
+    subscription: Subscription;
 }
 
 export interface RelanceLigne {

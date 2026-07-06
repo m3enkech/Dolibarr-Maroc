@@ -20,7 +20,7 @@ class StockServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        Route::middleware(['api', 'auth:sanctum', 'tenant'])
+        Route::middleware(['api', 'auth:sanctum', 'tenant', 'permission:stock'])
             ->prefix('api/v1')
             ->group(__DIR__.'/routes.php');
 

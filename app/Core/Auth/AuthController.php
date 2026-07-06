@@ -52,6 +52,7 @@ class AuthController extends Controller
             'token' => $user->createToken('spa')->plainTextToken,
             'user' => $user,
             'tenant' => $tenant,
+            'permissions' => $user->permissionsMap(),
         ], 201);
     }
 
@@ -70,10 +71,17 @@ class AuthController extends Controller
             ]);
         }
 
+        if (! $user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => 'Ce compte a été désactivé. Contactez votre administrateur.',
+            ]);
+        }
+
         return response()->json([
             'token' => $user->createToken('spa')->plainTextToken,
             'user' => $user,
             'tenant' => $user->tenant,
+            'permissions' => $user->permissionsMap(),
         ]);
     }
 
@@ -84,6 +92,7 @@ class AuthController extends Controller
         return response()->json([
             'user' => $user,
             'tenant' => $user->tenant,
+            'permissions' => $user->permissionsMap(),
         ]);
     }
 

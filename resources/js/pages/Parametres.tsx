@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Features, Parametres as ParametresData } from '@/types';
+import type { Features, Parametres as ParametresData, Societe } from '@/types';
 
 interface FeatureMeta {
     key: keyof Features;
@@ -29,6 +30,76 @@ const MODULES: FeatureMeta[] = [
     },
 ];
 
+const CHAMPS_SOCIETE: { key: keyof Societe; label: string; placeholder?: string; span?: boolean }[] = [
+    { key: 'name', label: 'Raison sociale', span: true },
+    { key: 'ice', label: 'ICE', placeholder: '15 chiffres' },
+    { key: 'if', label: 'Identifiant fiscal (IF)' },
+    { key: 'rc', label: 'Registre du commerce (RC)' },
+    { key: 'patente', label: 'Patente' },
+    { key: 'cnss', label: 'CNSS' },
+    { key: 'phone', label: 'Téléphone' },
+    { key: 'email', label: 'Email' },
+    { key: 'website', label: 'Site web' },
+    { key: 'address', label: 'Adresse', span: true },
+    { key: 'city', label: 'Ville' },
+    { key: 'postal_code', label: 'Code postal' },
+];
+
+function SocieteSection({ societe }: { societe: Societe }) {
+    const queryClient = useQueryClient();
+    const [form, setForm] = useState<Societe>(societe);
+    const [enregistre, setEnregistre] = useState(false);
+
+    useEffect(() => setForm(societe), [societe]);
+
+    const save = useMutation({
+        mutationFn: (data: Societe) => api.put('/parametres/societe', data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['parametres'] });
+            setEnregistre(true);
+            setTimeout(() => setEnregistre(false), 2000);
+        },
+    });
+
+    const set = (key: keyof Societe) => (e: React.ChangeEvent<HTMLInputElement>) =>
+        setForm((f) => ({ ...f, [key]: e.target.value }));
+
+    return (
+        <section className="rounded-xl bg-white p-6 shadow-sm">
+            <h2 className="font-medium text-slate-900">Identité de l'entreprise</h2>
+            <p className="mt-1 text-sm text-slate-500">
+                Ces informations apparaissent sur vos factures PDF, la facture électronique (UBL) et l'export
+                SIMPL-TVA. Renseignez-les pour être en conformité.
+            </p>
+
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {CHAMPS_SOCIETE.map((c) => (
+                    <div key={c.key} className={c.span ? 'sm:col-span-2' : ''}>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{c.label}</label>
+                        <input
+                            value={(form[c.key] as string) ?? ''}
+                            onChange={set(c.key)}
+                            placeholder={c.placeholder}
+                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                    </div>
+                ))}
+            </div>
+
+            <div className="mt-5 flex items-center gap-3">
+                <button
+                    onClick={() => save.mutate(form)}
+                    disabled={save.isPending}
+                    className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                >
+                    {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+                {enregistre && <span className="text-sm text-emerald-600">✓ Enregistré</span>}
+            </div>
+        </section>
+    );
+}
+
 export default function Parametres() {
     const queryClient = useQueryClient();
 
@@ -52,6 +123,10 @@ export default function Parametres() {
                 <p className="mt-1 text-sm text-slate-500">{data?.name}</p>
             </div>
 
+            {isLoading && <div className="text-sm text-slate-400">Chargement…</div>}
+
+            {data && <SocieteSection societe={data.societe} />}
+
             <section className="rounded-xl bg-white p-6 shadow-sm">
                 <h2 className="font-medium text-slate-900">Modules</h2>
                 <p className="mt-1 text-sm text-slate-500">
@@ -60,7 +135,6 @@ export default function Parametres() {
                 </p>
 
                 <div className="mt-5 divide-y divide-slate-100">
-                    {isLoading && <div className="py-6 text-sm text-slate-400">Chargement…</div>}
                     {data &&
                         MODULES.map((module) => {
                             const active = data.features[module.key];

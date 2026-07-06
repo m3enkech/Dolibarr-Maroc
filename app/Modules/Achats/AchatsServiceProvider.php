@@ -9,7 +9,7 @@ class AchatsServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        Route::middleware(['api', 'auth:sanctum', 'tenant'])
+        Route::middleware(['api', 'auth:sanctum', 'tenant', 'permission:achats'])
             ->prefix('api/v1')
             ->group(__DIR__.'/routes.php');
     }

@@ -7,6 +7,7 @@ use App\Modules\Achats\AchatsServiceProvider;
 use App\Modules\Compta\ComptaServiceProvider;
 use App\Modules\Crm\CrmServiceProvider;
 use App\Modules\Effets\EffetsServiceProvider;
+use App\Modules\Equipe\EquipeServiceProvider;
 use App\Modules\Parametres\ParametresServiceProvider;
 use App\Modules\Pos\PosServiceProvider;
 use App\Modules\Relances\RelancesServiceProvider;
@@ -30,4 +31,5 @@ return [
     RelancesServiceProvider::class,
     EffetsServiceProvider::class,
     CrmServiceProvider::class,
+    EquipeServiceProvider::class,
 ];
