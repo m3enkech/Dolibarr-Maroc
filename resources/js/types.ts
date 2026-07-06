@@ -287,6 +287,31 @@ export interface BalanceRow {
     solde_crediteur: string;
 }
 
+export type PosSessionStatut = 'ouverte' | 'fermee';
+
+export interface PosSession {
+    id: number;
+    code: string;
+    statut: PosSessionStatut;
+    fond_caisse: string;
+    montant_compte: string | null;
+    ecart: string | null;
+    note: string | null;
+    vendeur?: string | null;
+    opened_at: string;
+    closed_at: string | null;
+}
+
+export interface PosRapport {
+    tickets: number;
+    total_ht: string;
+    total_tva: string;
+    total_ttc: string;
+    par_mode: Record<string, string>;
+    fond_caisse: string;
+    especes_theorique: string;
+}
+
 export interface Paginated<T> {
     data: T[];
     meta: {

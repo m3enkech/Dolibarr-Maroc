@@ -14,6 +14,7 @@ import AchatDetail from '@/pages/achats/AchatDetail';
 import AchatForm from '@/pages/achats/AchatForm';
 import AchatsList from '@/pages/achats/AchatsList';
 import ComptaPage from '@/pages/compta/ComptaPage';
+import PosPage from '@/pages/pos/PosPage';
 import StockPage from '@/pages/stock/StockPage';
 import TiersForm from '@/pages/tiers/TiersForm';
 import TiersList from '@/pages/tiers/TiersList';
@@ -39,6 +40,15 @@ function App() {
                         <Route path="/" element={<Landing />} />
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
+                        {/* Caisse : plein écran, hors du Layout applicatif. */}
+                        <Route
+                            path="/caisse"
+                            element={
+                                <RequireAuth>
+                                    <PosPage />
+                                </RequireAuth>
+                            }
+                        />
                         <Route
                             element={
                                 <RequireAuth>

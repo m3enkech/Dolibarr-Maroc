@@ -6,6 +6,7 @@ const modules = [
     { to: '/tiers', label: 'Tiers', icon: '👥', enabled: true },
     { to: '/catalogue', label: 'Catalogue', icon: '📦', enabled: true },
     { to: '/ventes', label: 'Ventes', icon: '🧾', enabled: true },
+    { to: '/caisse', label: 'Caisse (POS)', icon: '💳', enabled: true },
     { to: '/achats', label: 'Achats', icon: '🛒', enabled: true },
     { to: '/stock', label: 'Stock', icon: '🏬', enabled: true },
     { to: '/compta', label: 'Comptabilité', icon: '⚖', enabled: true },
