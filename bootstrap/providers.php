@@ -5,6 +5,7 @@ use App\Modules\Catalogue\CatalogueServiceProvider;
 use App\Modules\Tiers\TiersServiceProvider;
 use App\Modules\Achats\AchatsServiceProvider;
 use App\Modules\Compta\ComptaServiceProvider;
+use App\Modules\Effets\EffetsServiceProvider;
 use App\Modules\Parametres\ParametresServiceProvider;
 use App\Modules\Pos\PosServiceProvider;
 use App\Modules\Relances\RelancesServiceProvider;
@@ -26,4 +27,5 @@ return [
     PosServiceProvider::class,
     ParametresServiceProvider::class,
     RelancesServiceProvider::class,
+    EffetsServiceProvider::class,
 ];

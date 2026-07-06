@@ -5,11 +5,13 @@ import { api } from '@/lib/api';
 import { formatMAD, formatTva } from '@/lib/format';
 import { ACHAT_TYPE_LABELS, achatStatutClasses, achatStatutLabel } from '@/pages/achats/common';
 import { MODES_PAIEMENT } from '@/pages/ventes/common';
+import { useFeatures } from '@/lib/features';
 import type { DocumentAchat } from '@/types';
 
 export default function AchatDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { features } = useFeatures();
     const queryClient = useQueryClient();
     const [error, setError] = useState<string | null>(null);
     const [montant, setMontant] = useState('');
@@ -61,6 +63,16 @@ export default function AchatDetail() {
         onSuccess: () => {
             invalidate();
             navigate('/achats');
+        },
+        onError,
+    });
+
+    const tirerEffet = useMutation({
+        mutationFn: (dateEcheance: string) =>
+            api.post('/effets', { type: 'payer', facture_id: Number(id), date_echeance: dateEcheance }),
+        onSuccess: () => {
+            setError(null);
+            navigate('/effets');
         },
         onError,
     });
@@ -132,6 +144,25 @@ export default function AchatDetail() {
                         <button onClick={telechargerPdf} className={btnSecondary}>
                             ⬇ PDF
                         </button>
+                        {features.effets &&
+                            doc.type === 'facture' &&
+                            parseFloat(doc.reste_a_payer ?? doc.total_ttc) > 0 && (
+                                <button
+                                    onClick={() => {
+                                        const defaut = new Date();
+                                        defaut.setDate(defaut.getDate() + 60);
+                                        const saisie = window.prompt(
+                                            'Échéance de l\'effet à payer (AAAA-MM-JJ) :',
+                                            defaut.toISOString().slice(0, 10),
+                                        );
+                                        if (saisie) tirerEffet.mutate(saisie);
+                                    }}
+                                    className={btnSecondary}
+                                    title="Accepter un effet à payer (LCN) sur cette facture"
+                                >
+                                    🧾 Tirer un effet
+                                </button>
+                            )}
                         {doc.statut === 'brouillon' && (
                             <>
                                 <button onClick={() => action.mutate({ path: 'valider' })} className={btnPrimary}>

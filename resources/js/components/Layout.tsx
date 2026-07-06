@@ -18,6 +18,7 @@ export default function Layout() {
         { to: '/compta', label: 'Comptabilité', icon: '⚖', enabled: true },
         // Modules activables dans les paramètres.
         ...(features.relances ? [{ to: '/relances', label: 'Relances', icon: '📨', enabled: true }] : []),
+        ...(features.effets ? [{ to: '/effets', label: 'Effets (LCN)', icon: '🧾', enabled: true }] : []),
         { to: '/rh', label: 'RH & Projets', icon: '🗂', enabled: false },
         { to: '/parametres', label: 'Paramètres', icon: '⚙', enabled: true },
     ];

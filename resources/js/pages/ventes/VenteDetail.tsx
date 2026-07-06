@@ -4,11 +4,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatMAD, formatTva } from '@/lib/format';
 import { MODES_PAIEMENT, statutClasses, statutLabel, TYPE_LABELS } from '@/pages/ventes/common';
+import { useFeatures } from '@/lib/features';
 import type { DocumentVente } from '@/types';
 
 export default function VenteDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { features } = useFeatures();
     const queryClient = useQueryClient();
     const [error, setError] = useState<string | null>(null);
     const [montant, setMontant] = useState('');
@@ -41,6 +43,16 @@ export default function VenteDetail() {
         onSuccess: () => {
             setError(null);
             invalidate();
+        },
+        onError,
+    });
+
+    const tirerEffet = useMutation({
+        mutationFn: (dateEcheance: string) =>
+            api.post('/effets', { type: 'recevoir', facture_id: Number(id), date_echeance: dateEcheance }),
+        onSuccess: () => {
+            setError(null);
+            navigate('/effets');
         },
         onError,
     });
@@ -187,6 +199,26 @@ export default function VenteDetail() {
                                 ↩ Créer un avoir
                             </button>
                         )}
+                        {features.effets &&
+                            doc.type === 'facture' &&
+                            doc.statut === 'valide' &&
+                            parseFloat(doc.reste_a_payer ?? doc.total_ttc) > 0 && (
+                                <button
+                                    onClick={() => {
+                                        const defaut = new Date();
+                                        defaut.setDate(defaut.getDate() + 60);
+                                        const saisie = window.prompt(
+                                            'Échéance de l\'effet (AAAA-MM-JJ) :',
+                                            defaut.toISOString().slice(0, 10),
+                                        );
+                                        if (saisie) tirerEffet.mutate(saisie);
+                                    }}
+                                    className={btnSecondary}
+                                    title="Tirer un effet à recevoir (LCN) sur cette facture"
+                                >
+                                    🧾 Tirer un effet
+                                </button>
+                            )}
                         <button onClick={telechargerPdf} className={btnSecondary}>
                             ⬇ PDF
                         </button>

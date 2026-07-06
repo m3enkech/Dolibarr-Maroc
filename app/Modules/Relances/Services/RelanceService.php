@@ -2,6 +2,7 @@
 
 namespace App\Modules\Relances\Services;
 
+use App\Modules\Effets\Models\Effet;
 use App\Modules\Relances\Models\Relance;
 use App\Modules\Ventes\Models\DocumentVente;
 use Illuminate\Support\Carbon;
@@ -25,6 +26,15 @@ class RelanceService
             ->with(['tiers', 'paiements'])
             ->get();
 
+        // Une facture couverte par un effet actif (traite en portefeuille/réglée)
+        // n'est plus à relancer : la créance a été transférée sur l'effet.
+        $couvertesParEffet = Effet::query()
+            ->where('type', Effet::TYPE_RECEVOIR)
+            ->whereIn('statut', Effet::STATUTS_ACTIFS)
+            ->whereIn('document_vente_id', $factures->pluck('id'))
+            ->pluck('document_vente_id')
+            ->flip();
+
         // Dernier niveau + date de dernière relance par facture (une requête).
         $relances = Relance::query()
             ->whereIn('document_vente_id', $factures->pluck('id'))
@@ -32,9 +42,9 @@ class RelanceService
             ->groupBy('document_vente_id');
 
         return $factures
-            ->map(function (DocumentVente $facture) use ($dateRef, $relances) {
+            ->map(function (DocumentVente $facture) use ($dateRef, $relances, $couvertesParEffet) {
                 $reste = $facture->resteAPayer();
-                if ($reste <= 0.009) {
+                if ($reste <= 0.009 || $couvertesParEffet->has($facture->id)) {
                     return null;
                 }
 

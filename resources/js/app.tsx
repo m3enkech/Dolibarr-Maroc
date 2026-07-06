@@ -14,6 +14,7 @@ import AchatDetail from '@/pages/achats/AchatDetail';
 import AchatForm from '@/pages/achats/AchatForm';
 import AchatsList from '@/pages/achats/AchatsList';
 import ComptaPage from '@/pages/compta/ComptaPage';
+import Effets from '@/pages/effets/Effets';
 import Parametres from '@/pages/Parametres';
 import PosPage from '@/pages/pos/PosPage';
 import Relances from '@/pages/relances/Relances';
@@ -76,6 +77,7 @@ function App() {
                             <Route path="/achats/:id/modifier" element={<AchatForm />} />
                             <Route path="/stock" element={<StockPage />} />
                             <Route path="/relances" element={<Relances />} />
+                            <Route path="/effets" element={<Effets />} />
                             <Route path="/compta" element={<ComptaPage />} />
                             <Route path="/parametres" element={<Parametres />} />
                         </Route>

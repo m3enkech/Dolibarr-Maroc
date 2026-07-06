@@ -365,6 +365,23 @@ export interface RelanceLigne {
     derniere_relance: string | null;
 }
 
+export type EffetType = 'recevoir' | 'payer';
+export type EffetStatut = 'portefeuille' | 'encaisse' | 'paye' | 'impaye';
+
+export interface Effet {
+    id: number;
+    type: EffetType;
+    code: string;
+    montant: string;
+    date_creation: string;
+    date_echeance: string;
+    statut: EffetStatut;
+    en_retard: boolean;
+    tiers: string | null;
+    facture: string | null;
+    created_at: string;
+}
+
 export interface Paginated<T> {
     data: T[];
     meta: {
