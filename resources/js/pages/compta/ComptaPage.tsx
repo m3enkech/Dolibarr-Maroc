@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import Balance from '@/pages/compta/Balance';
+import BalanceAgee from '@/pages/compta/BalanceAgee';
 import Cloture from '@/pages/compta/Cloture';
 import EtatsSynthese from '@/pages/compta/EtatsSynthese';
 import Ecritures from '@/pages/compta/Ecritures';
@@ -16,6 +17,7 @@ const TABS = [
     { key: 'ecritures', label: 'Écritures' },
     { key: 'lettrage', label: 'Lettrage' },
     { key: 'balance', label: 'Balance' },
+    { key: 'balance-agee', label: 'Balance âgée' },
     { key: 'etats', label: 'Bilan / CPC' },
     { key: 'tva', label: 'État TVA' },
     { key: 'immobilisations', label: 'Immobilisations' },
@@ -74,6 +76,7 @@ export default function ComptaPage() {
                 <Lettrage comptes={comptesData?.data ?? []} mappings={mappings ?? []} />
             )}
             {tab === 'balance' && <Balance />}
+            {tab === 'balance-agee' && <BalanceAgee />}
             {tab === 'etats' && <EtatsSynthese />}
             {tab === 'tva' && <EtatTva />}
             {tab === 'immobilisations' && <Immobilisations />}

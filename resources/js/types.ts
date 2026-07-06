@@ -322,6 +322,24 @@ export interface PosRapport {
     especes_theorique: string;
 }
 
+export interface BalanceAgeeRow {
+    tiers_id: number | null;
+    code: string | null;
+    name: string;
+    total: string;
+    t0_30: string;
+    t31_60: string;
+    t61_90: string;
+    t90_plus: string;
+}
+
+export interface BalanceAgeeResponse {
+    type: 'clients' | 'fournisseurs';
+    date_reference: string;
+    data: BalanceAgeeRow[];
+    totaux: Omit<BalanceAgeeRow, 'tiers_id' | 'code' | 'name'>;
+}
+
 export interface Paginated<T> {
     data: T[];
     meta: {

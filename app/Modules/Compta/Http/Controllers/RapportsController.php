@@ -26,6 +26,16 @@ class RapportsController extends Controller
         return response()->json($etats->calculer($request->date('au')?->format('Y-m-d')));
     }
 
+    /** Balance âgée clients (créances) ou fournisseurs (dettes) par ancienneté. */
+    public function balanceAgee(Request $request): JsonResponse
+    {
+        $type = $request->string('type')->toString() === 'fournisseurs' ? 'fournisseurs' : 'clients';
+
+        return response()->json(
+            $this->service->balanceAgee($type, $request->date('au')?->format('Y-m-d')),
+        );
+    }
+
     /** Export Excel de la déclaration TVA (relevé de déductions + chiffre d'affaires). */
     public function exportTva(Request $request, TvaExportService $export): StreamedResponse
     {

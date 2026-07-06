@@ -6,6 +6,7 @@ use App\Core\Sequences\SequenceService;
 use App\Modules\Compta\Models\ComptaMapping;
 use App\Modules\Compta\Models\Compte;
 use App\Modules\Compta\Models\Ecriture;
+use App\Modules\Compta\Models\EcritureLigne;
 use App\Modules\Compta\Models\Exercice;
 use App\Modules\Compta\PlanComptableMarocain;
 use App\Modules\Ventes\Models\DocumentVente;
@@ -84,6 +85,84 @@ class ComptaService
         }
 
         return $mapping->compte;
+    }
+
+    /**
+     * Balance âgée : solde ouvert (lignes NON lettrées) du compte collectif
+     * clients (créances) ou fournisseurs (dettes), ventilé par tiers et par
+     * tranche d'ancienneté (0-30 / 31-60 / 61-90 / +90 jours) calculée depuis
+     * la date de pièce jusqu'à la date de référence.
+     *
+     * @return array<string, mixed>
+     */
+    public function balanceAgee(string $type, ?string $dateReference = null): array
+    {
+        $this->initialiserPlanComptable();
+
+        $compte = $this->compteParDefaut($type === 'fournisseurs' ? 'fournisseurs' : 'clients');
+        $sensCreance = $type !== 'fournisseurs'; // clients : débiteur ; fournisseurs : créditeur
+        $dateRef = $dateReference !== null ? \Illuminate\Support\Carbon::parse($dateReference) : now();
+
+        $lignes = EcritureLigne::query()
+            ->where('compte_id', $compte->id)
+            ->whereNull('lettrage')
+            ->whereHas('ecriture')
+            ->with(['ecriture:id,date_ecriture', 'tiers:id,code,name'])
+            ->get();
+
+        $tranches = ['t0_30', 't31_60', 't61_90', 't90_plus'];
+        $vide = fn () => array_fill_keys([...$tranches, 'total'], 0.0);
+
+        $parTiers = [];
+        $totaux = $vide();
+
+        foreach ($lignes as $ligne) {
+            $montant = $sensCreance
+                ? (float) $ligne->debit - (float) $ligne->credit
+                : (float) $ligne->credit - (float) $ligne->debit;
+
+            if (abs($montant) < 0.005) {
+                continue;
+            }
+
+            $date = $ligne->ecriture->date_ecriture;
+            $age = $date ? max(0, $date->diffInDays($dateRef, false)) : 0;
+            $tranche = $age <= 30 ? 't0_30' : ($age <= 60 ? 't31_60' : ($age <= 90 ? 't61_90' : 't90_plus'));
+
+            $tiersId = $ligne->tiers_id ?? 0;
+            if (! isset($parTiers[$tiersId])) {
+                $parTiers[$tiersId] = [
+                    'tiers_id' => $ligne->tiers_id,
+                    'code' => $ligne->tiers?->code,
+                    'name' => $ligne->tiers?->name ?? 'Sans tiers',
+                    ...$vide(),
+                ];
+            }
+
+            $parTiers[$tiersId][$tranche] += $montant;
+            $parTiers[$tiersId]['total'] += $montant;
+            $totaux[$tranche] += $montant;
+            $totaux['total'] += $montant;
+        }
+
+        $fmt = fn (array $row): array => array_map(
+            fn ($v) => is_float($v) ? number_format(round($v, 2), 2, '.', '') : $v,
+            $row,
+        );
+
+        // On n'affiche que les tiers dont le solde ouvert n'est pas nul.
+        $data = collect($parTiers)
+            ->filter(fn ($row) => abs($row['total']) >= 0.005)
+            ->sortByDesc('total')
+            ->map($fmt)
+            ->values();
+
+        return [
+            'type' => $sensCreance ? 'clients' : 'fournisseurs',
+            'date_reference' => $dateRef->format('Y-m-d'),
+            'data' => $data,
+            'totaux' => $fmt($totaux),
+        ];
     }
 
     /**
