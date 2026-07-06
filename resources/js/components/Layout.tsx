@@ -17,7 +17,7 @@ export default function Layout() {
         { to: '/stock', label: 'Stock', icon: '🏬', enabled: true },
         { to: '/compta', label: 'Comptabilité', icon: '⚖', enabled: true },
         // Modules activables dans les paramètres.
-        ...(features.crm ? [{ to: '/crm', label: 'Pipeline (CRM)', icon: '📈', enabled: true }] : []),
+        ...(features.crm ? [{ to: '/crm', label: 'CRM', icon: '📈', enabled: true }] : []),
         ...(features.relances ? [{ to: '/relances', label: 'Relances', icon: '📨', enabled: true }] : []),
         ...(features.effets ? [{ to: '/effets', label: 'Effets (LCN)', icon: '🧾', enabled: true }] : []),
         { to: '/rh', label: 'RH & Projets', icon: '🗂', enabled: false },

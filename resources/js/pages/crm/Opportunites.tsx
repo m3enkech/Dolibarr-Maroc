@@ -86,12 +86,9 @@ export default function Opportunites() {
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-xl font-semibold text-slate-900">Pipeline commercial</h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Faites glisser les opportunités d'une étape à l'autre, du prospect à l'affaire gagnée
-                    </p>
-                </div>
+                <p className="text-sm text-slate-500">
+                    Faites glisser les opportunités d'une étape à l'autre, du prospect à l'affaire gagnée
+                </p>
                 <div className="flex items-center gap-4">
                     {board && (
                         <div className="hidden gap-4 sm:flex">

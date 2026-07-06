@@ -366,6 +366,25 @@ export interface Opportunite {
     created_at: string;
 }
 
+export type ActiviteType = 'appel' | 'email' | 'reunion' | 'note' | 'tache';
+
+export interface Activite {
+    id: number;
+    type: ActiviteType;
+    sujet: string;
+    note: string | null;
+    date_prevue: string | null;
+    fait: boolean;
+    fait_at: string | null;
+    en_retard: boolean;
+    tiers_id: number;
+    tiers: string | null;
+    opportunite_id: number | null;
+    opportunite: string | null;
+    vendeur: string | null;
+    created_at: string;
+}
+
 export interface PipelineBoard {
     etapes: OpportuniteEtape[];
     colonnes: Record<OpportuniteEtape, Opportunite[]>;
