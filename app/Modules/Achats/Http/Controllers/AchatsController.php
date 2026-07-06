@@ -9,6 +9,7 @@ use App\Modules\Achats\Http\Requests\UpdateDocumentAchatRequest;
 use App\Modules\Achats\Http\Resources\DocumentAchatResource;
 use App\Modules\Achats\Models\DocumentAchat;
 use App\Modules\Achats\Services\AchatService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -82,5 +83,29 @@ class AchatsController extends Controller
         $this->service->ajouterPaiement($document, $request->validated());
 
         return new DocumentAchatResource($document->fresh(['lignes', 'tiers', 'entrepot', 'paiements']));
+    }
+
+    /** Bon de commande / réception / facture fournisseur au format PDF. */
+    public function pdf(DocumentAchat $document)
+    {
+        $document->load(['lignes', 'tiers', 'tenant', 'entrepot', 'paiements']);
+
+        // Ventilation de la TVA par taux (comme pour les documents de vente).
+        $tvaBreakdown = $document->lignes
+            ->groupBy(fn ($ligne) => (string) $ligne->tva_rate)
+            ->map(fn ($lignes, $rate) => [
+                'rate' => (float) $rate,
+                'ht' => $lignes->sum(fn ($l) => (float) $l->montant_ht),
+                'tva' => $lignes->sum(fn ($l) => (float) $l->montant_tva),
+            ])
+            ->sortByDesc('rate')
+            ->values();
+
+        $pdf = Pdf::loadView('pdf.document-achat', [
+            'document' => $document,
+            'tvaBreakdown' => $tvaBreakdown,
+        ]);
+
+        return $pdf->download($document->code.'.pdf');
     }
 }

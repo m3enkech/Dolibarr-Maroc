@@ -401,4 +401,26 @@ class AchatsTest extends TestCase
             'lignes' => [['designation' => 'X', 'quantite' => 1, 'prix_unitaire' => 10, 'tva_rate' => 20]],
         ])->assertUnprocessable()->assertJsonValidationErrors('entrepot_id');
     }
+
+    public function test_bon_de_commande_pdf_is_generated(): void
+    {
+        $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $fournisseur = $this->createFournisseur($token);
+        $produit = $this->createProduit($token);
+        $entrepot = $this->createEntrepot($token);
+
+        $commande = $this->withToken($token)->postJson('/api/v1/achats/documents', [
+            'type' => 'commande',
+            'tiers_id' => $fournisseur['id'],
+            'entrepot_id' => $entrepot['id'],
+            'ref_fournisseur' => 'BC-FRS-77',
+            'lignes' => [['produit_id' => $produit['id'], 'quantite' => 10]],
+        ])->json('data');
+
+        $response = $this->withToken($token)->get("/api/v1/achats/documents/{$commande['id']}/pdf");
+
+        $response->assertOk();
+        $this->assertSame('application/pdf', $response->headers->get('content-type'));
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+    }
 }

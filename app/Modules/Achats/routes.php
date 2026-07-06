@@ -13,4 +13,5 @@ Route::prefix('achats')->group(function () {
     Route::post('documents/{document}/valider', [AchatsController::class, 'valider']);
     Route::post('documents/{document}/transformer', [AchatsController::class, 'transformer']);
     Route::post('documents/{document}/paiements', [AchatsController::class, 'ajouterPaiement']);
+    Route::get('documents/{document}/pdf', [AchatsController::class, 'pdf']);
 });

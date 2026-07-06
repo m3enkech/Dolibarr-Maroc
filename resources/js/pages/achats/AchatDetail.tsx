@@ -65,6 +65,16 @@ export default function AchatDetail() {
         onError,
     });
 
+    const telechargerPdf = async () => {
+        const response = await api.get(`/achats/documents/${id}/pdf`, { responseType: 'blob' });
+        const url = URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${doc?.code ?? 'document'}.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     const ajouterPaiement = (e: FormEvent) => {
         e.preventDefault();
         action.mutate(
@@ -119,6 +129,9 @@ export default function AchatDetail() {
                         </p>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
+                        <button onClick={telechargerPdf} className={btnSecondary}>
+                            ⬇ PDF
+                        </button>
                         {doc.statut === 'brouillon' && (
                             <>
                                 <button onClick={() => action.mutate({ path: 'valider' })} className={btnPrimary}>
