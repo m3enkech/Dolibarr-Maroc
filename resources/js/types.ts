@@ -343,6 +343,38 @@ export interface BalanceAgeeResponse {
 export interface Features {
     relances: boolean;
     effets: boolean;
+    crm: boolean;
+}
+
+export type OpportuniteEtape = 'nouveau' | 'qualifie' | 'proposition' | 'negociation';
+export type OpportuniteStatut = 'ouverte' | 'gagnee' | 'perdue';
+
+export interface Opportunite {
+    id: number;
+    code: string;
+    titre: string;
+    montant_estime: string;
+    probabilite: number;
+    etape: OpportuniteEtape;
+    statut: OpportuniteStatut;
+    date_cloture_prevue: string | null;
+    note: string | null;
+    tiers_id: number;
+    tiers: string | null;
+    vendeur: string | null;
+    close_at: string | null;
+    created_at: string;
+}
+
+export interface PipelineBoard {
+    etapes: OpportuniteEtape[];
+    colonnes: Record<OpportuniteEtape, Opportunite[]>;
+    stats: {
+        ouvertes: number;
+        total_pipeline: string;
+        forecast_pondere: string;
+        gagnees_montant: string;
+    };
 }
 
 export interface Parametres {

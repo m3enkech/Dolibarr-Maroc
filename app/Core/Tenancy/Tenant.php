@@ -18,6 +18,7 @@ class Tenant extends Model
     public const FEATURES_DEFAUT = [
         'relances' => true,
         'effets' => false,
+        'crm' => false,
     ];
 
     protected function casts(): array

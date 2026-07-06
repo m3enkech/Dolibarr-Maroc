@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Features, Parametres } from '@/types';
 
-const DEFAULTS: Features = { relances: true, effets: false };
+const DEFAULTS: Features = { relances: true, effets: false, crm: false };
 
 /**
  * État des modules activables de l'entreprise. Chargé une fois puis mis en

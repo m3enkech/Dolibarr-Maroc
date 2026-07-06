@@ -21,6 +21,12 @@ const MODULES: FeatureMeta[] = [
         description:
             'Gestion des lettres de change et effets à recevoir / payer. Surtout utile en B2B (négoce, distribution).',
     },
+    {
+        key: 'crm',
+        label: 'CRM / Pipeline commercial',
+        description:
+            'Suivi des opportunités en pipeline (kanban), du prospect à l\'affaire gagnée. Pour piloter votre activité commerciale.',
+    },
 ];
 
 export default function Parametres() {
