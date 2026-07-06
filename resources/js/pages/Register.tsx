@@ -23,7 +23,7 @@ export default function Register() {
         setLoading(true);
         try {
             await register(form);
-            navigate('/');
+            navigate('/dashboard');
         } catch (err: any) {
             const messages = err?.response?.data?.errors;
             setError(

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, RequireAuth } from '@/lib/auth';
 import Layout from '@/components/Layout';
+import Landing from '@/pages/Landing';
 import Dashboard from '@/pages/Dashboard';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -35,6 +36,7 @@ function App() {
             <BrowserRouter>
                 <AuthProvider>
                     <Routes>
+                        <Route path="/" element={<Landing />} />
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
                         <Route
@@ -44,7 +46,7 @@ function App() {
                                 </RequireAuth>
                             }
                         >
-                            <Route path="/" element={<Dashboard />} />
+                            <Route path="/dashboard" element={<Dashboard />} />
                             <Route path="/tiers" element={<TiersList />} />
                             <Route path="/tiers/nouveau" element={<TiersForm />} />
                             <Route path="/tiers/:id" element={<TiersForm />} />

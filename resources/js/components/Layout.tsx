@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 
 const modules = [
-    { to: '/', label: 'Tableau de bord', icon: '▦', enabled: true },
+    { to: '/dashboard', label: 'Tableau de bord', icon: '▦', enabled: true },
     { to: '/tiers', label: 'Tiers', icon: '👥', enabled: true },
     { to: '/catalogue', label: 'Catalogue', icon: '📦', enabled: true },
     { to: '/ventes', label: 'Ventes', icon: '🧾', enabled: true },
@@ -34,7 +34,7 @@ export default function Layout() {
                             <NavLink
                                 key={m.to}
                                 to={m.to}
-                                end={m.to === '/'}
+                                end={m.to === '/dashboard'}
                                 className={({ isActive }) =>
                                     `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
                                         isActive

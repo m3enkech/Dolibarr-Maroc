@@ -1,0 +1,18 @@
+{
+    "version": "0.0.1",
+    "configurations": [
+        {
+            "name": "dolibarr-website",
+            "runtimeExecutable": "npx",
+            "runtimeArgs": [
+                "concurrently",
+                "-k",
+                "-n",
+                "server,vite",
+                "\"C:\\Users\\m3enk\\AppData\\Local\\php\\php.exe\" artisan serve --host=127.0.0.1 --port=8010",
+                "npm run dev"
+            ],
+            "port": 8010
+        }
+    ]
+}
