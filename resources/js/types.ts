@@ -340,6 +340,31 @@ export interface BalanceAgeeResponse {
     totaux: Omit<BalanceAgeeRow, 'tiers_id' | 'code' | 'name'>;
 }
 
+export interface Features {
+    relances: boolean;
+    effets: boolean;
+}
+
+export interface Parametres {
+    name: string;
+    plan: string;
+    features: Features;
+}
+
+export interface RelanceLigne {
+    document_vente_id: number;
+    code: string;
+    tiers: string | null;
+    tiers_id: number | null;
+    date_echeance: string;
+    jours_retard: number;
+    total_ttc: string;
+    reste_a_payer: string;
+    dernier_niveau: number | null;
+    nb_relances: number;
+    derniere_relance: string | null;
+}
+
 export interface Paginated<T> {
     data: T[];
     meta: {

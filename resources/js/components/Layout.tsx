@@ -1,21 +1,26 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-
-const modules = [
-    { to: '/dashboard', label: 'Tableau de bord', icon: '▦', enabled: true },
-    { to: '/tiers', label: 'Tiers', icon: '👥', enabled: true },
-    { to: '/catalogue', label: 'Catalogue', icon: '📦', enabled: true },
-    { to: '/ventes', label: 'Ventes', icon: '🧾', enabled: true },
-    { to: '/caisse', label: 'Caisse (POS)', icon: '💳', enabled: true },
-    { to: '/achats', label: 'Achats', icon: '🛒', enabled: true },
-    { to: '/stock', label: 'Stock', icon: '🏬', enabled: true },
-    { to: '/compta', label: 'Comptabilité', icon: '⚖', enabled: true },
-    { to: '/rh', label: 'RH & Projets', icon: '🗂', enabled: false },
-];
+import { useFeatures } from '@/lib/features';
 
 export default function Layout() {
     const { user, tenant, logout } = useAuth();
+    const { features } = useFeatures();
     const navigate = useNavigate();
+
+    const modules = [
+        { to: '/dashboard', label: 'Tableau de bord', icon: '▦', enabled: true },
+        { to: '/tiers', label: 'Tiers', icon: '👥', enabled: true },
+        { to: '/catalogue', label: 'Catalogue', icon: '📦', enabled: true },
+        { to: '/ventes', label: 'Ventes', icon: '🧾', enabled: true },
+        { to: '/caisse', label: 'Caisse (POS)', icon: '💳', enabled: true },
+        { to: '/achats', label: 'Achats', icon: '🛒', enabled: true },
+        { to: '/stock', label: 'Stock', icon: '🏬', enabled: true },
+        { to: '/compta', label: 'Comptabilité', icon: '⚖', enabled: true },
+        // Modules activables dans les paramètres.
+        ...(features.relances ? [{ to: '/relances', label: 'Relances', icon: '📨', enabled: true }] : []),
+        { to: '/rh', label: 'RH & Projets', icon: '🗂', enabled: false },
+        { to: '/parametres', label: 'Paramètres', icon: '⚙', enabled: true },
+    ];
 
     const handleLogout = async () => {
         await logout();
