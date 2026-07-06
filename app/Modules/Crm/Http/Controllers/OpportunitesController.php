@@ -8,6 +8,7 @@ use App\Modules\Crm\Http\Requests\UpdateOpportuniteRequest;
 use App\Modules\Crm\Http\Resources\OpportuniteResource;
 use App\Modules\Crm\Models\Opportunite;
 use App\Modules\Crm\Services\OpportuniteService;
+use App\Modules\Ventes\Services\VenteService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -105,6 +106,33 @@ class OpportunitesController extends Controller
         $this->assertFeature($request);
 
         return $this->render($this->service->rouvrir($opportunite));
+    }
+
+    /**
+     * Génère un devis brouillon depuis l'opportunité (client + montant estimé),
+     * et fait avancer l'opportunité à l'étape « proposition ».
+     */
+    public function genererDevis(Request $request, Opportunite $opportunite, VenteService $ventes): JsonResponse
+    {
+        $this->assertFeature($request);
+
+        $devis = $ventes->create([
+            'type' => \App\Modules\Ventes\Models\DocumentVente::TYPE_DEVIS,
+            'tiers_id' => $opportunite->tiers_id,
+            'notes' => "Depuis l'opportunité {$opportunite->code} — {$opportunite->titre}",
+            'lignes' => [[
+                'designation' => $opportunite->titre,
+                'quantite' => 1,
+                'prix_unitaire' => (float) $opportunite->montant_estime,
+                'tva_rate' => 20,
+            ]],
+        ]);
+
+        if ($opportunite->isOuverte() && $opportunite->etape === Opportunite::ETAPES[0]) {
+            $this->service->deplacer($opportunite, 'proposition');
+        }
+
+        return response()->json(['devis_id' => $devis->id, 'devis_code' => $devis->code], 201);
     }
 
     public function destroy(Request $request, Opportunite $opportunite): JsonResponse

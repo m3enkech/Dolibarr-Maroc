@@ -385,6 +385,16 @@ export interface Activite {
     created_at: string;
 }
 
+export interface TimelineItem {
+    kind: 'activite' | 'opportunite' | 'document';
+    id: number;
+    date: string | null;
+    type?: string;
+    titre: string;
+    detail: string | null;
+    statut: string;
+}
+
 export interface PipelineBoard {
     etapes: OpportuniteEtape[];
     colonnes: Record<OpportuniteEtape, Opportunite[]>;

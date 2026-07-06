@@ -2,6 +2,7 @@
 
 use App\Modules\Crm\Http\Controllers\ActivitesController;
 use App\Modules\Crm\Http\Controllers\OpportunitesController;
+use App\Modules\Crm\Http\Controllers\TimelineController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('crm/opportunites')->group(function () {
@@ -12,8 +13,11 @@ Route::prefix('crm/opportunites')->group(function () {
     Route::post('{opportunite}/deplacer', [OpportunitesController::class, 'deplacer']);
     Route::post('{opportunite}/cloturer', [OpportunitesController::class, 'cloturer']);
     Route::post('{opportunite}/rouvrir', [OpportunitesController::class, 'rouvrir']);
+    Route::post('{opportunite}/devis', [OpportunitesController::class, 'genererDevis']);
     Route::delete('{opportunite}', [OpportunitesController::class, 'destroy']);
 });
+
+Route::get('crm/tiers/{tiers}/timeline', [TimelineController::class, 'show']);
 
 Route::prefix('crm/activites')->group(function () {
     Route::get('/', [ActivitesController::class, 'index']);

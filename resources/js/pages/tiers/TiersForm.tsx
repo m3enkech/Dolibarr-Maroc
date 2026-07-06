@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { useFeatures } from '@/lib/features';
+import TiersTimeline from '@/pages/tiers/TiersTimeline';
 import type { Tiers } from '@/types';
 
 interface TiersFormData {
@@ -55,6 +57,7 @@ export default function TiersForm() {
     const { id } = useParams();
     const isEdit = id !== undefined;
     const navigate = useNavigate();
+    const { features } = useFeatures();
     const queryClient = useQueryClient();
     const [form, setForm] = useState<TiersFormData>(emptyForm);
     const [error, setError] = useState<string | null>(null);
@@ -280,6 +283,8 @@ export default function TiersForm() {
                     </Link>
                 </div>
             </form>
+
+            {isEdit && id && features.crm && <TiersTimeline tiersId={id} />}
         </div>
     );
 }

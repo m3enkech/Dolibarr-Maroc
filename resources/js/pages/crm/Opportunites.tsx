@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import type { Opportunite, OpportuniteEtape, Paginated, PipelineBoard, Tiers } from '@/types';
@@ -15,6 +16,7 @@ const ETAPE_INDEX = ETAPES.reduce((acc, e, i) => ({ ...acc, [e.key]: i }), {} as
 
 export default function Opportunites() {
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const [showForm, setShowForm] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [dragId, setDragId] = useState<number | null>(null);
@@ -70,6 +72,15 @@ export default function Opportunites() {
         mutationFn: ({ id, statut }: { id: number; statut: 'gagnee' | 'perdue' }) =>
             api.post(`/crm/opportunites/${id}/cloturer`, { statut }),
         onSuccess: () => { setError(null); invalidate(); },
+        onError,
+    });
+
+    const genererDevis = useMutation({
+        mutationFn: (id: number) => api.post<{ devis_id: number }>(`/crm/opportunites/${id}/devis`),
+        onSuccess: ({ data }) => {
+            invalidate();
+            navigate(`/ventes/${data.devis_id}/modifier`);
+        },
         onError,
     });
 
@@ -173,6 +184,7 @@ export default function Opportunites() {
                                                 })
                                             }
                                             onCloturer={(statut) => cloturer.mutate({ id: opp.id, statut })}
+                                            onDevis={() => genererDevis.mutate(opp.id)}
                                         />
                                     ))}
                                     {opps.length === 0 && (
@@ -206,6 +218,7 @@ function Carte({
     canRight,
     onMove,
     onCloturer,
+    onDevis,
 }: {
     opp: Opportunite;
     onDragStart: () => void;
@@ -213,6 +226,7 @@ function Carte({
     canRight: boolean;
     onMove: (dir: number) => void;
     onCloturer: (statut: 'gagnee' | 'perdue') => void;
+    onDevis: () => void;
 }) {
     return (
         <div
@@ -227,7 +241,16 @@ function Carte({
                 </span>
             </div>
             <div className="mt-1 text-xs text-slate-500">{opp.tiers}</div>
-            <div className="mt-2 font-semibold tabular-nums text-slate-800">{formatMAD(opp.montant_estime)}</div>
+            <div className="mt-2 flex items-center justify-between">
+                <span className="font-semibold tabular-nums text-slate-800">{formatMAD(opp.montant_estime)}</span>
+                <button
+                    onClick={onDevis}
+                    className="rounded px-1.5 py-0.5 text-[11px] font-medium text-emerald-600 transition hover:bg-emerald-50"
+                    title="Générer un devis depuis cette opportunité"
+                >
+                    → Devis
+                </button>
+            </div>
 
             <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
                 <div className="flex gap-1">

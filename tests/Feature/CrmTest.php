@@ -124,6 +124,61 @@ class CrmTest extends TestCase
         $this->withToken($token)->getJson('/api/v1/crm/opportunites')->assertOk();
     }
 
+    public function test_generating_a_devis_from_an_opportunity(): void
+    {
+        $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $this->activerCrm($token);
+        $client = $this->client($token);
+        $opp = $this->opportunite($token, $client['id'], ['titre' => 'Refonte', 'montant_estime' => 30000]);
+
+        $response = $this->withToken($token)->postJson("/api/v1/crm/opportunites/{$opp['id']}/devis");
+        $response->assertCreated();
+        $devisId = $response->json('devis_id');
+        $this->assertStringStartsWith('DE-', $response->json('devis_code'));
+
+        // Le devis existe, pour le bon client, avec une ligne au montant estimé.
+        $devis = $this->withToken($token)->getJson("/api/v1/ventes/documents/{$devisId}")->json('data');
+        $this->assertSame('devis', $devis['type']);
+        $this->assertSame($client['id'], $devis['tiers_id']);
+        $this->assertSame('30000.00', $devis['total_ht']);
+        $this->assertSame('Refonte', $devis['lignes'][0]['designation']);
+
+        // L'opportunité a avancé à l'étape « proposition ».
+        $board = $this->withToken($token)->getJson('/api/v1/crm/opportunites');
+        $this->assertCount(1, $board->json('colonnes.proposition'));
+    }
+
+    public function test_client_timeline_aggregates_activities_opportunities_documents(): void
+    {
+        $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $this->activerCrm($token);
+        $client = $this->client($token);
+
+        $this->opportunite($token, $client['id'], ['titre' => 'Affaire A']);
+        $this->withToken($token)->postJson('/api/v1/crm/activites', [
+            'tiers_id' => $client['id'], 'type' => 'appel', 'sujet' => 'Premier contact', 'fait' => true,
+        ]);
+        $this->withToken($token)->postJson('/api/v1/ventes/documents', [
+            'type' => 'devis', 'tiers_id' => $client['id'],
+            'lignes' => [['designation' => 'Étude', 'quantite' => 1, 'prix_unitaire' => 5000, 'tva_rate' => 20]],
+        ]);
+
+        $timeline = $this->withToken($token)->getJson("/api/v1/crm/tiers/{$client['id']}/timeline");
+        $timeline->assertOk();
+        $kinds = collect($timeline->json('data'))->pluck('kind');
+        $this->assertCount(3, $kinds);
+        $this->assertEqualsCanonicalizing(['activite', 'opportunite', 'document'], $kinds->all());
+    }
+
+    public function test_timeline_is_gated_and_scoped(): void
+    {
+        $tokenA = $this->registerTenant('Tenant A', 'a@test.ma');
+        $client = $this->client($tokenA);
+
+        // CRM off → 403.
+        $this->withToken($tokenA)->getJson("/api/v1/crm/tiers/{$client['id']}/timeline")->assertForbidden();
+    }
+
     public function test_opportunities_are_tenant_scoped(): void
     {
         $tokenA = $this->registerTenant('Tenant A', 'a@test.ma');
