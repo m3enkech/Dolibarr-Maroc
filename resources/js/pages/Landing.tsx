@@ -463,7 +463,7 @@ function Hero() {
             <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
                 <div>
                     <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                        <span aria-hidden>🇲🇦</span> Conforme CGNC · SIMPL-TVA · E-facture 2026
+                        <MorocFlag /> Conforme CGNC · SIMPL-TVA · E-facture 2026
                     </div>
                     <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
                         La gestion de votre entreprise, <span className="text-emerald-600">conforme au Maroc</span>
@@ -557,7 +557,7 @@ function MarocSection() {
             <div className="mx-auto max-w-6xl px-4 sm:px-6">
                 <div className="mx-auto max-w-2xl text-center">
                     <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
-                        <span aria-hidden>🇲🇦</span> 100 % réglementation marocaine
+                        <MorocFlag /> 100 % réglementation marocaine
                     </div>
                     <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                         Conçu pour le Maroc, pas adapté après coup
@@ -794,7 +794,9 @@ function Footer() {
                 </div>
                 <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-slate-800 pt-6 text-xs text-slate-500 sm:flex-row">
                     <span>© 2026 Dolibarr Maroc. Tous droits réservés.</span>
-                    <span>Fait avec soin au Maroc 🇲🇦</span>
+                    <span className="inline-flex items-center gap-1.5">
+                        Fait avec soin au Maroc <MorocFlag className="h-3 w-4" />
+                    </span>
                 </div>
             </div>
         </footer>
