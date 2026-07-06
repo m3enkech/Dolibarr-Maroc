@@ -3,6 +3,7 @@ import type { DocumentStatut, DocumentType, DocumentVente } from '@/types';
 export const TYPE_LABELS: Record<DocumentType, string> = {
     devis: 'Devis',
     commande: 'Commande',
+    bon_livraison: 'Bon de livraison',
     facture: 'Facture',
     avoir: 'Avoir',
 };
@@ -10,6 +11,7 @@ export const TYPE_LABELS: Record<DocumentType, string> = {
 export const TYPE_LABELS_PLURAL: Record<DocumentType, string> = {
     devis: 'Devis',
     commande: 'Commandes',
+    bon_livraison: 'Bons de livraison',
     facture: 'Factures',
     avoir: 'Avoirs',
 };
@@ -31,6 +33,9 @@ export function statutLabel(doc: Pick<DocumentVente, 'type' | 'statut'>): string
     }
     if (doc.type === 'avoir' && doc.statut === 'paye') {
         return 'Remboursé';
+    }
+    if (doc.type === 'bon_livraison' && doc.statut === 'valide') {
+        return 'Livré';
     }
     const labels: Record<DocumentStatut, string> = {
         brouillon: 'Brouillon',

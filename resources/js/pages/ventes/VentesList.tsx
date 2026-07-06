@@ -6,7 +6,7 @@ import { formatMAD } from '@/lib/format';
 import { statutClasses, statutLabel, TYPE_LABELS, TYPE_LABELS_PLURAL } from '@/pages/ventes/common';
 import type { DocumentType, DocumentVente, Paginated } from '@/types';
 
-const TABS: DocumentType[] = ['devis', 'commande', 'facture', 'avoir'];
+const TABS: DocumentType[] = ['devis', 'commande', 'bon_livraison', 'facture', 'avoir'];
 
 export default function VentesList() {
     const [searchParams, setSearchParams] = useSearchParams();

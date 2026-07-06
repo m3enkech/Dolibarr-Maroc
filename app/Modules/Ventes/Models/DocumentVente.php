@@ -21,9 +21,10 @@ class DocumentVente extends Model
 
     public const TYPE_DEVIS = 'devis';
     public const TYPE_COMMANDE = 'commande';
+    public const TYPE_BON_LIVRAISON = 'bon_livraison';
     public const TYPE_FACTURE = 'facture';
     public const TYPE_AVOIR = 'avoir';
-    public const TYPES = [self::TYPE_DEVIS, self::TYPE_COMMANDE, self::TYPE_FACTURE, self::TYPE_AVOIR];
+    public const TYPES = [self::TYPE_DEVIS, self::TYPE_COMMANDE, self::TYPE_BON_LIVRAISON, self::TYPE_FACTURE, self::TYPE_AVOIR];
 
     public const STATUT_BROUILLON = 'brouillon';
     public const STATUT_VALIDE = 'valide';

@@ -5,6 +5,7 @@ namespace App\Modules\Ventes\Services;
 use App\Core\Sequences\SequenceService;
 use App\Modules\Catalogue\Models\Produit;
 use App\Modules\Ventes\Events\AvoirValide;
+use App\Modules\Ventes\Events\BonLivraisonValide;
 use App\Modules\Ventes\Events\CommandeValidee;
 use App\Modules\Ventes\Events\DevisValide;
 use App\Modules\Ventes\Events\FactureValidee;
@@ -19,6 +20,7 @@ class VenteService
     private const PREFIXES = [
         DocumentVente::TYPE_DEVIS => 'DE',
         DocumentVente::TYPE_COMMANDE => 'CO',
+        DocumentVente::TYPE_BON_LIVRAISON => 'BL',
         DocumentVente::TYPE_FACTURE => 'FA',
         DocumentVente::TYPE_AVOIR => 'AV',
     ];
@@ -103,6 +105,7 @@ class VenteService
             match ($document->type) {
                 DocumentVente::TYPE_DEVIS => event(new DevisValide($document)),
                 DocumentVente::TYPE_COMMANDE => event(new CommandeValidee($document)),
+                DocumentVente::TYPE_BON_LIVRAISON => event(new BonLivraisonValide($document)),
                 DocumentVente::TYPE_FACTURE => event(new FactureValidee($document)),
                 DocumentVente::TYPE_AVOIR => event(new AvoirValide($document)),
             };
@@ -132,16 +135,19 @@ class VenteService
     }
 
     /**
-     * Transforme un devis en commande/facture, une commande en facture, ou une
-     * facture validée/payée en avoir. Le nouveau document est un brouillon lié
-     * à sa source.
+     * Transforme un document en aval de la chaîne : devis → commande / BL /
+     * facture, commande → BL / facture, bon de livraison → facture, facture →
+     * avoir. Le nouveau document est un brouillon lié à sa source.
      */
     public function transformer(DocumentVente $source, string $targetType): DocumentVente
     {
         $allowed = match ($source->type) {
             DocumentVente::TYPE_DEVIS => in_array($source->statut, [DocumentVente::STATUT_VALIDE, DocumentVente::STATUT_ACCEPTE], true)
-                && in_array($targetType, [DocumentVente::TYPE_COMMANDE, DocumentVente::TYPE_FACTURE], true),
+                && in_array($targetType, [DocumentVente::TYPE_COMMANDE, DocumentVente::TYPE_BON_LIVRAISON, DocumentVente::TYPE_FACTURE], true),
             DocumentVente::TYPE_COMMANDE => $source->statut === DocumentVente::STATUT_VALIDE
+                && in_array($targetType, [DocumentVente::TYPE_BON_LIVRAISON, DocumentVente::TYPE_FACTURE], true),
+            // BL livré → facture (le stock est déjà sorti à la livraison).
+            DocumentVente::TYPE_BON_LIVRAISON => $source->statut === DocumentVente::STATUT_VALIDE
                 && $targetType === DocumentVente::TYPE_FACTURE,
             // Avoir : uniquement depuis une facture émise (validée ou payée).
             DocumentVente::TYPE_FACTURE => in_array($source->statut, [DocumentVente::STATUT_VALIDE, DocumentVente::STATUT_PAYE], true)

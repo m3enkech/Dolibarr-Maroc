@@ -81,7 +81,7 @@ class VentesController extends Controller
     public function transformer(Request $request, DocumentVente $document): DocumentVenteResource
     {
         $data = $request->validate([
-            'type' => ['required', Rule::in([DocumentVente::TYPE_COMMANDE, DocumentVente::TYPE_FACTURE, DocumentVente::TYPE_AVOIR])],
+            'type' => ['required', Rule::in([DocumentVente::TYPE_COMMANDE, DocumentVente::TYPE_BON_LIVRAISON, DocumentVente::TYPE_FACTURE, DocumentVente::TYPE_AVOIR])],
         ]);
 
         return new DocumentVenteResource($this->service->transformer($document, $data['type']));

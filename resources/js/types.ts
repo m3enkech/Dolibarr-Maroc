@@ -84,7 +84,7 @@ export interface Produit {
     updated_at: string;
 }
 
-export type DocumentType = 'devis' | 'commande' | 'facture' | 'avoir';
+export type DocumentType = 'devis' | 'commande' | 'bon_livraison' | 'facture' | 'avoir';
 export type DocumentStatut = 'brouillon' | 'valide' | 'accepte' | 'refuse' | 'paye';
 
 export interface DocumentVenteLigne {

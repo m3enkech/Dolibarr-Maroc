@@ -30,7 +30,7 @@
 </head>
 <body>
 @php
-    $titles = ['devis' => 'Devis', 'commande' => 'Bon de commande', 'facture' => 'Facture', 'avoir' => 'Avoir'];
+    $titles = ['devis' => 'Devis', 'commande' => 'Bon de commande', 'bon_livraison' => 'Bon de livraison', 'facture' => 'Facture', 'avoir' => 'Avoir'];
     $fmt = fn ($v) => number_format((float) $v, 2, ',', ' ');
 @endphp
 

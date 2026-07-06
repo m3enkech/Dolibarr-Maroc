@@ -180,12 +180,25 @@ export default function VenteDetail() {
                                 <button onClick={() => transformer.mutate('commande')} className={btnSecondary}>
                                     → Commande
                                 </button>
+                                <button onClick={() => transformer.mutate('bon_livraison')} className={btnSecondary}>
+                                    → Bon de livraison
+                                </button>
                                 <button onClick={() => transformer.mutate('facture')} className={btnSecondary}>
                                     → Facture
                                 </button>
                             </>
                         )}
                         {doc.type === 'commande' && doc.statut === 'valide' && (
+                            <>
+                                <button onClick={() => transformer.mutate('bon_livraison')} className={btnSecondary}>
+                                    → Bon de livraison
+                                </button>
+                                <button onClick={() => transformer.mutate('facture')} className={btnSecondary}>
+                                    → Facture
+                                </button>
+                            </>
+                        )}
+                        {doc.type === 'bon_livraison' && doc.statut === 'valide' && (
                             <button onClick={() => transformer.mutate('facture')} className={btnSecondary}>
                                 → Facture
                             </button>
