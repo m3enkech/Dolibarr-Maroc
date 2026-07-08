@@ -6,6 +6,7 @@ use App\Modules\Tiers\TiersServiceProvider;
 use App\Modules\Achats\AchatsServiceProvider;
 use App\Modules\Compta\ComptaServiceProvider;
 use App\Modules\Crm\CrmServiceProvider;
+use App\Modules\Dashboard\DashboardServiceProvider;
 use App\Modules\Effets\EffetsServiceProvider;
 use App\Modules\Equipe\EquipeServiceProvider;
 use App\Modules\Parametres\ParametresServiceProvider;
@@ -32,4 +33,5 @@ return [
     EffetsServiceProvider::class,
     CrmServiceProvider::class,
     EquipeServiceProvider::class,
+    DashboardServiceProvider::class,
 ];

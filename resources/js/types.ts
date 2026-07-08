@@ -475,6 +475,35 @@ export interface EquipeData {
     subscription: Subscription;
 }
 
+export interface DashboardKpi {
+    value: number;
+    previous?: number;
+    variation_pct?: number | null;
+}
+
+export interface DashboardData {
+    periode: { mois: string; annee: number };
+    capabilities: { ventes: boolean; compta: boolean; achats: boolean; stock: boolean };
+    kpis: {
+        ca_mois?: DashboardKpi;
+        ca_annee?: DashboardKpi;
+        encaissements_mois?: DashboardKpi;
+        tresorerie?: DashboardKpi;
+        resultat?: DashboardKpi;
+        creances?: { total: number; echu: number };
+        dettes?: { total: number };
+    };
+    ventes_12_mois: { mois: string; ca: number; achats?: number }[];
+    repartition_ventes: { devis: number; commandes: number; factures: number } | null;
+    top_clients: { tiers_id: number | null; name: string; total: number }[];
+    top_produits: { produit_id: number; name: string; total: number; quantite: number }[];
+    alertes: {
+        factures_echues?: { count: number; montant: number };
+        devis_attente?: { count: number };
+        stock_sous_seuil?: { count: number };
+    };
+}
+
 export interface RelanceLigne {
     document_vente_id: number;
     code: string;
