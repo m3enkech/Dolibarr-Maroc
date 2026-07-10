@@ -11,6 +11,7 @@ interface AuthState {
     login: (email: string, password: string) => Promise<void>;
     register: (payload: RegisterPayload) => Promise<void>;
     acceptInvitation: (token: string, name: string, password: string) => Promise<void>;
+    updateUser: (user: User) => void;
     logout: () => Promise<void>;
     /** L'utilisateur a-t-il ce niveau d'accès sur un module ? */
     can: (domaine: string, action?: PermissionLevel) => boolean;
@@ -72,6 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         persist(data);
     };
 
+    const updateUser = (u: User) => {
+        localStorage.setItem('user', JSON.stringify(u));
+        setUser(u);
+    };
+
     const logout = async () => {
         try {
             await api.post('/auth/logout');
@@ -107,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 login,
                 register,
                 acceptInvitation,
+                updateUser,
                 logout,
                 can,
             }}

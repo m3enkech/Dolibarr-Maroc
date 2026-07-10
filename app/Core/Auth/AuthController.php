@@ -102,4 +102,21 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Déconnecté.']);
     }
+
+    /** Mise à jour du profil de l'utilisateur connecté (nom). */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $user = $request->user();
+        $user->update(['name' => $data['name']]);
+
+        return response()->json([
+            'user' => $user->refresh(),
+            'tenant' => $user->tenant,
+            'permissions' => $user->permissionsMap(),
+        ]);
+    }
 }

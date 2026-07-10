@@ -8,6 +8,9 @@ import Dashboard from '@/pages/Dashboard';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Rejoindre from '@/pages/Rejoindre';
+import MotDePasseOublie from '@/pages/MotDePasseOublie';
+import Reinitialiser from '@/pages/Reinitialiser';
+import Profil from '@/pages/Profil';
 import Equipe from '@/pages/equipe/Equipe';
 import CategoriesProduit from '@/pages/catalogue/CategoriesProduit';
 import ProduitForm from '@/pages/catalogue/ProduitForm';
@@ -47,6 +50,8 @@ function App() {
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
                         <Route path="/rejoindre/:token" element={<Rejoindre />} />
+                        <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
+                        <Route path="/reinitialiser/:token" element={<Reinitialiser />} />
                         {/* Caisse : plein écran, hors du Layout applicatif. */}
                         <Route
                             path="/caisse"
@@ -85,6 +90,7 @@ function App() {
                             <Route path="/effets" element={<Effets />} />
                             <Route path="/compta" element={<ComptaPage />} />
                             <Route path="/equipe" element={<Equipe />} />
+                            <Route path="/profil" element={<Profil />} />
                             <Route path="/parametres" element={<Parametres />} />
                         </Route>
                         <Route path="*" element={<Navigate to="/" replace />} />

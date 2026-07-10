@@ -98,7 +98,10 @@ export default function Layout() {
             <div className="flex flex-1 flex-col">
                 <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
                     <div className="text-sm text-slate-500">
-                        Connecté en tant que <span className="font-medium text-slate-800">{user?.name}</span>
+                        Connecté en tant que{' '}
+                        <NavLink to="/profil" className="font-medium text-slate-800 hover:text-emerald-600 hover:underline">
+                            {user?.name}
+                        </NavLink>
                         {user?.role && (
                             <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">
                                 {user.role}
