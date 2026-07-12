@@ -18,8 +18,10 @@ RUN npm run build
 FROM composer:2 AS vendor
 WORKDIR /app
 # 1) Deps seules (couche mise en cache tant que composer.lock ne change pas).
+#    --ignore-platform-reqs : l'image composer n'a pas gd/pgsql/... mais l'image
+#    runtime (étape 3) les fournit ; ici on ne fait que télécharger les paquets.
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --prefer-dist --no-interaction --no-autoloader
+RUN composer install --no-dev --no-scripts --prefer-dist --no-interaction --no-autoloader --ignore-platform-reqs
 # 2) Code source complet puis autoloader optimisé (classmap complet app/+database/).
 COPY . .
 RUN composer dump-autoload --no-dev --optimize
