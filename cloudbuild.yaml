@@ -1,0 +1,43 @@
+# Pipeline CI/CD Cloud Build : build de l'image -> push Artifact Registry ->
+# déploiement Cloud Run. Le déploiement ne change QUE l'image : la config du
+# service (env vars, secrets, Cloud SQL) posée au 1er deploy est conservée.
+#
+# Déclenché automatiquement par le trigger GitHub (push sur master), qui passe
+# _TAG=$SHORT_SHA pour une image traçable par commit. En lancement manuel
+# (gcloud builds submit --config cloudbuild.yaml), _TAG vaut "latest".
+
+substitutions:
+  _REGION: europe-west9
+  _SERVICE: dolibarr-maroc
+  _IMAGE: europe-west9-docker.pkg.dev/moncomtablema/apps/dolibarr-maroc
+  _TAG: latest
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args: ['build', '-t', '${_IMAGE}:${_TAG}', '-t', '${_IMAGE}:latest', '.']
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: ['push', '--all-tags', '${_IMAGE}']
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_IMAGE}:${_TAG}
+      - --region=${_REGION}
+      - --quiet
+
+images:
+  - '${_IMAGE}:${_TAG}'
+  - '${_IMAGE}:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+timeout: 1200s
