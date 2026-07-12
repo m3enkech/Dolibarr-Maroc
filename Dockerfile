@@ -51,8 +51,10 @@ COPY . .
 COPY --from=vendor /app/vendor ./vendor
 COPY --from=assets /app/public/build ./public/build
 
-# Structure storage garantie + droits d'écriture pour php-fpm (www-data).
-RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
+# Structure storage garantie + purge d'un éventuel manifeste de cache périmé
+# (packages.php/services.php avec des providers de dev) + droits d'écriture.
+RUN rm -f bootstrap/cache/*.php \
+    && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R ug+rw storage bootstrap/cache
 

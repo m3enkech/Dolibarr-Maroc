@@ -3,6 +3,10 @@ node_modules
 vendor
 public/build
 
+# Manifestes de cache Laravel générés en local (packages.php/services.php avec
+# des deps de DEV comme Pail) — régénérés proprement au runtime.
+bootstrap/cache
+
 # Git & CI
 .git
 .github
