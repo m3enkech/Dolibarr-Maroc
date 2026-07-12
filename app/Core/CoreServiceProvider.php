@@ -3,6 +3,7 @@
 namespace App\Core;
 
 use App\Core\Auth\SetSuperadminCommand;
+use App\Core\Console\DemoSeedCommand;
 use App\Core\Tenancy\TenantContext;
 use Illuminate\Support\ServiceProvider;
 
@@ -17,7 +18,7 @@ class CoreServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([SetSuperadminCommand::class]);
+            $this->commands([SetSuperadminCommand::class, DemoSeedCommand::class]);
         }
     }
 }
