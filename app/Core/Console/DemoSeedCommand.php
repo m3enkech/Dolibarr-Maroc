@@ -21,7 +21,7 @@ use Illuminate\Console\Command;
  */
 class DemoSeedCommand extends Command
 {
-    protected $signature = 'demo:seed {email}';
+    protected $signature = 'demo:seed {email} {--force : Ajoute les données même si l\'entreprise en a déjà}';
 
     protected $description = 'Insère des données de démonstration dans le tenant de l\'utilisateur donné';
 
@@ -43,8 +43,8 @@ class DemoSeedCommand extends Command
         $tenant = $user->tenant;
         $context->set($tenant); // active le scope tenant pour toute la commande
 
-        if (DocumentVente::query()->exists()) {
-            $this->warn("L'entreprise « {$tenant->name} » contient déjà des ventes — seed ignoré pour éviter les doublons.");
+        if (DocumentVente::query()->exists() && ! $this->option('force')) {
+            $this->warn("L'entreprise « {$tenant->name} » contient déjà des ventes — seed ignoré (utilisez --force pour ajouter quand même).");
 
             return self::SUCCESS;
         }
