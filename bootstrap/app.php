@@ -13,6 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Derrière le proxy de Cloud Run (TLS terminé au proxy), faire confiance
+        // aux en-têtes X-Forwarded-* pour que Laravel génère des URLs en https
+        // (sinon les assets sont référencés en http -> bloqués en mixed content).
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'tenant' => \App\Core\Tenancy\SetTenantContext::class,
             'superadmin' => \App\Core\Auth\EnsureSuperadmin::class,
