@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'slug', 'plan', 'extra_seats', 'settings'])]
+#[Fillable(['name', 'slug', 'plan', 'extra_seats', 'suspended_at', 'settings'])]
 class Tenant extends Model
 {
     /**
@@ -26,7 +26,22 @@ class Tenant extends Model
     {
         return [
             'settings' => 'array',
+            'suspended_at' => 'datetime',
         ];
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
+    }
+
+    /** Abonnement mensuel indicatif = prix du plan + sièges extra (MAD HT). */
+    public function estimatedMonthly(): int
+    {
+        $plans = config('plans.plans');
+        $prix = (int) ($plans[$this->plan]['price'] ?? 0);
+
+        return $prix + (int) $this->extra_seats * (int) config('plans.extra_seat_price');
     }
 
     public function users(): HasMany

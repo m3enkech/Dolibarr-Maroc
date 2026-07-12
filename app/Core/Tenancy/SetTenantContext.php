@@ -20,6 +20,11 @@ class SetTenantContext
             abort(403, 'Aucun tenant associé à cet utilisateur.');
         }
 
+        // Superadmin plateforme : jamais bloqué par une suspension.
+        if ($user->tenant?->isSuspended() && ! $user->isSuperadmin()) {
+            abort(403, 'L\'accès de votre entreprise est suspendu.');
+        }
+
         app(TenantContext::class)->set($user->tenant);
 
         return $next($request);

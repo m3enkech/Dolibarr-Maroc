@@ -475,6 +475,40 @@ export interface EquipeData {
     subscription: Subscription;
 }
 
+export interface SuperadminTenant {
+    id: number;
+    name: string;
+    slug: string;
+    plan: string;
+    plan_label: string;
+    included_seats: number;
+    extra_seats: number;
+    seat_limit: number;
+    seats_used: number;
+    users_count: number;
+    suspended: boolean;
+    suspended_at: string | null;
+    estimated_monthly: number;
+    created_at: string;
+}
+
+export interface SuperadminStats {
+    tenants_total: number;
+    tenants_active: number;
+    tenants_suspended: number;
+    users_total: number;
+    users_active: number;
+    by_plan: Record<string, number>;
+    extra_seats_sold: number;
+    mrr_estimated: number;
+}
+
+export interface SuperadminData {
+    tenants: SuperadminTenant[];
+    stats: SuperadminStats;
+    plans: { value: string; label: string; price: number }[];
+}
+
 export interface DashboardKpi {
     value: number;
     previous?: number;

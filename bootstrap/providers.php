@@ -12,6 +12,7 @@ use App\Modules\Equipe\EquipeServiceProvider;
 use App\Modules\Parametres\ParametresServiceProvider;
 use App\Modules\Pos\PosServiceProvider;
 use App\Modules\Relances\RelancesServiceProvider;
+use App\Modules\Superadmin\SuperadminServiceProvider;
 use App\Modules\Stock\StockServiceProvider;
 use App\Modules\Ventes\VentesServiceProvider;
 use App\Providers\AppServiceProvider;
@@ -34,4 +35,5 @@ return [
     CrmServiceProvider::class,
     EquipeServiceProvider::class,
     DashboardServiceProvider::class,
+    SuperadminServiceProvider::class,
 ];

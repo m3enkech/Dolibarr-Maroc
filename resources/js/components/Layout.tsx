@@ -14,6 +14,8 @@ interface MenuItem {
     feature?: 'crm' | 'relances' | 'effets';
     /** Module non encore livré. */
     soon?: boolean;
+    /** Réservé au superadmin plateforme. */
+    superadmin?: boolean;
 }
 
 export default function Layout() {
@@ -35,10 +37,12 @@ export default function Layout() {
         { to: '/effets', label: 'Effets (LCN)', icon: '🧾', domain: 'effets', feature: 'effets' },
         { to: '/rh', label: 'RH & Projets', icon: '🗂', soon: true },
         { to: '/equipe', label: 'Équipe', icon: '🧑‍🤝‍🧑', domain: 'equipe', write: true },
+        { to: '/superadmin', label: 'Administration', icon: '🛡', superadmin: true },
         { to: '/parametres', label: 'Paramètres', icon: '⚙', domain: 'parametres', write: true },
     ];
 
     const visible = items.filter((m) => {
+        if (m.superadmin) return Boolean(user?.is_superadmin);
         if (m.soon) return true; // affiché grisé
         if (m.feature && !features[m.feature]) return false;
         if (m.domain && !can(m.domain, m.write ? 'write' : 'read')) return false;

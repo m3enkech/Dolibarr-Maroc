@@ -77,6 +77,12 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($user->tenant?->isSuspended()) {
+            throw ValidationException::withMessages([
+                'email' => 'L\'accès de votre entreprise est suspendu. Contactez le support.',
+            ]);
+        }
+
         return response()->json([
             'token' => $user->createToken('spa')->plainTextToken,
             'user' => $user,

@@ -12,6 +12,7 @@ import MotDePasseOublie from '@/pages/MotDePasseOublie';
 import Reinitialiser from '@/pages/Reinitialiser';
 import Profil from '@/pages/Profil';
 import Equipe from '@/pages/equipe/Equipe';
+import Superadmin from '@/pages/superadmin/Superadmin';
 import CategoriesProduit from '@/pages/catalogue/CategoriesProduit';
 import ProduitForm from '@/pages/catalogue/ProduitForm';
 import ProduitsList from '@/pages/catalogue/ProduitsList';
@@ -90,6 +91,7 @@ function App() {
                             <Route path="/effets" element={<Effets />} />
                             <Route path="/compta" element={<ComptaPage />} />
                             <Route path="/equipe" element={<Equipe />} />
+                            <Route path="/superadmin" element={<Superadmin />} />
                             <Route path="/profil" element={<Profil />} />
                             <Route path="/parametres" element={<Parametres />} />
                         </Route>
