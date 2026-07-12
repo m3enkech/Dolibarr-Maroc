@@ -23,8 +23,10 @@ WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --prefer-dist --no-interaction --no-autoloader --ignore-platform-reqs
 # 2) Code source complet puis autoloader optimisé (classmap complet app/+database/).
+#    --no-scripts : on n'exécute PAS package:discover ici (il exige bootstrap/cache
+#    et un manifeste propre) ; l'entrypoint le régénère au runtime.
 COPY . .
-RUN composer dump-autoload --no-dev --optimize
+RUN composer dump-autoload --no-dev --optimize --no-scripts
 
 # --- Étape 3 : runtime ---
 FROM php:8.4-fpm-alpine AS runtime
