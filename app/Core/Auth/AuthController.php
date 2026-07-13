@@ -35,6 +35,8 @@ class AuthController extends Controller
             $tenant = Tenant::create([
                 'name' => $data['company_name'],
                 'slug' => $slug,
+                'subscription_status' => 'essai',
+                'trial_ends_at' => now()->addDays(14), // 14 jours d'essai
             ]);
 
             $user = User::create([

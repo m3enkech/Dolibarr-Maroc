@@ -5,36 +5,38 @@ namespace App\Modules\Superadmin\Http\Controllers;
 use App\Core\Auth\Roles;
 use App\Core\Tenancy\Tenant;
 use App\Http\Controllers\Controller;
+use App\Models\SubscriptionPayment;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 /**
  * Console d'administration PLATEFORME (réservée au superadmin). Opère
- * CROSS-TENANT : liste et pilote toutes les entreprises clientes. N'utilise
- * pas le middleware 'tenant' (pas de contexte tenant). Le modèle Tenant et le
- * modèle User ne portent pas le scope tenant, les requêtes sont donc globales.
+ * CROSS-TENANT : liste et pilote toutes les entreprises clientes, leurs
+ * abonnements (mensuel/annuel, statut, échéance) et le suivi des paiements.
  */
 class SuperadminController extends Controller
 {
     /** Vue d'ensemble : entreprises + statistiques globales. */
     public function index(): JsonResponse
     {
-        $tenants = Tenant::query()->orderByDesc('created_at')->get();
+        $tenants = Tenant::query()->withCount('payments')->orderByDesc('created_at')->get();
 
         return response()->json([
             'data' => [
                 'tenants' => $tenants->map(fn (Tenant $t) => $this->tenantItem($t))->values(),
                 'stats' => $this->stats($tenants),
                 'plans' => collect(config('plans.plans'))
-                    ->map(fn ($p, $cle) => ['value' => $cle, 'label' => $p['label'], 'price' => $p['price']])
+                    ->map(fn ($p, $cle) => ['value' => $cle, 'label' => $p['label'], 'price' => $p['price'], 'price_annual' => $p['price_annual']])
                     ->values(),
+                'methods' => SubscriptionPayment::METHODS,
             ],
         ]);
     }
 
-    /** Détail d'une entreprise avec ses utilisateurs. */
+    /** Détail d'une entreprise : utilisateurs + historique des paiements. */
     public function show(Tenant $tenant): JsonResponse
     {
         $users = $tenant->users()->orderByDesc('is_active')->orderBy('name')->get()
@@ -49,18 +51,35 @@ class SuperadminController extends Controller
                 'created_at' => $u->created_at,
             ]);
 
+        $payments = $tenant->payments()->latest('paid_at')->latest('id')->get()
+            ->map(fn (SubscriptionPayment $p) => [
+                'id' => $p->id,
+                'amount' => (float) $p->amount,
+                'method' => $p->method,
+                'paid_at' => $p->paid_at->toDateString(),
+                'period_start' => $p->period_start->toDateString(),
+                'period_end' => $p->period_end->toDateString(),
+                'reference' => $p->reference,
+                'note' => $p->note,
+            ]);
+
         return response()->json(['data' => [
             'tenant' => $this->tenantItem($tenant),
             'users' => $users,
+            'payments' => $payments,
         ]]);
     }
 
-    /** Change le plan et/ou les sièges extra d'une entreprise. */
+    /** Change le plan, les sièges extra et le cycle/statut d'abonnement. */
     public function update(Request $request, Tenant $tenant): JsonResponse
     {
         $data = $request->validate([
             'plan' => ['sometimes', 'string', Rule::in(array_keys(config('plans.plans')))],
             'extra_seats' => ['sometimes', 'integer', 'min:0', 'max:1000'],
+            'billing_cycle' => ['sometimes', 'string', Rule::in(['mensuel', 'annuel'])],
+            'subscription_status' => ['sometimes', 'string', Rule::in(['essai', 'actif', 'annule'])],
+            'trial_ends_at' => ['sometimes', 'nullable', 'date'],
+            'current_period_end' => ['sometimes', 'nullable', 'date'],
         ]);
 
         $tenant->update($data);
@@ -68,7 +87,46 @@ class SuperadminController extends Controller
         return response()->json(['data' => $this->tenantItem($tenant->refresh())]);
     }
 
-    /** Suspend l'accès d'une entreprise (ses utilisateurs sont coupés). */
+    /** Enregistre un paiement d'abonnement : avance l'échéance et réactive. */
+    public function enregistrerPaiement(Request $request, Tenant $tenant): JsonResponse
+    {
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0'],
+            'method' => ['required', 'string', Rule::in(SubscriptionPayment::METHODS)],
+            'paid_at' => ['sometimes', 'date'],
+            'reference' => ['nullable', 'string', 'max:100'],
+            'note' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $paidAt = isset($data['paid_at']) ? Carbon::parse($data['paid_at']) : now();
+
+        // La nouvelle période démarre à la fin de la période payée en cours si
+        // elle est encore à venir (renouvellement continu), sinon au jour du paiement.
+        $start = ($tenant->current_period_end && $tenant->current_period_end->isFuture())
+            ? $tenant->current_period_end->copy()
+            : $paidAt->copy();
+        $end = $start->copy()->addMonthsNoOverflow($tenant->isAnnual() ? 12 : 1);
+
+        $tenant->payments()->create([
+            'amount' => $data['amount'],
+            'method' => $data['method'],
+            'paid_at' => $paidAt->toDateString(),
+            'period_start' => $start->toDateString(),
+            'period_end' => $end->toDateString(),
+            'reference' => $data['reference'] ?? null,
+            'note' => $data['note'] ?? null,
+            'recorded_by' => $request->user()->id,
+        ]);
+
+        $tenant->update([
+            'current_period_end' => $end->toDateString(),
+            'subscription_status' => 'actif',
+            'subscription_started_at' => $tenant->subscription_started_at ?? now(),
+        ]);
+
+        return response()->json(['data' => $this->tenantItem($tenant->refresh())]);
+    }
+
     public function suspend(Request $request, Tenant $tenant): JsonResponse
     {
         abort_if($tenant->id === $request->user()->tenant_id, 422, 'Vous ne pouvez pas suspendre votre propre entreprise.');
@@ -78,7 +136,6 @@ class SuperadminController extends Controller
         return response()->json(['data' => $this->tenantItem($tenant->refresh())]);
     }
 
-    /** Réactive une entreprise suspendue. */
     public function reactivate(Tenant $tenant): JsonResponse
     {
         $tenant->update(['suspended_at' => null]);
@@ -89,6 +146,7 @@ class SuperadminController extends Controller
     private function tenantItem(Tenant $tenant): array
     {
         $plans = config('plans.plans');
+        $dernier = $tenant->payments()->latest('paid_at')->latest('id')->first();
 
         return [
             'id' => $tenant->id,
@@ -102,27 +160,48 @@ class SuperadminController extends Controller
             'seats_used' => $tenant->seatsUsed(),
             'users_count' => $tenant->users()->count(),
             'suspended' => $tenant->isSuspended(),
-            'suspended_at' => $tenant->suspended_at,
-            'estimated_monthly' => $tenant->estimatedMonthly(),
+            // Abonnement
+            'billing_cycle' => $tenant->billing_cycle,
+            'subscription_status' => $tenant->subscription_status,
+            'effective_status' => $tenant->effectiveStatus(),
+            'trial_ends_at' => $tenant->trial_ends_at?->toDateString(),
+            'current_period_end' => $tenant->current_period_end?->toDateString(),
+            'next_due' => $tenant->subscription_status === 'essai'
+                ? $tenant->trial_ends_at?->toDateString()
+                : $tenant->current_period_end?->toDateString(),
+            'subscription_amount' => $tenant->subscriptionAmount(),
+            'mrr' => $tenant->mrr(),
+            'payments_count' => (int) ($tenant->payments_count ?? $tenant->payments()->count()),
+            'last_payment' => $dernier ? ['amount' => (float) $dernier->amount, 'paid_at' => $dernier->paid_at->toDateString()] : null,
             'created_at' => $tenant->created_at,
         ];
     }
 
     private function stats($tenants): array
     {
-        $actifs = $tenants->filter(fn (Tenant $t) => ! $t->isSuspended());
+        $encaisseMois = (float) SubscriptionPayment::query()
+            ->whereYear('paid_at', now()->year)
+            ->whereMonth('paid_at', now()->month)
+            ->sum('amount');
+
+        // MRR = entreprises payantes (actif/en retard, non suspendues, non annulées).
+        $payantes = $tenants->filter(fn (Tenant $t) => ! $t->isSuspended()
+            && $t->subscription_status === 'actif');
 
         return [
             'tenants_total' => $tenants->count(),
-            'tenants_active' => $actifs->count(),
-            'tenants_suspended' => $tenants->count() - $actifs->count(),
+            'tenants_active' => $tenants->filter(fn (Tenant $t) => ! $t->isSuspended())->count(),
+            'tenants_suspended' => $tenants->filter(fn (Tenant $t) => $t->isSuspended())->count(),
+            'en_essai' => $tenants->filter(fn (Tenant $t) => $t->effectiveStatus() === 'essai')->count(),
+            'en_retard' => $tenants->filter(fn (Tenant $t) => $t->effectiveStatus() === 'en_retard')->count(),
             'users_total' => User::count(),
             'users_active' => User::where('is_active', true)->count(),
             'by_plan' => collect(config('plans.plans'))->keys()
                 ->mapWithKeys(fn ($cle) => [$cle => $tenants->where('plan', $cle)->count()])
                 ->all(),
             'extra_seats_sold' => (int) $tenants->sum('extra_seats'),
-            'mrr_estimated' => (int) $actifs->sum(fn (Tenant $t) => $t->estimatedMonthly()),
+            'mrr_estimated' => round($payantes->sum(fn (Tenant $t) => $t->mrr()), 2),
+            'encaisse_mois' => $encaisseMois,
         ];
     }
 }

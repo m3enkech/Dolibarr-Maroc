@@ -3,12 +3,16 @@
 namespace App\Core\Tenancy;
 
 use App\Models\Invitation;
+use App\Models\SubscriptionPayment;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'slug', 'plan', 'extra_seats', 'suspended_at', 'settings'])]
+#[Fillable([
+    'name', 'slug', 'plan', 'extra_seats', 'suspended_at', 'settings',
+    'billing_cycle', 'subscription_status', 'trial_ends_at', 'current_period_end', 'subscription_started_at',
+])]
 class Tenant extends Model
 {
     /**
@@ -27,12 +31,26 @@ class Tenant extends Model
         return [
             'settings' => 'array',
             'suspended_at' => 'datetime',
+            'trial_ends_at' => 'datetime',
+            'current_period_end' => 'date',
+            'subscription_started_at' => 'datetime',
         ];
     }
 
     public function isSuspended(): bool
     {
         return $this->suspended_at !== null;
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(SubscriptionPayment::class);
+    }
+
+    /** Cycle annuel ? (sinon mensuel). */
+    public function isAnnual(): bool
+    {
+        return $this->billing_cycle === 'annuel';
     }
 
     /** Abonnement mensuel indicatif = prix du plan + sièges extra (MAD HT). */
@@ -42,6 +60,65 @@ class Tenant extends Model
         $prix = (int) ($plans[$this->plan]['price'] ?? 0);
 
         return $prix + (int) $this->extra_seats * (int) config('plans.extra_seat_price');
+    }
+
+    /** Montant facturé pour la période courante selon le cycle (mensuel ou annuel). */
+    public function subscriptionAmount(): int
+    {
+        $plans = config('plans.plans');
+        $extraPar = (int) config('plans.extra_seat_price');
+        $extra = (int) $this->extra_seats;
+
+        if ($this->isAnnual()) {
+            $prix = (int) ($plans[$this->plan]['price_annual'] ?? 0);
+
+            return $prix + $extra * $extraPar * 12;
+        }
+
+        return (int) ($plans[$this->plan]['price'] ?? 0) + $extra * $extraPar;
+    }
+
+    /** Revenu mensuel récurrent (annuel ramené au mois). */
+    public function mrr(): float
+    {
+        return $this->isAnnual()
+            ? round($this->subscriptionAmount() / 12, 2)
+            : (float) $this->subscriptionAmount();
+    }
+
+    /** L'échéance est-elle dépassée sans paiement ? (essai expiré ou période échue). */
+    public function isPastDue(): bool
+    {
+        if ($this->subscription_status === 'annule' || $this->isSuspended()) {
+            return false;
+        }
+        if ($this->subscription_status === 'essai') {
+            return $this->trial_ends_at !== null && $this->trial_ends_at->isPast();
+        }
+
+        return $this->current_period_end !== null && $this->current_period_end->isPast();
+    }
+
+    /**
+     * Statut d'abonnement effectif pour l'affichage :
+     * suspendu > annulé > en_retard > essai > actif.
+     */
+    public function effectiveStatus(): string
+    {
+        if ($this->isSuspended()) {
+            return 'suspendu';
+        }
+        if ($this->subscription_status === 'annule') {
+            return 'annule';
+        }
+        if ($this->isPastDue()) {
+            return 'en_retard';
+        }
+        if ($this->subscription_status === 'essai') {
+            return 'essai';
+        }
+
+        return 'actif';
     }
 
     public function users(): HasMany

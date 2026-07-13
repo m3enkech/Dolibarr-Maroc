@@ -4,7 +4,19 @@ import { Navigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatMAD } from '@/lib/format';
-import type { EquipeUser, SuperadminData } from '@/types';
+import type { EquipeUser, SuperadminData, SuperadminPayment, SuperadminTenant } from '@/types';
+
+const STATUT: Record<string, { label: string; cls: string }> = {
+    essai: { label: 'Essai', cls: 'bg-indigo-100 text-indigo-700' },
+    actif: { label: 'Actif', cls: 'bg-emerald-100 text-emerald-700' },
+    en_retard: { label: 'En retard', cls: 'bg-red-100 text-red-700' },
+    suspendu: { label: 'Suspendu', cls: 'bg-slate-200 text-slate-600' },
+    annule: { label: 'Annulé', cls: 'bg-slate-200 text-slate-500' },
+};
+
+const METHOD_LABEL: Record<string, string> = {
+    virement: 'Virement', cmi: 'CMI (carte)', cheque: 'Chèque', especes: 'Espèces', autre: 'Autre',
+};
 
 function StatCard({ label, value, tone = 'slate' }: { label: string; value: string; tone?: string }) {
     return (
@@ -15,34 +27,145 @@ function StatCard({ label, value, tone = 'slate' }: { label: string; value: stri
     );
 }
 
-/** Ligne dépliable listant les utilisateurs d'une entreprise. */
-function UsersRow({ tenantId, colSpan }: { tenantId: number; colSpan: number }) {
-    const { data, isLoading } = useQuery({
-        queryKey: ['superadmin', 'tenant', tenantId],
+/** Détail dépliable : utilisateurs, sièges extra, paiement + historique. */
+function TenantDetail({ tenant, methods, colSpan }: { tenant: SuperadminTenant; methods: string[]; colSpan: number }) {
+    const queryClient = useQueryClient();
+    const [amount, setAmount] = useState(String(tenant.subscription_amount));
+    const [method, setMethod] = useState(methods[0] ?? 'virement');
+    const [reference, setReference] = useState('');
+    const [msg, setMsg] = useState<string | null>(null);
+
+    const { data } = useQuery({
+        queryKey: ['superadmin', 'tenant', tenant.id],
         queryFn: async () =>
-            (await api.get<{ data: { users: EquipeUser[] } }>(`/superadmin/tenants/${tenantId}`)).data.data.users,
+            (await api.get<{ data: { users: EquipeUser[]; payments: SuperadminPayment[] } }>(
+                `/superadmin/tenants/${tenant.id}`,
+            )).data.data,
+    });
+
+    const refresh = () => {
+        queryClient.invalidateQueries({ queryKey: ['superadmin', 'tenants'] });
+        queryClient.invalidateQueries({ queryKey: ['superadmin', 'tenant', tenant.id] });
+    };
+
+    const majSeats = useMutation({
+        mutationFn: (extra: number) => api.put(`/superadmin/tenants/${tenant.id}`, { extra_seats: extra }),
+        onSuccess: refresh,
+    });
+
+    const payer = useMutation({
+        mutationFn: () =>
+            api.post(`/superadmin/tenants/${tenant.id}/paiements`, {
+                amount: Number(amount), method, reference: reference || null,
+            }),
+        onSuccess: () => {
+            setMsg('Paiement enregistré ✓');
+            setReference('');
+            setTimeout(() => setMsg(null), 2500);
+            refresh();
+        },
+        onError: () => setMsg('Échec de l’enregistrement'),
     });
 
     return (
         <tr className="bg-slate-50/60">
-            <td colSpan={colSpan} className="px-4 py-3">
-                {isLoading ? (
-                    <span className="text-xs text-slate-400">Chargement…</span>
-                ) : (
-                    <div className="flex flex-wrap gap-2">
-                        {data?.map((u) => (
-                            <span
-                                key={u.id}
-                                className={`rounded-full px-2.5 py-1 text-xs ${
-                                    u.is_active ? 'bg-white text-slate-700' : 'bg-slate-200 text-slate-500 line-through'
-                                } border border-slate-200`}
+            <td colSpan={colSpan} className="px-4 py-4">
+                <div className="grid gap-6 lg:grid-cols-3">
+                    {/* Enregistrer un paiement */}
+                    <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Enregistrer un paiement
+                        </div>
+                        <div className="mt-2 space-y-2">
+                            <div className="flex gap-2">
+                                <input
+                                    type="number"
+                                    value={amount}
+                                    onChange={(e) => setAmount(e.target.value)}
+                                    className="w-28 rounded border border-slate-300 px-2 py-1 text-sm"
+                                    placeholder="Montant"
+                                />
+                                <select
+                                    value={method}
+                                    onChange={(e) => setMethod(e.target.value)}
+                                    className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm"
+                                >
+                                    {methods.map((m) => (
+                                        <option key={m} value={m}>{METHOD_LABEL[m] ?? m}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <input
+                                value={reference}
+                                onChange={(e) => setReference(e.target.value)}
+                                className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                                placeholder="Référence (n° virement, chèque…)"
+                            />
+                            <button
+                                onClick={() => payer.mutate()}
+                                disabled={payer.isPending || !amount}
+                                className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
                             >
-                                {u.name} · {u.role_label} · {u.email}
-                                {u.is_superadmin && ' ⭐'}
-                            </span>
-                        ))}
+                                Encaisser ({tenant.billing_cycle})
+                            </button>
+                            {msg && <div className="text-xs text-emerald-600">{msg}</div>}
+                        </div>
+                        <div className="mt-3 text-xs text-slate-500">
+                            Sièges extra :{' '}
+                            <input
+                                type="number"
+                                min={0}
+                                defaultValue={tenant.extra_seats}
+                                onBlur={(e) => {
+                                    const v = Number(e.target.value);
+                                    if (v !== tenant.extra_seats) majSeats.mutate(v);
+                                }}
+                                className="w-16 rounded border border-slate-200 px-2 py-0.5 text-xs"
+                            />
+                        </div>
                     </div>
-                )}
+
+                    {/* Historique des paiements */}
+                    <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Historique des paiements
+                        </div>
+                        {!data?.payments.length ? (
+                            <div className="mt-2 text-xs text-slate-400">Aucun paiement enregistré.</div>
+                        ) : (
+                            <ul className="mt-2 space-y-1 text-xs">
+                                {data.payments.map((p) => (
+                                    <li key={p.id} className="flex justify-between border-b border-slate-100 pb-1">
+                                        <span>
+                                            {new Date(p.paid_at).toLocaleDateString('fr-MA')} · {METHOD_LABEL[p.method] ?? p.method}
+                                            {p.reference && <span className="text-slate-400"> · {p.reference}</span>}
+                                        </span>
+                                        <span className="font-medium text-slate-700">{formatMAD(p.amount)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+
+                    {/* Utilisateurs */}
+                    <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Utilisateurs ({data?.users.length ?? tenant.users_count})
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                            {data?.users.map((u) => (
+                                <span
+                                    key={u.id}
+                                    className={`rounded-full border border-slate-200 px-2 py-0.5 text-xs ${
+                                        u.is_active ? 'bg-white text-slate-600' : 'bg-slate-200 text-slate-400 line-through'
+                                    }`}
+                                >
+                                    {u.name} · {u.role_label}{u.is_superadmin && ' ⭐'}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             </td>
         </tr>
     );
@@ -58,31 +181,23 @@ export default function Superadmin() {
         queryFn: async () => (await api.get<{ data: SuperadminData }>('/superadmin/tenants')).data.data,
     });
 
-    const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['superadmin', 'tenants'] });
+    const refresh = () => queryClient.invalidateQueries({ queryKey: ['superadmin', 'tenants'] });
 
-    const majPlan = useMutation({
-        mutationFn: (v: { id: number; plan?: string; extra_seats?: number }) =>
-            api.put(`/superadmin/tenants/${v.id}`, { plan: v.plan, extra_seats: v.extra_seats }),
-        onSuccess: rafraichir,
+    const maj = useMutation({
+        mutationFn: (v: { id: number; plan?: string; billing_cycle?: string }) =>
+            api.put(`/superadmin/tenants/${v.id}`, { plan: v.plan, billing_cycle: v.billing_cycle }),
+        onSuccess: refresh,
     });
 
     const suspendre = useMutation({
         mutationFn: (v: { id: number; suspend: boolean }) =>
             api.post(`/superadmin/tenants/${v.id}/${v.suspend ? 'suspend' : 'reactivate'}`),
-        onSuccess: rafraichir,
-        onError: (err: any) => {
-            const messages = err?.response?.data?.errors ?? err?.response?.data?.message;
-            alert(typeof messages === 'string' ? messages : 'Action impossible.');
-        },
+        onSuccess: refresh,
+        onError: (err: any) => alert(err?.response?.data?.message ?? 'Action impossible.'),
     });
 
-    // Garde-fou : réservé au superadmin plateforme.
-    if (user && !user.is_superadmin) {
-        return <Navigate to="/dashboard" replace />;
-    }
-    if (isLoading || !data) {
-        return <div className="text-sm text-slate-400">Chargement…</div>;
-    }
+    if (user && !user.is_superadmin) return <Navigate to="/dashboard" replace />;
+    if (isLoading || !data) return <div className="text-sm text-slate-400">Chargement…</div>;
 
     const s = data.stats;
 
@@ -90,15 +205,16 @@ export default function Superadmin() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-xl font-semibold text-slate-900">Administration plateforme</h1>
-                <p className="mt-1 text-sm text-slate-500">Toutes les entreprises clientes de la plateforme.</p>
+                <p className="mt-1 text-sm text-slate-500">Entreprises, abonnements et suivi des paiements.</p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
                 <StatCard label="Entreprises" value={`${s.tenants_total}`} tone="emerald" />
-                <StatCard label="Actives" value={`${s.tenants_active}`} />
-                <StatCard label="Suspendues" value={`${s.tenants_suspended}`} tone={s.tenants_suspended ? 'red' : 'slate'} />
-                <StatCard label="Utilisateurs" value={`${s.users_active}/${s.users_total}`} />
                 <StatCard label="MRR estimé" value={formatMAD(s.mrr_estimated)} tone="emerald" />
+                <StatCard label="Encaissé ce mois" value={formatMAD(s.encaisse_mois)} tone="emerald" />
+                <StatCard label="En essai" value={`${s.en_essai}`} tone="indigo" />
+                <StatCard label="En retard" value={`${s.en_retard}`} tone={s.en_retard ? 'red' : 'slate'} />
+                <StatCard label="Suspendues" value={`${s.tenants_suspended}`} tone={s.tenants_suspended ? 'red' : 'slate'} />
             </div>
 
             <section className="rounded-xl bg-white shadow-sm">
@@ -108,79 +224,76 @@ export default function Superadmin() {
                             <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400">
                                 <th className="px-4 py-3">Entreprise</th>
                                 <th className="px-4 py-3">Plan</th>
-                                <th className="px-4 py-3">Sièges extra</th>
-                                <th className="px-4 py-3">Sièges</th>
-                                <th className="px-4 py-3">Abo. estimé</th>
-                                <th className="px-4 py-3">Statut</th>
+                                <th className="px-4 py-3">Cycle</th>
+                                <th className="px-4 py-3">Abonnement</th>
+                                <th className="px-4 py-3">Échéance</th>
+                                <th className="px-4 py-3">Montant</th>
                                 <th className="px-4 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {data.tenants.map((t) => (
-                                <Fragment key={t.id}>
-                                    <tr className={t.suspended ? 'bg-red-50/40' : ''}>
-                                        <td className="px-4 py-3">
-                                            <button
-                                                onClick={() => setExpanded(expanded === t.id ? null : t.id)}
-                                                className="font-medium text-slate-800 hover:text-emerald-600"
-                                            >
-                                                {expanded === t.id ? '▾' : '▸'} {t.name}
-                                            </button>
-                                            <div className="text-xs text-slate-400">
-                                                {t.users_count} utilisateur(s) · créée le{' '}
-                                                {new Date(t.created_at).toLocaleDateString('fr-MA')}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <select
-                                                value={t.plan}
-                                                onChange={(e) => majPlan.mutate({ id: t.id, plan: e.target.value })}
-                                                className="rounded border border-slate-200 px-2 py-1 text-xs"
-                                            >
-                                                {data.plans.map((p) => (
-                                                    <option key={p.value} value={p.value}>{p.label}</option>
-                                                ))}
-                                            </select>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                defaultValue={t.extra_seats}
-                                                onBlur={(e) => {
-                                                    const v = Number(e.target.value);
-                                                    if (v !== t.extra_seats) majPlan.mutate({ id: t.id, extra_seats: v });
-                                                }}
-                                                className="w-16 rounded border border-slate-200 px-2 py-1 text-xs"
-                                            />
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">
-                                            {t.seats_used} / {t.seat_limit}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">{formatMAD(t.estimated_monthly)}</td>
-                                        <td className="px-4 py-3">
-                                            <span
-                                                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                                    t.suspended ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
-                                                }`}
-                                            >
-                                                {t.suspended ? 'Suspendue' : 'Active'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <button
-                                                onClick={() => suspendre.mutate({ id: t.id, suspend: !t.suspended })}
-                                                className={`text-xs hover:underline ${
-                                                    t.suspended ? 'text-emerald-600' : 'text-red-600'
-                                                }`}
-                                            >
-                                                {t.suspended ? 'Réactiver' : 'Suspendre'}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {expanded === t.id && <UsersRow tenantId={t.id} colSpan={7} />}
-                                </Fragment>
-                            ))}
+                            {data.tenants.map((t) => {
+                                const st = STATUT[t.effective_status] ?? STATUT.actif;
+                                return (
+                                    <Fragment key={t.id}>
+                                        <tr className={t.effective_status === 'en_retard' ? 'bg-red-50/40' : ''}>
+                                            <td className="px-4 py-3">
+                                                <button
+                                                    onClick={() => setExpanded(expanded === t.id ? null : t.id)}
+                                                    className="font-medium text-slate-800 hover:text-emerald-600"
+                                                >
+                                                    {expanded === t.id ? '▾' : '▸'} {t.name}
+                                                </button>
+                                                <div className="text-xs text-slate-400">{t.users_count} utilisateur(s)</div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <select
+                                                    value={t.plan}
+                                                    onChange={(e) => maj.mutate({ id: t.id, plan: e.target.value })}
+                                                    className="rounded border border-slate-200 px-2 py-1 text-xs"
+                                                >
+                                                    {data.plans.map((p) => (
+                                                        <option key={p.value} value={p.value}>{p.label}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <select
+                                                    value={t.billing_cycle}
+                                                    onChange={(e) => maj.mutate({ id: t.id, billing_cycle: e.target.value })}
+                                                    className="rounded border border-slate-200 px-2 py-1 text-xs"
+                                                >
+                                                    <option value="mensuel">Mensuel</option>
+                                                    <option value="annuel">Annuel</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${st.cls}`}>
+                                                    {st.label}
+                                                </span>
+                                            </td>
+                                            <td className={`px-4 py-3 ${t.effective_status === 'en_retard' ? 'font-medium text-red-600' : 'text-slate-600'}`}>
+                                                {t.next_due ? new Date(t.next_due).toLocaleDateString('fr-MA') : '—'}
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-600">
+                                                {formatMAD(t.subscription_amount)}
+                                                <span className="text-xs text-slate-400">/{t.billing_cycle === 'annuel' ? 'an' : 'mois'}</span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <button
+                                                    onClick={() => suspendre.mutate({ id: t.id, suspend: !t.suspended })}
+                                                    className={`text-xs hover:underline ${t.suspended ? 'text-emerald-600' : 'text-red-600'}`}
+                                                >
+                                                    {t.suspended ? 'Réactiver' : 'Suspendre'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {expanded === t.id && (
+                                            <TenantDetail tenant={t} methods={data.methods} colSpan={7} />
+                                        )}
+                                    </Fragment>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

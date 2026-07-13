@@ -487,26 +487,49 @@ export interface SuperadminTenant {
     seats_used: number;
     users_count: number;
     suspended: boolean;
-    suspended_at: string | null;
-    estimated_monthly: number;
+    billing_cycle: string;
+    subscription_status: string;
+    effective_status: string;
+    trial_ends_at: string | null;
+    current_period_end: string | null;
+    next_due: string | null;
+    subscription_amount: number;
+    mrr: number;
+    payments_count: number;
+    last_payment: { amount: number; paid_at: string } | null;
     created_at: string;
+}
+
+export interface SuperadminPayment {
+    id: number;
+    amount: number;
+    method: string;
+    paid_at: string;
+    period_start: string;
+    period_end: string;
+    reference: string | null;
+    note: string | null;
 }
 
 export interface SuperadminStats {
     tenants_total: number;
     tenants_active: number;
     tenants_suspended: number;
+    en_essai: number;
+    en_retard: number;
     users_total: number;
     users_active: number;
     by_plan: Record<string, number>;
     extra_seats_sold: number;
     mrr_estimated: number;
+    encaisse_mois: number;
 }
 
 export interface SuperadminData {
     tenants: SuperadminTenant[];
     stats: SuperadminStats;
-    plans: { value: string; label: string; price: number }[];
+    plans: { value: string; label: string; price: number; price_annual: number }[];
+    methods: string[];
 }
 
 export interface DashboardKpi {

@@ -9,6 +9,7 @@ Route::prefix('superadmin')->group(function () {
     Route::get('tenants', [SuperadminController::class, 'index']);
     Route::get('tenants/{tenant}', [SuperadminController::class, 'show']);
     Route::put('tenants/{tenant}', [SuperadminController::class, 'update']);
+    Route::post('tenants/{tenant}/paiements', [SuperadminController::class, 'enregistrerPaiement']);
     Route::post('tenants/{tenant}/suspend', [SuperadminController::class, 'suspend']);
     Route::post('tenants/{tenant}/reactivate', [SuperadminController::class, 'reactivate']);
 });
