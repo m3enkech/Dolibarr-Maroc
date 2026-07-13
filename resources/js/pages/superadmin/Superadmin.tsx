@@ -48,6 +48,16 @@ function TenantDetail({ tenant, methods, colSpan }: { tenant: SuperadminTenant; 
         queryClient.invalidateQueries({ queryKey: ['superadmin', 'tenant', tenant.id] });
     };
 
+    const telechargerFacture = async (paymentId: number) => {
+        const response = await api.get(`/superadmin/paiements/${paymentId}/pdf`, { responseType: 'blob' });
+        const url = URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `facture-abonnement-${paymentId}.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     const majSeats = useMutation({
         mutationFn: (extra: number) => api.put(`/superadmin/tenants/${tenant.id}`, { extra_seats: extra }),
         onSuccess: refresh,
@@ -140,7 +150,18 @@ function TenantDetail({ tenant, methods, colSpan }: { tenant: SuperadminTenant; 
                                             {new Date(p.paid_at).toLocaleDateString('fr-MA')} · {METHOD_LABEL[p.method] ?? p.method}
                                             {p.reference && <span className="text-slate-400"> · {p.reference}</span>}
                                         </span>
-                                        <span className="font-medium text-slate-700">{formatMAD(p.amount)}</span>
+                                        <span className="flex items-center gap-2">
+                                            <span className="font-medium text-slate-700">{formatMAD(p.amount)}</span>
+                                            {p.has_invoice && (
+                                                <button
+                                                    onClick={() => telechargerFacture(p.id)}
+                                                    className="text-emerald-600 hover:underline"
+                                                    title="Télécharger la facture"
+                                                >
+                                                    PDF
+                                                </button>
+                                            )}
+                                        </span>
                                     </li>
                                 ))}
                             </ul>

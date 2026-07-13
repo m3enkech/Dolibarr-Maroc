@@ -12,8 +12,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * N'utilise pas le scope tenant : géré par le superadmin cross-tenant.
  */
 #[Fillable([
-    'tenant_id', 'amount', 'method', 'paid_at', 'period_start', 'period_end',
-    'reference', 'note', 'recorded_by',
+    'tenant_id', 'operator_tenant_id', 'document_vente_id', 'amount', 'method',
+    'paid_at', 'period_start', 'period_end', 'reference', 'note', 'recorded_by',
 ])]
 class SubscriptionPayment extends Model
 {

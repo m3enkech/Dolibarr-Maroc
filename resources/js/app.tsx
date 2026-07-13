@@ -11,6 +11,7 @@ import Rejoindre from '@/pages/Rejoindre';
 import MotDePasseOublie from '@/pages/MotDePasseOublie';
 import Reinitialiser from '@/pages/Reinitialiser';
 import Profil from '@/pages/Profil';
+import Abonnement from '@/pages/abonnement/Abonnement';
 import Equipe from '@/pages/equipe/Equipe';
 import Superadmin from '@/pages/superadmin/Superadmin';
 import CategoriesProduit from '@/pages/catalogue/CategoriesProduit';
@@ -93,6 +94,7 @@ function App() {
                             <Route path="/equipe" element={<Equipe />} />
                             <Route path="/superadmin" element={<Superadmin />} />
                             <Route path="/profil" element={<Profil />} />
+                            <Route path="/abonnement" element={<Abonnement />} />
                             <Route path="/parametres" element={<Parametres />} />
                         </Route>
                         <Route path="*" element={<Navigate to="/" replace />} />

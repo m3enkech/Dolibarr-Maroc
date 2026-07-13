@@ -509,6 +509,31 @@ export interface SuperadminPayment {
     period_end: string;
     reference: string | null;
     note: string | null;
+    has_invoice?: boolean;
+}
+
+export interface AbonnementFacture {
+    id: number;
+    amount: number;
+    method: string;
+    paid_at: string;
+    period_start: string;
+    period_end: string;
+    reference: string | null;
+    has_invoice: boolean;
+}
+
+export interface AbonnementData {
+    subscription: {
+        plan: string;
+        plan_label: string;
+        billing_cycle: string;
+        status: string;
+        current_period_end: string | null;
+        trial_ends_at: string | null;
+        amount: number;
+    };
+    factures: AbonnementFacture[];
 }
 
 export interface SuperadminStats {

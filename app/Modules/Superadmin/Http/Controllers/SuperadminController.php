@@ -7,6 +7,7 @@ use App\Core\Tenancy\Tenant;
 use App\Http\Controllers\Controller;
 use App\Models\SubscriptionPayment;
 use App\Models\User;
+use App\Modules\Superadmin\Services\SubscriptionBillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -19,6 +20,8 @@ use Illuminate\Validation\Rule;
  */
 class SuperadminController extends Controller
 {
+    public function __construct(private readonly SubscriptionBillingService $billing) {}
+
     /** Vue d'ensemble : entreprises + statistiques globales. */
     public function index(): JsonResponse
     {
@@ -61,6 +64,7 @@ class SuperadminController extends Controller
                 'period_end' => $p->period_end->toDateString(),
                 'reference' => $p->reference,
                 'note' => $p->note,
+                'has_invoice' => $p->document_vente_id !== null,
             ]);
 
         return response()->json(['data' => [
@@ -107,8 +111,17 @@ class SuperadminController extends Controller
             : $paidAt->copy();
         $end = $start->copy()->addMonthsNoOverflow($tenant->isAnnual() ? 12 : 1);
 
+        // Facture d'abonnement émise dans la compta de l'opérateur (le tenant du
+        // superadmin), sauf s'il facture sa propre entreprise.
+        $operateur = $request->user()->tenant;
+        $facture = null;
+        if ($operateur !== null && $operateur->id !== $tenant->id) {
+            $planLabel = config('plans.plans')[$tenant->plan]['label'] ?? $tenant->plan;
+            $facture = $this->billing->facturer($operateur, $tenant, (float) $data['amount'], $start, $end, $data['method'], $planLabel);
+        }
+
         $tenant->payments()->create([
-            'amount' => $data['amount'],
+            'amount' => $facture ? (float) $facture->total_ttc : $data['amount'],
             'method' => $data['method'],
             'paid_at' => $paidAt->toDateString(),
             'period_start' => $start->toDateString(),
@@ -116,6 +129,8 @@ class SuperadminController extends Controller
             'reference' => $data['reference'] ?? null,
             'note' => $data['note'] ?? null,
             'recorded_by' => $request->user()->id,
+            'operator_tenant_id' => $facture ? $operateur->id : null,
+            'document_vente_id' => $facture?->id,
         ]);
 
         $tenant->update([
@@ -141,6 +156,12 @@ class SuperadminController extends Controller
         $tenant->update(['suspended_at' => null]);
 
         return response()->json(['data' => $this->tenantItem($tenant->refresh())]);
+    }
+
+    /** PDF de la facture d'abonnement liée à un paiement. */
+    public function pdfPaiement(\App\Models\SubscriptionPayment $payment)
+    {
+        return $this->billing->pdf($payment);
     }
 
     private function tenantItem(Tenant $tenant): array

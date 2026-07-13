@@ -12,4 +12,5 @@ Route::prefix('superadmin')->group(function () {
     Route::post('tenants/{tenant}/paiements', [SuperadminController::class, 'enregistrerPaiement']);
     Route::post('tenants/{tenant}/suspend', [SuperadminController::class, 'suspend']);
     Route::post('tenants/{tenant}/reactivate', [SuperadminController::class, 'reactivate']);
+    Route::get('paiements/{payment}/pdf', [SuperadminController::class, 'pdfPaiement']);
 });

@@ -103,6 +103,7 @@ const GROUPS: MenuGroup[] = [
         title: 'Administration',
         items: [
             { to: '/equipe', label: 'Équipe', icon: '🧑‍🤝‍🧑', domain: 'equipe', write: true },
+            { to: '/abonnement', label: 'Mon abonnement', icon: '💠' },
             { to: '/superadmin', label: 'Plateforme', icon: '🛡', superadmin: true },
             { to: '/parametres', label: 'Paramètres', icon: '⚙', domain: 'parametres', write: true },
         ],
