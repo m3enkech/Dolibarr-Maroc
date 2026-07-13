@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useFeatures } from '@/lib/features';
 
@@ -17,6 +17,8 @@ interface MenuLeaf {
     soon?: boolean;
     /** Réservé au superadmin plateforme. */
     superadmin?: boolean;
+    /** Enfant par défaut : actif quand aucun paramètre de requête n'est présent. */
+    def?: boolean;
 }
 
 interface MenuNode extends Omit<MenuLeaf, 'to'> {
@@ -48,7 +50,18 @@ const GROUPS: MenuGroup[] = [
                     { to: '/catalogue/categories', label: 'Catégories', domain: 'catalogue' },
                 ],
             },
-            { to: '/ventes', label: 'Ventes', icon: '🧾', domain: 'ventes' },
+            {
+                label: 'Ventes',
+                icon: '🧾',
+                domain: 'ventes',
+                children: [
+                    { to: '/ventes?type=devis', label: 'Devis', domain: 'ventes', def: true },
+                    { to: '/ventes?type=commande', label: 'Commandes', domain: 'ventes' },
+                    { to: '/ventes?type=bon_livraison', label: 'Bons de livraison', domain: 'ventes' },
+                    { to: '/ventes?type=facture', label: 'Factures', domain: 'ventes' },
+                    { to: '/ventes?type=avoir', label: 'Avoirs', domain: 'ventes' },
+                ],
+            },
             { to: '/caisse', label: 'Caisse (POS)', icon: '💳', domain: 'pos' },
             { to: '/crm', label: 'CRM', icon: '📈', domain: 'crm', feature: 'crm' },
             { to: '/relances', label: 'Relances', icon: '📨', domain: 'relances', feature: 'relances' },
@@ -64,7 +77,21 @@ const GROUPS: MenuGroup[] = [
     {
         title: 'Finance',
         items: [
-            { to: '/compta', label: 'Comptabilité', icon: '⚖', domain: 'compta' },
+            {
+                label: 'Comptabilité',
+                icon: '⚖',
+                domain: 'compta',
+                children: [
+                    { to: '/compta?section=ecritures', label: 'Écritures', domain: 'compta', def: true },
+                    { to: '/compta?section=balance', label: 'Balance', domain: 'compta' },
+                    { to: '/compta?section=balance-agee', label: 'Balance âgée', domain: 'compta' },
+                    { to: '/compta?section=etats', label: 'Bilan / CPC', domain: 'compta' },
+                    { to: '/compta?section=tva', label: 'État TVA', domain: 'compta' },
+                    { to: '/compta?section=immobilisations', label: 'Immobilisations', domain: 'compta' },
+                    { to: '/compta?section=cloture', label: 'Clôture', domain: 'compta' },
+                    { to: '/compta?section=plan', label: 'Plan comptable', domain: 'compta' },
+                ],
+            },
             { to: '/effets', label: 'Effets (LCN)', icon: '📜', domain: 'effets', feature: 'effets' },
         ],
     },
@@ -100,8 +127,23 @@ export default function Layout() {
         return true;
     };
 
+    // Un lien-enfant est actif si son chemin correspond, et — pour les liens à
+    // paramètre (ex. /ventes?type=facture) — si le paramètre courant correspond
+    // (ou s'il est absent et que l'enfant est le défaut).
+    const leafActive = (leaf: MenuLeaf): boolean => {
+        const [path, query] = leaf.to.split('?');
+        if (!query) {
+            return location.pathname === path; // exact, pour distinguer les enfants frères
+        }
+        if (location.pathname !== path) return false;
+        const [key, val] = query.split('=');
+        const current = new URLSearchParams(location.search).get(key);
+        return current === null ? Boolean(leaf.def) : current === val;
+    };
+
+    // Parent ouvert si un enfant est actif, ou si on est sur une sous-route de l'un d'eux.
     const childActive = (children: MenuLeaf[]) =>
-        children.some((c) => location.pathname === c.to || location.pathname.startsWith(c.to + '/'));
+        children.some((c) => leafActive(c) || location.pathname.startsWith(c.to.split('?')[0] + '/'));
 
     const handleLogout = async () => {
         await logout();
@@ -201,20 +243,17 @@ export default function Layout() {
                                                 {open && (
                                                     <div className="mt-1 space-y-1 border-l border-slate-800 pl-3">
                                                         {children!.map((c) => (
-                                                            <NavLink
+                                                            <Link
                                                                 key={c.to}
                                                                 to={c.to}
-                                                                end={c.to === '/catalogue'}
-                                                                className={({ isActive }) =>
-                                                                    `block rounded-md px-3 py-1.5 text-sm transition ${
-                                                                        isActive
-                                                                            ? 'bg-emerald-600 text-white'
-                                                                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                                                                    }`
-                                                                }
+                                                                className={`block rounded-md px-3 py-1.5 text-sm transition ${
+                                                                    leafActive(c)
+                                                                        ? 'bg-emerald-600 text-white'
+                                                                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                                                                }`}
                                                             >
                                                                 {c.label}
-                                                            </NavLink>
+                                                            </Link>
                                                         ))}
                                                     </div>
                                                 )}

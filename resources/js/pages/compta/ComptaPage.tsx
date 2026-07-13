@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import Balance from '@/pages/compta/Balance';
@@ -29,7 +29,11 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key'];
 
 export default function ComptaPage() {
-    const [tab, setTab] = useState<TabKey>('ecritures');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const raw = searchParams.get('section');
+    const keys = TABS.map((t) => t.key) as readonly string[];
+    const tab: TabKey = (keys.includes(raw ?? '') ? raw : 'ecritures') as TabKey;
+    const setTab = (key: TabKey) => setSearchParams({ section: key });
 
     const { data: comptesData } = useQuery({
         queryKey: ['compta-comptes'],
