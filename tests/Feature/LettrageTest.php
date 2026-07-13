@@ -49,7 +49,7 @@ class LettrageTest extends TestCase
         $token = $this->registerTenant('Tenant A', 'a@test.ma');
         $tiers = $this->withToken($token)->postJson('/api/v1/tiers', ['name' => 'Client X'])->json('data');
         $facture = $this->createFactureVente($token, $tiers['id']);
-        $compte3411 = $this->compteId($token, '3411');
+        $compte3411 = $this->compteId($token, '3421');
 
         // Paiement partiel : l'auto-lettrage n'a rien à lettrer (groupe déséquilibré).
         $this->withToken($token)->postJson("/api/v1/ventes/documents/{$facture['id']}/paiements", [
@@ -89,7 +89,7 @@ class LettrageTest extends TestCase
             'montant' => 1200, 'mode' => 'virement',
         ])->assertOk();
 
-        $compte3411 = $this->compteId($token, '3411');
+        $compte3411 = $this->compteId($token, '3421');
         $lignes = collect(
             $this->withToken($token)->getJson("/api/v1/compta/lettrage?compte_id={$compte3411}")->json('data'),
         );
@@ -126,7 +126,7 @@ class LettrageTest extends TestCase
     {
         $token = $this->registerTenant('Tenant A', 'a@test.ma');
         $tiers = $this->withToken($token)->postJson('/api/v1/tiers', ['name' => 'Client X'])->json('data');
-        $compte3411 = $this->compteId($token, '3411');
+        $compte3411 = $this->compteId($token, '3421');
 
         foreach ([1, 2] as $i) {
             $facture = $this->createFactureVente($token, $tiers['id']);
@@ -154,7 +154,7 @@ class LettrageTest extends TestCase
             'montant' => 1200, 'mode' => 'virement',
         ])->assertOk();
 
-        $compte3411 = $this->compteId($token, '3411');
+        $compte3411 = $this->compteId($token, '3421');
         $this->withToken($token)->postJson('/api/v1/compta/lettrage/auto', ['compte_id' => $compte3411])->assertOk();
 
         $this->withToken($token)->postJson('/api/v1/compta/lettrage/delettrer', [
@@ -210,7 +210,7 @@ class LettrageTest extends TestCase
             'montant' => 1200, 'mode' => 'virement',
         ])->assertOk();
 
-        $compte3411A = $this->compteId($tokenA, '3411');
+        $compte3411A = $this->compteId($tokenA, '3421');
         $ligneIds = collect(
             $this->withToken($tokenA)->getJson("/api/v1/compta/lettrage?compte_id={$compte3411A}")->json('data'),
         )->pluck('id');
@@ -222,7 +222,7 @@ class LettrageTest extends TestCase
         ])->assertUnprocessable();
 
         // Et son propre compte 3411 (id différent) est vide.
-        $compte3411B = $this->compteId($tokenB, '3411');
+        $compte3411B = $this->compteId($tokenB, '3421');
         $this->withToken($tokenB)->getJson("/api/v1/compta/lettrage?compte_id={$compte3411B}")
             ->assertJsonCount(0, 'data');
     }

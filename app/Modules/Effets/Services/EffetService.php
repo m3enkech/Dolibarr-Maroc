@@ -14,16 +14,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Effets / traites (LCN). Un effet transfère la créance client (3411 → 3412
- * effets à recevoir) ou la dette fournisseur (4411 → 4412 effets à payer),
+ * Effets / traites (LCN). Un effet transfère la créance client (3421 → 3425
+ * effets à recevoir) ou la dette fournisseur (4411 → 4415 effets à payer),
  * lettre la facture d'origine, puis se solde par la banque à l'échéance.
  */
 class EffetService
 {
-    private const CLIENTS = '3411';
-    private const EFFETS_RECEVOIR = '3412';
+    private const CLIENTS = '3421';
+    private const EFFETS_RECEVOIR = '3425';
     private const FOURNISSEURS = '4411';
-    private const EFFETS_PAYER = '4412';
+    private const EFFETS_PAYER = '4415';
 
     public function __construct(
         private SequenceService $sequences,
@@ -35,7 +35,7 @@ class EffetService
     /* Création                                                            */
     /* ------------------------------------------------------------------ */
 
-    /** Effet à recevoir tiré d'une facture client (transfert 3411 → 3412). */
+    /** Effet à recevoir tiré d'une facture client (transfert 3421 → 3425). */
     public function creerARecevoir(DocumentVente $facture, string $dateEcheance): Effet
     {
         if ($facture->type !== DocumentVente::TYPE_FACTURE || $facture->isBrouillon()) {
@@ -63,7 +63,7 @@ class EffetService
                 reference: $code,
             );
 
-            // Lettrage : la facture (débit 3411) est soldée par le crédit de l'effet.
+            // Lettrage : la facture (débit 3421) est soldée par le crédit de l'effet.
             $lettrageCode = $this->lettrerFacture(
                 $clients->id,
                 EcritureLigne::query()
@@ -150,7 +150,7 @@ class EffetService
     /* Règlement à l'échéance                                              */
     /* ------------------------------------------------------------------ */
 
-    /** Encaissement d'un effet à recevoir (3412 → banque). */
+    /** Encaissement d'un effet à recevoir (3425 → banque). */
     public function encaisser(Effet $effet, ?string $date = null): Effet
     {
         $this->assertPortefeuille($effet, Effet::TYPE_RECEVOIR);
@@ -192,7 +192,7 @@ class EffetService
         return $effet->refresh();
     }
 
-    /** Effet à recevoir impayé : la créance revient (3412 → 3411), facture à relancer de nouveau. */
+    /** Effet à recevoir impayé : la créance revient (3425 → 3421), facture à relancer de nouveau. */
     public function marquerImpaye(Effet $effet): Effet
     {
         $this->assertPortefeuille($effet, Effet::TYPE_RECEVOIR);

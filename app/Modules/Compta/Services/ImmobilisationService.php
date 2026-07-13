@@ -177,7 +177,7 @@ class ImmobilisationService
             $total = round(array_sum(array_column($aComptabiliser, 'montant')), 2);
 
             // Débit 6161 (total), crédits regroupés par compte d'amortissement.
-            $lignes = [['compte' => $this->compta->compteParCode('6161'), 'debit' => $total, 'credit' => 0]];
+            $lignes = [['compte' => $this->compta->compteParCode('6193'), 'debit' => $total, 'credit' => 0]];
 
             $parAmort = [];
             foreach ($aComptabiliser as $item) {
@@ -243,7 +243,7 @@ class ImmobilisationService
                 $lignesSortie[] = ['compte' => $immo->compteAmort, 'debit' => $cumul, 'credit' => 0];
             }
             if ($vna > self::EPSILON) {
-                $lignesSortie[] = ['compte' => $this->compta->compteParCode('6511'), 'debit' => $vna, 'credit' => 0];
+                $lignesSortie[] = ['compte' => $this->compta->compteParCode('6513'), 'debit' => $vna, 'credit' => 0];
             }
             $lignesSortie[] = ['compte' => $immo->compteImmo, 'debit' => 0, 'credit' => $base];
 
@@ -259,7 +259,7 @@ class ImmobilisationService
             if ($prix > self::EPSILON) {
                 $lignesProduit = [
                     ['compte' => $this->compta->compteParCode('5141'), 'debit' => $ttc, 'credit' => 0],
-                    ['compte' => $this->compta->compteParCode('7511'), 'debit' => 0, 'credit' => $prix],
+                    ['compte' => $this->compta->compteParCode('7513'), 'debit' => 0, 'credit' => $prix],
                 ];
                 if ($tva > self::EPSILON) {
                     $lignesProduit[] = ['compte' => $this->compta->compteParDefaut('tva_facturee'), 'debit' => 0, 'credit' => $tva];

@@ -56,9 +56,9 @@ class OuvertureTest extends TestCase
 
         $fichier = $this->fichierBalance([
             ['5141', 'Banque', 25000, 0],
-            ['3411', 'Clients', 5000, 0],
+            ['3421', 'Clients', 5000, 0],
             ['1111', 'Capital', 0, 30000],
-            ['3488', 'Compte hors plan', 0, 0], // classe valide, absent du plan
+            ['3450', 'Compte hors plan', 0, 0], // classe valide, absent du plan
         ]);
 
         $preview = $this->withToken($token)->post('/api/v1/compta/ouverture/previsualiser', ['fichier' => $fichier]);
@@ -67,10 +67,10 @@ class OuvertureTest extends TestCase
             ->assertJsonPath('total_credit', '30000.00')
             ->assertJsonPath('equilibre', true);
 
-        // 5141 existe dans le plan, 3488 non (sera créé à l'import).
+        // 5141 existe dans le plan, 3450 non (sera créé à l'import).
         $lignes = collect($preview->json('lignes'));
         $this->assertTrue($lignes->firstWhere('code', '5141')['existe']);
-        $this->assertFalse($lignes->firstWhere('code', '3488')['existe']);
+        $this->assertFalse($lignes->firstWhere('code', '3450')['existe']);
     }
 
     public function test_import_creates_balanced_an_entry_dated_first_january(): void
@@ -81,9 +81,9 @@ class OuvertureTest extends TestCase
 
         $fichier = $this->fichierBalance([
             ['5141', 'Banque', 25000, 0],
-            ['3411', 'Clients', 18000, 0],
+            ['3421', 'Clients', 18000, 0],
             ['1111', 'Capital social', 0, 30000],
-            ['1151', 'Report à nouveau', 0, 8000],
+            ['1161', 'Report à nouveau', 0, 8000],
             ['4411', 'Fournisseurs', 0, 5000],
         ]);
 
@@ -96,7 +96,7 @@ class OuvertureTest extends TestCase
         $ecriture = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=AN')->json('data'))->first();
         $lignes = collect($ecriture['lignes']);
         $this->assertSame('25000.00', $lignes->firstWhere('compte_code', '5141')['debit']);
-        $this->assertSame('8000.00', $lignes->firstWhere('compte_code', '1151')['credit']);
+        $this->assertSame('8000.00', $lignes->firstWhere('compte_code', '1161')['credit']);
         $this->assertSame(
             $lignes->sum(fn ($l) => (float) $l['debit']),
             $lignes->sum(fn ($l) => (float) $l['credit']),

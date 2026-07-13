@@ -167,7 +167,7 @@ class ComptaService
 
     /**
      * Écriture de vente (journal VT) générée à la validation d'une facture :
-     *   Débit  3411 Clients (TTC)
+     *   Débit  3421 Clients (TTC)
      *   Crédit 7111 Ventes de marchandises (HT lignes produits)
      *   Crédit 7114 Ventes de services (HT lignes services et lignes libres)
      *   Crédit 4441 TVA facturée (total TVA)
@@ -212,7 +212,7 @@ class ComptaService
      * Écriture d'avoir (journal VT) : contrepassation exacte de la facture.
      *   Débit  7111/7124 Ventes (HT, ligne par ligne comme la facture)
      *   Débit  4441 TVA facturée
-     *   Crédit 3411 Clients (TTC)
+     *   Crédit 3421 Clients (TTC)
      */
     public function ecrireAvoir(DocumentVente $document): Ecriture
     {
@@ -249,7 +249,7 @@ class ComptaService
     /**
      * Écriture d'encaissement (journal BQ) :
      *   Débit  5141/5161/5111 selon le mode de paiement
-     *   Crédit 3411 Clients
+     *   Crédit 3421 Clients
      * Pour un avoir, le paiement est un remboursement : écriture inversée
      * (débit clients, crédit trésorerie).
      */
@@ -311,7 +311,7 @@ class ComptaService
             $lignes[] = ['compte' => $this->compteParDefaut('tva_recuperable'), 'debit' => $tvaCharges, 'credit' => 0];
         }
         if ($tvaImmos > 0) {
-            $lignes[] = ['compte' => $this->compteParCode('3441'), 'debit' => $tvaImmos, 'credit' => 0];
+            $lignes[] = ['compte' => $this->compteParCode('34551'), 'debit' => $tvaImmos, 'credit' => 0];
         }
 
         $lignes[] = ['compte' => $this->compteParDefaut('fournisseurs'), 'debit' => 0, 'credit' => (float) $document->total_ttc, 'tiers_id' => $document->tiers_id];

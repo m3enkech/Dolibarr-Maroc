@@ -134,8 +134,8 @@ class RapportsController extends Controller
             return round($sens === 'credit' ? $credit - $debit : $debit - $credit, 2);
         };
 
-        $facturee = $soldePeriode(['4441'], 'credit');
-        $recuperable = $soldePeriode(['3441', '3442'], 'debit');
+        $facturee = $soldePeriode(['4455'], 'credit');
+        $recuperable = $soldePeriode(['34551', '34552'], 'debit');
         $due = round($facturee - $recuperable, 2);
 
         return response()->json([

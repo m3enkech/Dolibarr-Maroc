@@ -248,8 +248,8 @@ class AchatsTest extends TestCase
 
         $lignes = collect($ecritures->json('data.0.lignes'));
         $this->assertSame('1300.00', $lignes->firstWhere('compte_code', '6111')['debit']);
-        $this->assertSame('300.00', $lignes->firstWhere('compte_code', '6117')['debit']);
-        $this->assertSame('302.00', $lignes->firstWhere('compte_code', '3442')['debit']);
+        $this->assertSame('300.00', $lignes->firstWhere('compte_code', '6126')['debit']);
+        $this->assertSame('302.00', $lignes->firstWhere('compte_code', '34552')['debit']);
         $this->assertSame('1902.00', $lignes->firstWhere('compte_code', '4411')['credit']);
         $this->assertStringContainsString('FA-CIM-889', $ecritures->json('data.0.libelle'));
 
@@ -366,7 +366,7 @@ class AchatsTest extends TestCase
         // Le rattrapage les recrée au prochain passage.
         $repare = $this->withToken($token)->getJson('/api/v1/compta/mappings')->json('data');
         $this->assertCount(11, $repare);
-        $this->assertSame('3442', collect($repare)->firstWhere('cle', 'tva_recuperable')['compte_code']);
+        $this->assertSame('34552', collect($repare)->firstWhere('cle', 'tva_recuperable')['compte_code']);
     }
 
     public function test_achats_are_isolated_per_tenant(): void

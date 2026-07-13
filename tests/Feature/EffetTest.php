@@ -68,8 +68,8 @@ class EffetTest extends TestCase
         // Écriture OD : débit 3412 / crédit 3411 pour 1200.
         $od = $this->ecritures($token)->firstWhere('journal', 'OD');
         $lignes = collect($od['lignes']);
-        $this->assertSame('1200.00', $lignes->firstWhere('compte_code', '3412')['debit']);
-        $this->assertSame('1200.00', $lignes->firstWhere('compte_code', '3411')['credit']);
+        $this->assertSame('1200.00', $lignes->firstWhere('compte_code', '3425')['debit']);
+        $this->assertSame('1200.00', $lignes->firstWhere('compte_code', '3421')['credit']);
 
         // La créance a quitté la balance âgée clients (facture lettrée) et les relances.
         $this->withToken($token)->getJson('/api/v1/compta/balance-agee?type=clients')
@@ -94,7 +94,7 @@ class EffetTest extends TestCase
         $bq = $this->ecritures($token)->firstWhere('journal', 'BQ');
         $lignes = collect($bq['lignes']);
         $this->assertSame('1200.00', $lignes->firstWhere('compte_code', '5141')['debit']);
-        $this->assertSame('1200.00', $lignes->firstWhere('compte_code', '3412')['credit']);
+        $this->assertSame('1200.00', $lignes->firstWhere('compte_code', '3425')['credit']);
 
         // Un effet encaissé ne se ré-encaisse pas.
         $this->withToken($token)->postJson("/api/v1/effets/{$effet['id']}/encaisser")->assertUnprocessable();
@@ -146,7 +146,7 @@ class EffetTest extends TestCase
             ->assertOk()->assertJsonPath('data.statut', 'paye');
         $bq = $this->ecritures($token)->firstWhere('journal', 'BQ');
         $lignes = collect($bq['lignes']);
-        $this->assertSame('2400.00', $lignes->firstWhere('compte_code', '4412')['debit']);
+        $this->assertSame('2400.00', $lignes->firstWhere('compte_code', '4415')['debit']);
         $this->assertSame('2400.00', $lignes->firstWhere('compte_code', '5141')['credit']);
     }
 

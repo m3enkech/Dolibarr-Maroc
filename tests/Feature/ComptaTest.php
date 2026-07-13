@@ -59,14 +59,14 @@ class ComptaTest extends TestCase
 
         // Les comptes pivots du PCGM sont présents.
         $codes = collect($response->json('data'))->pluck('code');
-        foreach (['3411', '4441', '5141', '5161', '7111', '7114', '6701'] as $code) {
+        foreach (['3421', '4455', '5141', '5161', '7111', '7124', '6701'] as $code) {
             $this->assertTrue($codes->contains($code), "Compte {$code} manquant");
         }
 
         // Les 11 comptes par défaut sont mappés (ventes, trésorerie, achats).
         $mappings = $this->withToken($token)->getJson('/api/v1/compta/mappings')->json('data');
         $this->assertCount(11, $mappings);
-        $this->assertSame('3411', collect($mappings)->firstWhere('cle', 'clients')['compte_code']);
+        $this->assertSame('3421', collect($mappings)->firstWhere('cle', 'clients')['compte_code']);
         $this->assertSame('4411', collect($mappings)->firstWhere('cle', 'fournisseurs')['compte_code']);
     }
 
@@ -85,10 +85,10 @@ class ComptaTest extends TestCase
 
         // Facture : 170 HT marchandises + 1000 HT services + 234 TVA = 1404 TTC.
         $lignes = collect($ecriture['lignes']);
-        $this->assertSame('1404.00', $lignes->firstWhere('compte_code', '3411')['debit']);
+        $this->assertSame('1404.00', $lignes->firstWhere('compte_code', '3421')['debit']);
         $this->assertSame('170.00', $lignes->firstWhere('compte_code', '7111')['credit']);
-        $this->assertSame('1000.00', $lignes->firstWhere('compte_code', '7114')['credit']);
-        $this->assertSame('234.00', $lignes->firstWhere('compte_code', '4441')['credit']);
+        $this->assertSame('1000.00', $lignes->firstWhere('compte_code', '7124')['credit']);
+        $this->assertSame('234.00', $lignes->firstWhere('compte_code', '4455')['credit']);
 
         // Partie double.
         $this->assertSame(
@@ -119,7 +119,7 @@ class ComptaTest extends TestCase
         $this->assertSame('404.00', $parCompte->firstWhere('compte_code', '5161')['debit']);
         $this->assertSame('1000.00', $parCompte->firstWhere('compte_code', '5141')['debit']);
         $this->assertSame('1404.00', number_format(
-            $parCompte->where('compte_code', '3411')->sum(fn ($l) => (float) $l['credit']), 2, '.', '',
+            $parCompte->where('compte_code', '3421')->sum(fn ($l) => (float) $l['credit']), 2, '.', '',
         ));
     }
 
@@ -171,7 +171,7 @@ class ComptaTest extends TestCase
 
         // La part services est passée sur le nouveau compte.
         $this->assertSame('1000.00', $lignes->firstWhere('compte_code', '71141')['credit']);
-        $this->assertNull($lignes->firstWhere('compte_code', '7114'));
+        $this->assertNull($lignes->firstWhere('compte_code', '7124'));
     }
 
     public function test_balance_and_tva_reports(): void
@@ -188,7 +188,7 @@ class ComptaTest extends TestCase
         $lignes = collect($balance->json('data'));
 
         // Clients : débit 1404 (facture), crédit 1404 (encaissement) → soldé.
-        $clients = $lignes->firstWhere('code', '3411');
+        $clients = $lignes->firstWhere('code', '3421');
         $this->assertSame('1404.00', $clients['total_debit']);
         $this->assertSame('1404.00', $clients['total_credit']);
         $this->assertSame('0.00', $clients['solde_debiteur']);

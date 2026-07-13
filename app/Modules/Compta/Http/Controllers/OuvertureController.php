@@ -60,9 +60,9 @@ class OuvertureController extends Controller
         // Quelques lignes d'exemple (bilan d'ouverture équilibré).
         $exemples = [
             ['5141', 'Banque', 25000, 0],
-            ['3411', 'Clients', 18000, 0],
+            ['3421', 'Clients', 18000, 0],
             ['1111', 'Capital social', 0, 30000],
-            ['1151', 'Report à nouveau', 0, 8000],
+            ['1161', 'Report à nouveau', 0, 8000],
             ['4411', 'Fournisseurs', 0, 5000],
         ];
         $ligne = 2;

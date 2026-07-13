@@ -79,7 +79,7 @@ class BalanceAgeeTest extends TestCase
             'montant' => 1200, 'mode' => 'virement',
         ])->assertOk();
         $compte3411 = collect($this->withToken($token)->getJson('/api/v1/compta/comptes')->json('data'))
-            ->firstWhere('code', '3411')['id'];
+            ->firstWhere('code', '3421')['id'];
         $this->withToken($token)->postJson('/api/v1/compta/lettrage/auto', ['compte_id' => $compte3411])->assertOk();
 
         // Plus rien d'ouvert : le client disparaît de la balance âgée.

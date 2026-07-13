@@ -56,7 +56,7 @@ class ImmobilisationTest extends TestCase
             ->assertJsonPath('data.code', 'IM-'.now()->year.'-00001')
             ->assertJsonPath('data.duree_annees', 5)      // défaut transport
             ->assertJsonPath('data.compte_immo', '2340')
-            ->assertJsonPath('data.compte_amort', '2924')
+            ->assertJsonPath('data.compte_amort', '2834')
             ->assertJsonPath('data.vna', '200000.00');    // rien encore amorti
     }
 
@@ -112,9 +112,9 @@ class ImmobilisationTest extends TestCase
         // Écriture OD : débit 6161 = 3400 ; crédits 2926 = 2400 et 2925 = 1000.
         $od = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=OD&search=DOT')->json('data'))->first();
         $lignes = collect($od['lignes']);
-        $this->assertSame('3400.00', $lignes->firstWhere('compte_code', '6161')['debit']);
-        $this->assertSame('2400.00', $lignes->firstWhere('compte_code', '2926')['credit']);
-        $this->assertSame('1000.00', $lignes->firstWhere('compte_code', '2925')['credit']);
+        $this->assertSame('3400.00', $lignes->firstWhere('compte_code', '6193')['debit']);
+        $this->assertSame('2400.00', $lignes->firstWhere('compte_code', '28355')['credit']);
+        $this->assertSame('1000.00', $lignes->firstWhere('compte_code', '2835')['credit']);
 
         // Relancer la même année ne crée aucune nouvelle dotation.
         $this->withToken($token)->postJson('/api/v1/compta/immobilisations/dotations', ['annee' => 2024])
@@ -158,8 +158,8 @@ class ImmobilisationTest extends TestCase
         // Sortie de l'actif (OD) : 2926 débit 4800, 6511 débit 7200, 2355 crédit 12000.
         $sortie = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=OD&search=CESSION')->json('data'))->first();
         $lignesSortie = collect($sortie['lignes']);
-        $this->assertSame('4800.00', $lignesSortie->firstWhere('compte_code', '2926')['debit']);
-        $this->assertSame('7200.00', $lignesSortie->firstWhere('compte_code', '6511')['debit']);
+        $this->assertSame('4800.00', $lignesSortie->firstWhere('compte_code', '28355')['debit']);
+        $this->assertSame('7200.00', $lignesSortie->firstWhere('compte_code', '6513')['debit']);
         $this->assertSame('12000.00', $lignesSortie->firstWhere('compte_code', '2355')['credit']);
         $this->assertSame(
             $lignesSortie->sum(fn ($l) => (float) $l['debit']),
@@ -170,8 +170,8 @@ class ImmobilisationTest extends TestCase
         $produit = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=BQ&search=CESSION')->json('data'))->first();
         $lignesProduit = collect($produit['lignes']);
         $this->assertSame('9600.00', $lignesProduit->firstWhere('compte_code', '5141')['debit']);
-        $this->assertSame('8000.00', $lignesProduit->firstWhere('compte_code', '7511')['credit']);
-        $this->assertSame('1600.00', $lignesProduit->firstWhere('compte_code', '4441')['credit']);
+        $this->assertSame('8000.00', $lignesProduit->firstWhere('compte_code', '7513')['credit']);
+        $this->assertSame('1600.00', $lignesProduit->firstWhere('compte_code', '4455')['credit']);
 
         // La TVA de cession alimente l'état TVA facturée du mois.
         $this->withToken($token)->getJson('/api/v1/compta/tva?mois=2026-03')
@@ -196,7 +196,7 @@ class ImmobilisationTest extends TestCase
         $produit = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=BQ&search=CESSION')->json('data'))->first();
         $lignesProduit = collect($produit['lignes']);
         $this->assertSame('5000.00', $lignesProduit->firstWhere('compte_code', '5141')['debit']);
-        $this->assertNull($lignesProduit->firstWhere('compte_code', '4441'));
+        $this->assertNull($lignesProduit->firstWhere('compte_code', '4455'));
     }
 
     public function test_cession_of_fully_amortized_asset_at_zero(): void
@@ -217,7 +217,7 @@ class ImmobilisationTest extends TestCase
         $this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=BQ&search=CESSION')
             ->assertJsonPath('meta.total', 0); // aucun produit
         $sortie = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=OD&search=CESSION')->json('data'))->first();
-        $this->assertNull(collect($sortie['lignes'])->firstWhere('compte_code', '6511'));
+        $this->assertNull(collect($sortie['lignes'])->firstWhere('compte_code', '6513'));
     }
 
     public function test_dotation_blocked_on_closed_exercice(): void

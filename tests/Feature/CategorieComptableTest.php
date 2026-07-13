@@ -43,7 +43,7 @@ class CategorieComptableTest extends TestCase
         $ok = $this->withToken($token)->postJson('/api/v1/categories-produit', [
             'name' => 'Matériel info', 'is_immobilisation' => true,
             'compte_achat_id' => $this->compteId($token, '2355'),
-            'compte_amortissement_id' => $this->compteId($token, '2926'),
+            'compte_amortissement_id' => $this->compteId($token, '28355'),
             'duree_amortissement' => 5,
         ]);
         $ok->assertCreated()->assertJsonPath('data.is_immobilisation', true);
@@ -95,7 +95,7 @@ class CategorieComptableTest extends TestCase
         $categorie = $this->withToken($token)->postJson('/api/v1/categories-produit', [
             'name' => 'Matériel informatique', 'is_immobilisation' => true,
             'compte_achat_id' => $this->compteId($token, '2355'),
-            'compte_amortissement_id' => $this->compteId($token, '2926'),
+            'compte_amortissement_id' => $this->compteId($token, '28355'),
             'duree_amortissement' => 5,
         ])->json('data');
 
@@ -118,8 +118,8 @@ class CategorieComptableTest extends TestCase
         $ecriture = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=AC')->json('data'))->first();
         $lignes = collect($ecriture['lignes']);
         $this->assertSame('10000.00', $lignes->firstWhere('compte_code', '2355')['debit']);
-        $this->assertSame('2000.00', $lignes->firstWhere('compte_code', '3441')['debit']);
-        $this->assertNull($lignes->firstWhere('compte_code', '3442'));       // pas de TVA sur charges
+        $this->assertSame('2000.00', $lignes->firstWhere('compte_code', '34551')['debit']);
+        $this->assertNull($lignes->firstWhere('compte_code', '34552'));       // pas de TVA sur charges
         $this->assertNull($lignes->firstWhere('compte_code', '6111'));       // pas en charges
         $this->assertSame('12000.00', $lignes->firstWhere('compte_code', '4411')['credit']);
 
@@ -140,7 +140,7 @@ class CategorieComptableTest extends TestCase
         $catImmo = $this->withToken($token)->postJson('/api/v1/categories-produit', [
             'name' => 'Mobilier', 'is_immobilisation' => true,
             'compte_achat_id' => $this->compteId($token, '2351'),
-            'compte_amortissement_id' => $this->compteId($token, '2925'),
+            'compte_amortissement_id' => $this->compteId($token, '2835'),
             'duree_amortissement' => 10,
         ])->json('data');
 
@@ -170,8 +170,8 @@ class CategorieComptableTest extends TestCase
         $this->assertSame('5000.00', $lignes->firstWhere('compte_code', '2351')['debit']);
         $this->assertSame('1000.00', $lignes->firstWhere('compte_code', '6111')['debit']);
         // TVA scindée : immo 3441 = 1000, charges 3442 = 200.
-        $this->assertSame('1000.00', $lignes->firstWhere('compte_code', '3441')['debit']);
-        $this->assertSame('200.00', $lignes->firstWhere('compte_code', '3442')['debit']);
+        $this->assertSame('1000.00', $lignes->firstWhere('compte_code', '34551')['debit']);
+        $this->assertSame('200.00', $lignes->firstWhere('compte_code', '34552')['debit']);
 
         // Une seule immobilisation créée (le bureau).
         $this->assertCount(1, $this->withToken($token)->getJson('/api/v1/compta/immobilisations')->json('data'));

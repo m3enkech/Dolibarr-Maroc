@@ -122,7 +122,7 @@ class ClotureService
             if ($lignesResultat !== []) {
                 if (abs($resultat) >= self::EPSILON) {
                     $lignesResultat[] = [
-                        'compte' => $this->compte($resultat > 0 ? '1161' : '1162'),
+                        'compte' => $this->compte($resultat > 0 ? '1191' : '1199'),
                         'debit' => $resultat < 0 ? -$resultat : 0,
                         'credit' => $resultat > 0 ? $resultat : 0,
                     ];

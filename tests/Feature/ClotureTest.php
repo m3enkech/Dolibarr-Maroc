@@ -83,9 +83,9 @@ class ClotureTest extends TestCase
         // libre d'achat → services), 1161 crédité de 700.
         $od = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=OD&search=CLOTURE')->json('data'))->first();
         $lignes = collect($od['lignes']);
-        $this->assertSame('1000.00', $lignes->firstWhere('compte_code', '7114')['debit']);
-        $this->assertSame('300.00', $lignes->firstWhere('compte_code', '6117')['credit']);
-        $this->assertSame('700.00', $lignes->firstWhere('compte_code', '1161')['credit']);
+        $this->assertSame('1000.00', $lignes->firstWhere('compte_code', '7124')['debit']);
+        $this->assertSame('300.00', $lignes->firstWhere('compte_code', '6126')['credit']);
+        $this->assertSame('700.00', $lignes->firstWhere('compte_code', '1191')['credit']);
 
         // À-nouveaux au 01/01 suivant : bilan uniquement, équilibrés, sans classes 6/7.
         $an = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=AN')->json('data'))->first();
@@ -99,7 +99,7 @@ class ClotureTest extends TestCase
         // Banque 1200 D, fournisseurs 360 C, TVA facturée 200 C, TVA récup 60 D, résultat 700 C.
         $this->assertSame('1200.00', $lignesAn->firstWhere('compte_code', '5141')['debit']);
         $this->assertSame('360.00', $lignesAn->firstWhere('compte_code', '4411')['credit']);
-        $this->assertSame('700.00', $lignesAn->firstWhere('compte_code', '1161')['credit']);
+        $this->assertSame('700.00', $lignesAn->firstWhere('compte_code', '1191')['credit']);
 
         // L'exercice apparaît clôturé.
         $apres = $this->withToken($token)->getJson('/api/v1/compta/exercices');
@@ -115,7 +115,7 @@ class ClotureTest extends TestCase
             ->assertCreated()->assertJsonPath('data.resultat', '-300.00');
 
         $od = collect($this->withToken($token)->getJson('/api/v1/compta/ecritures?journal=OD&search=CLOTURE')->json('data'))->first();
-        $this->assertSame('300.00', collect($od['lignes'])->firstWhere('compte_code', '1162')['debit']);
+        $this->assertSame('300.00', collect($od['lignes'])->firstWhere('compte_code', '1199')['debit']);
     }
 
     public function test_cloture_locks_the_exercice(): void

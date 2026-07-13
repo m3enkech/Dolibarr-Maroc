@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Lettrage : rapprocher les débits et crédits d'un compte de tiers
- * (3411 clients, 4411 fournisseurs…). Un groupe lettré porte un code
+ * (3421 clients, 4411 fournisseurs…). Un groupe lettré porte un code
  * (AAA, AAB…) et doit être parfaitement équilibré.
  */
 class LettrageService

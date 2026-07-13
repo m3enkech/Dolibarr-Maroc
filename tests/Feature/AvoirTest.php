@@ -73,9 +73,9 @@ class AvoirTest extends TestCase
         $this->assertStringContainsString('Avoir', $ecriture['libelle']);
 
         $lignes = collect($ecriture['lignes']);
-        $clients = $lignes->firstWhere('compte_code', '3411');
+        $clients = $lignes->firstWhere('compte_code', '3421');
         $this->assertSame('120.00', $clients['credit']);
-        $tva = $lignes->firstWhere('compte_code', '4441');
+        $tva = $lignes->firstWhere('compte_code', '4455');
         $this->assertSame('20.00', $tva['debit']);
     }
 
@@ -168,7 +168,7 @@ class AvoirTest extends TestCase
             ->firstWhere('journal', 'BQ');
         $this->assertStringContainsString('Remboursement', $bq['libelle']);
         $lignes = collect($bq['lignes']);
-        $this->assertSame('120.00', $lignes->firstWhere('compte_code', '3411')['debit']);
+        $this->assertSame('120.00', $lignes->firstWhere('compte_code', '3421')['debit']);
         $this->assertSame('120.00', $lignes->firstWhere('compte_code', '5161')['credit']);
     }
 
