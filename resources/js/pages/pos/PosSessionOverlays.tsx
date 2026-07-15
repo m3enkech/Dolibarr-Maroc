@@ -135,6 +135,12 @@ export function FermerCaisse({ session, rapport, pending, error, onFermer, onCan
                                 <span>dont TVA</span>
                                 <span>{dh(rapport.total_tva)} DH</span>
                             </div>
+                            {parseFloat(rapport.total_remises) > 0 && (
+                                <div className="mt-1 flex justify-between text-xs text-amber-300/80">
+                                    <span>Remises accordées</span>
+                                    <span>−{dh(rapport.total_remises)} DH</span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -241,6 +247,12 @@ export function SessionFermee({ session, rapport, onNouvelleSession }: SessionFe
                         <span>CA TTC</span>
                         <span className="text-white">{dh(rapport.total_ttc)} DH</span>
                     </div>
+                    {parseFloat(rapport.total_remises) > 0 && (
+                        <div className="flex justify-between text-sm text-amber-300/80">
+                            <span>Remises accordées</span>
+                            <span>−{dh(rapport.total_remises)} DH</span>
+                        </div>
+                    )}
                     <div className="flex justify-between text-sm text-slate-400">
                         <span>Espèces comptées</span>
                         <span className="text-white">{dh(session.montant_compte)} DH</span>

@@ -318,6 +318,7 @@ export interface PosRapport {
     total_tva: string;
     total_ttc: string;
     par_mode: Record<string, string>;
+    total_remises: string;
     fond_caisse: string;
     especes_theorique: string;
 }

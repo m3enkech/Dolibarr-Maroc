@@ -117,6 +117,27 @@ class PosTest extends TestCase
             ->assertJsonPath('data.0.code', $vente->json('data.code'));
     }
 
+    public function test_vente_avec_remise_ligne_et_rapport_total_remises(): void
+    {
+        $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $produit = $this->createProduit($token); // 85 HT, TVA 20
+        $this->ouvrirSession($token);
+
+        // 2 unités à 85 HT avec 10% de remise :
+        // HT net = 2 × 85 × 0.9 = 153.00 ; TVA = 30.60 ; TTC = 183.60 ; remise = 17.00.
+        $vente = $this->withToken($token)->postJson('/api/v1/pos/ventes', [
+            'lignes' => [['produit_id' => $produit['id'], 'quantite' => 2, 'remise_percent' => 10]],
+            'paiements' => [['mode' => 'carte', 'montant' => 183.60]],
+        ]);
+
+        $vente->assertCreated()
+            ->assertJsonPath('data.total_ht', '153.00')
+            ->assertJsonPath('data.total_ttc', '183.60')
+            ->assertJsonPath('data.lignes.0.remise_percent', '10.00')
+            ->assertJsonPath('rapport.total_remises', '17.00')
+            ->assertJsonPath('rapport.total_ttc', '183.60');
+    }
+
     public function test_vente_rejects_wrong_payment_total(): void
     {
         $token = $this->registerTenant('Tenant A', 'a@test.ma');

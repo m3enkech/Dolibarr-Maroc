@@ -24,13 +24,16 @@ interface PosTicketProps {
  */
 export default function PosTicket({ doc, tenant, vendeur, rendu, donne }: PosTicketProps) {
     const tvaParTaux = new Map<string, { ht: number; tva: number }>();
+    let remiseTotale = 0;
     for (const ligne of doc.lignes ?? []) {
         const taux = `${parseFloat(ligne.tva_rate)}`;
         const entry = tvaParTaux.get(taux) ?? { ht: 0, tva: 0 };
         entry.ht += parseFloat(ligne.montant_ht);
         entry.tva += parseFloat(ligne.montant_tva);
         tvaParTaux.set(taux, entry);
+        remiseTotale += parseFloat(ligne.quantite) * parseFloat(ligne.prix_unitaire) - parseFloat(ligne.montant_ht);
     }
+    remiseTotale = Math.round(remiseTotale * 100) / 100;
 
     return (
         <div
@@ -64,6 +67,12 @@ export default function PosTicket({ doc, tenant, vendeur, rendu, donne }: PosTic
             <div className="my-3 border-t border-dashed border-slate-400" />
 
             <div className="space-y-0.5 tabular-nums">
+                {remiseTotale > 0 && (
+                    <div className="flex justify-between">
+                        <span>Remise</span>
+                        <span>−{dh(remiseTotale)}</span>
+                    </div>
+                )}
                 <div className="flex justify-between">
                     <span>Total HT</span>
                     <span>{dh(doc.total_ht)}</span>

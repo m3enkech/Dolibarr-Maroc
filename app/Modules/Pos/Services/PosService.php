@@ -143,7 +143,12 @@ class PosService
     /** @return array<string, mixed> */
     public function rapport(PosSession $session): array
     {
-        $ventes = DocumentVente::where('pos_session_id', $session->id)->get();
+        $ventes = DocumentVente::where('pos_session_id', $session->id)->with('lignes')->get();
+
+        // Total des remises accordées (base HT) : prix brut − montant HT net, par ligne.
+        $totalRemises = round($ventes->flatMap->lignes->sum(
+            fn ($ligne) => round((float) $ligne->quantite * (float) $ligne->prix_unitaire - (float) $ligne->montant_ht, 2),
+        ), 2);
 
         $paiements = Paiement::whereIn('document_vente_id', $ventes->pluck('id'))->get();
 
@@ -162,6 +167,7 @@ class PosService
             'total_tva' => number_format((float) $ventes->sum('total_tva'), 2, '.', ''),
             'total_ttc' => number_format((float) $ventes->sum('total_ttc'), 2, '.', ''),
             'par_mode' => $parMode,
+            'total_remises' => number_format($totalRemises, 2, '.', ''),
             'fond_caisse' => number_format((float) $session->fond_caisse, 2, '.', ''),
             'especes_theorique' => number_format((float) $session->fond_caisse + $especes, 2, '.', ''),
         ];

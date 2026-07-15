@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth';
 import PosPaiement, { type PaiementSaisi } from '@/pages/pos/PosPaiement';
 import { FermerCaisse, OuvrirCaisse, SessionFermee } from '@/pages/pos/PosSessionOverlays';
 import PosTicket from '@/pages/pos/PosTicket';
-import { calcLigne, calcTotaux, dh, type CartLine } from '@/pages/pos/ui';
+import { RemiseChips, calcLigne, calcTotaux, dh, remiseEffective, type CartLine } from '@/pages/pos/ui';
 import type { DocumentVente, Paginated, PosRapport, PosSession, Produit, StockNiveau } from '@/types';
 
 interface SessionResponse {
@@ -30,6 +30,9 @@ export default function PosPage() {
     const queryClient = useQueryClient();
 
     const [cart, setCart] = useState<CartLine[]>([]);
+    const [remiseTicket, setRemiseTicket] = useState(0); // remise globale ticket (%)
+    const [remiseEditKey, setRemiseEditKey] = useState<string | null>(null); // ligne en édition de remise
+    const [remiseTicketOpen, setRemiseTicketOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [now, setNow] = useState(new Date());
     const [payOpen, setPayOpen] = useState(false);
@@ -101,6 +104,14 @@ export default function PosPage() {
         queryClient.invalidateQueries({ queryKey: ['pos-niveaux'] });
     };
 
+    /** Vide le panier et remet à zéro les remises et leurs éditeurs. */
+    const viderPanier = () => {
+        setCart([]);
+        setRemiseTicket(0);
+        setRemiseEditKey(null);
+        setRemiseTicketOpen(false);
+    };
+
     const ouvrir = useMutation({
         mutationFn: (fondCaisse: number) => api.post('/pos/session/ouvrir', { fond_caisse: fondCaisse }),
         onSuccess: () => {
@@ -120,7 +131,7 @@ export default function PosPage() {
             setSessionError(null);
             setClosing(false);
             setClosed({ session: data.data, rapport: data.rapport });
-            setCart([]);
+            viderPanier();
             invalidatePos();
         },
         onError: (err: any) => setSessionError(extraireErreur(err)),
@@ -134,7 +145,7 @@ export default function PosPage() {
                     designation: line.designation,
                     quantite: line.quantite,
                     prix_unitaire: line.prix,
-                    remise_percent: line.remise,
+                    remise_percent: remiseEffective(line, remiseTicket),
                     tva_rate: line.tva,
                 })),
                 paiements: payload.paiements,
@@ -146,7 +157,7 @@ export default function PosPage() {
             setVenteError(null);
             setPayOpen(false);
             setSuccess({ doc: data.data, rendu: data.rendu, donne: data.donne });
-            setCart([]);
+            viderPanier();
             invalidatePos();
         },
         onError: (err: any) => setVenteError(extraireErreur(err)),
@@ -188,6 +199,11 @@ export default function PosPage() {
         );
     };
 
+    const changerRemise = (key: string, percent: number) => {
+        setCart((lines) => lines.map((line) => (line.key === key ? { ...line, remise: percent } : line)));
+        setRemiseEditKey(null);
+    };
+
     const filtres = useMemo(() => {
         const q = search.trim().toLowerCase();
         if (!q) return produits ?? [];
@@ -211,7 +227,7 @@ export default function PosPage() {
         }
     };
 
-    const totaux = calcTotaux(cart);
+    const totaux = calcTotaux(cart, remiseTicket);
 
     /* ------------------------------------------------------------------ */
 
@@ -378,7 +394,7 @@ export default function PosPage() {
                         <span className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Ticket</span>
                         {cart.length > 0 && (
                             <button
-                                onClick={() => setCart([])}
+                                onClick={viderPanier}
                                 className="text-xs text-slate-500 transition hover:text-red-400"
                             >
                                 Vider
@@ -398,7 +414,9 @@ export default function PosPage() {
                             </div>
                         )}
                         {cart.map((line) => {
-                            const calc = calcLigne(line);
+                            const calc = calcLigne(line, remiseTicket);
+                            const remiseLigne = line.remise > 0;
+                            const editing = remiseEditKey === line.key;
                             return (
                                 <div
                                     key={line.key}
@@ -432,20 +450,74 @@ export default function PosPage() {
                                                 +
                                             </button>
                                         </div>
-                                        <span className="font-bold tabular-nums text-emerald-300">
-                                            {dh(calc.ttc)} DH
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => setRemiseEditKey(editing ? null : line.key)}
+                                                className={`rounded-lg border px-2 py-1 text-xs font-semibold tabular-nums transition active:scale-95 ${
+                                                    remiseLigne
+                                                        ? 'border-amber-400/40 bg-amber-400/15 text-amber-200'
+                                                        : 'border-white/10 bg-white/[0.05] text-slate-400 hover:text-slate-200'
+                                                }`}
+                                            >
+                                                {remiseLigne ? `−${line.remise}%` : '% remise'}
+                                            </button>
+                                            <div className="text-right">
+                                                {remiseLigne && (
+                                                    <div className="text-[10px] tabular-nums text-slate-500 line-through">
+                                                        {dh(Math.round(line.quantite * line.prix * (1 + line.tva / 100) * 100) / 100)}
+                                                    </div>
+                                                )}
+                                                <span className="font-bold tabular-nums text-emerald-300">{dh(calc.ttc)} DH</span>
+                                            </div>
+                                        </div>
                                     </div>
+                                    {editing && (
+                                        <div className="mt-2 border-t border-white/[0.06] pt-2">
+                                            <RemiseChips value={line.remise} onChange={(pct) => changerRemise(line.key, pct)} />
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
                     </div>
 
                     <div className="space-y-1 border-t border-white/[0.06] p-5 tabular-nums">
+                        {/* Remise globale sur le ticket */}
+                        <div className="mb-2">
+                            <button
+                                onClick={() => setRemiseTicketOpen((v) => !v)}
+                                disabled={cart.length === 0}
+                                className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:opacity-40 ${
+                                    remiseTicket > 0
+                                        ? 'border-amber-400/40 bg-amber-400/10 text-amber-200'
+                                        : 'border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]'
+                                }`}
+                            >
+                                <span className="uppercase tracking-widest">Remise ticket</span>
+                                <span>{remiseTicket > 0 ? `−${remiseTicket}%` : '—'}</span>
+                            </button>
+                            {remiseTicketOpen && cart.length > 0 && (
+                                <div className="mt-2">
+                                    <RemiseChips
+                                        value={remiseTicket}
+                                        onChange={(pct) => {
+                                            setRemiseTicket(pct);
+                                            setRemiseTicketOpen(false);
+                                        }}
+                                    />
+                                </div>
+                            )}
+                        </div>
                         <div className="flex justify-between text-xs text-slate-500">
                             <span>Total HT</span>
                             <span>{dh(totaux.ht)} DH</span>
                         </div>
+                        {totaux.remise > 0 && (
+                            <div className="flex justify-between text-xs text-amber-300/80">
+                                <span>Remise accordée</span>
+                                <span>−{dh(totaux.remise)} DH</span>
+                            </div>
+                        )}
                         <div className="flex justify-between text-xs text-slate-500">
                             <span>TVA</span>
                             <span>{dh(totaux.tva)} DH</span>
