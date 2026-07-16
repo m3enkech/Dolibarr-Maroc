@@ -307,6 +307,8 @@ export interface PosSession {
     montant_compte: string | null;
     ecart: string | null;
     note: string | null;
+    entrepot_id?: number | null;
+    entrepot_nom?: string | null;
     vendeur?: string | null;
     opened_at: string;
     closed_at: string | null;

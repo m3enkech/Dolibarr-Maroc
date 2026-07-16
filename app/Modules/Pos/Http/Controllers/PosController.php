@@ -26,7 +26,7 @@ class PosController extends Controller
         $session = $this->service->sessionOuverte();
 
         return response()->json([
-            'data' => $session ? new PosSessionResource($session->load('user')) : null,
+            'data' => $session ? new PosSessionResource($session->load('user', 'entrepot')) : null,
             'rapport' => $session ? $this->service->rapport($session) : null,
         ]);
     }
@@ -35,11 +35,12 @@ class PosController extends Controller
     {
         $session = $this->service->ouvrirSession(
             (float) $request->validated()['fond_caisse'],
+            $request->validated()['entrepot_id'] ?? null,
             $request->validated()['note'] ?? null,
         );
 
         return response()->json([
-            'data' => new PosSessionResource($session->load('user')),
+            'data' => new PosSessionResource($session->load('user', 'entrepot')),
             'rapport' => $this->service->rapport($session),
         ], 201);
     }
@@ -64,7 +65,7 @@ class PosController extends Controller
         );
 
         return response()->json([
-            'data' => new PosSessionResource($session->load('user')),
+            'data' => new PosSessionResource($session->load('user', 'entrepot')),
             'rapport' => $rapport,
         ]);
     }
@@ -74,7 +75,7 @@ class PosController extends Controller
     {
         return PosSessionResource::collection(
             PosSession::query()
-                ->with('user')
+                ->with('user', 'entrepot')
                 ->latest('id')
                 ->paginate($request->integer('per_page', 20)),
         );
@@ -84,7 +85,7 @@ class PosController extends Controller
     public function rapport(PosSession $session): JsonResponse
     {
         return response()->json([
-            'data' => new PosSessionResource($session->load('user')),
+            'data' => new PosSessionResource($session->load('user', 'entrepot')),
             'rapport' => $this->service->rapport($session),
         ]);
     }

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'user_id', 'code', 'statut', 'fond_caisse', 'montant_compte',
+    'user_id', 'entrepot_id', 'code', 'statut', 'fond_caisse', 'montant_compte',
     'ecart', 'note', 'opened_at', 'closed_at',
 ])]
 class PosSession extends Model
@@ -35,6 +35,11 @@ class PosSession extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function entrepot(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Stock\Models\Entrepot::class);
     }
 
     public function ventes(): HasMany

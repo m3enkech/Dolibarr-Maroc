@@ -141,7 +141,8 @@ class StockService
 
     private function mouvementsVente(DocumentVente $document, int $sens, string $type): void
     {
-        $entrepot = $this->entrepotParDefaut();
+        // Entrepôt du document (caisse rattachée à un entrepôt) ; défaut sinon.
+        $entrepot = $document->entrepot ?? $this->entrepotParDefaut();
 
         foreach ($document->lignes as $ligne) {
             if ($ligne->produit_id === null) {

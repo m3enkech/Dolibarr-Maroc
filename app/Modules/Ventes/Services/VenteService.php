@@ -172,6 +172,9 @@ class VenteService
                 'statut' => DocumentVente::STATUT_BROUILLON,
                 'tiers_id' => $source->tiers_id,
                 'source_document_id' => $source->id,
+                // L'avoir/BL/facture issu d'une source hérite de son entrepôt :
+                // le retour de stock d'un avoir vise le même entrepôt que la vente.
+                'entrepot_id' => $source->entrepot_id,
                 'date_document' => now()->toDateString(),
                 'notes' => $source->notes,
                 'total_ht' => $source->total_ht,

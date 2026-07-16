@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Numpad, dh } from '@/pages/pos/ui';
-import type { PosRapport, PosSession } from '@/types';
+import type { Entrepot, PosRapport, PosSession } from '@/types';
 
 const MODE_LABELS: Record<string, string> = {
     especes: 'Espèces',
@@ -18,11 +18,14 @@ const MODE_LABELS: Record<string, string> = {
 interface OuvrirCaisseProps {
     pending: boolean;
     error: string | null;
-    onOuvrir: (fondCaisse: number) => void;
+    entrepots: Entrepot[];
+    onOuvrir: (fondCaisse: number, entrepotId: number | null) => void;
 }
 
-export function OuvrirCaisse({ pending, error, onOuvrir }: OuvrirCaisseProps) {
+export function OuvrirCaisse({ pending, error, entrepots, onOuvrir }: OuvrirCaisseProps) {
     const [fond, setFond] = useState('');
+    const defaut = entrepots.find((e) => e.is_default) ?? entrepots[0] ?? null;
+    const [entrepotId, setEntrepotId] = useState<number | null>(defaut?.id ?? null);
 
     return (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur">
@@ -44,6 +47,26 @@ export function OuvrirCaisse({ pending, error, onOuvrir }: OuvrirCaisseProps) {
                     </div>
                 )}
 
+                {entrepots.length > 1 && (
+                    <div className="mt-6 text-left">
+                        <label className="mb-1 block text-xs uppercase tracking-widest text-slate-500">
+                            Entrepôt de la caisse
+                        </label>
+                        <select
+                            value={entrepotId ?? ''}
+                            onChange={(e) => setEntrepotId(e.target.value ? Number(e.target.value) : null)}
+                            className="h-12 w-full rounded-2xl border border-white/10 bg-black/40 px-4 text-sm text-white outline-none focus:border-emerald-400/50"
+                        >
+                            {entrepots.map((e) => (
+                                <option key={e.id} value={e.id} className="bg-slate-900">
+                                    {e.name}
+                                    {e.is_default ? ' (défaut)' : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
                 <div className="mt-6 flex h-16 items-center justify-between rounded-2xl border border-white/10 bg-black/40 px-5">
                     <span className="text-xs uppercase tracking-widest text-slate-500">Fond de caisse</span>
                     <span className="text-3xl font-bold tabular-nums text-white">{fond === '' ? '0' : fond}</span>
@@ -54,7 +77,7 @@ export function OuvrirCaisse({ pending, error, onOuvrir }: OuvrirCaisseProps) {
                 </div>
 
                 <button
-                    onClick={() => onOuvrir(fond === '' ? 0 : parseFloat(fond))}
+                    onClick={() => onOuvrir(fond === '' ? 0 : parseFloat(fond), entrepotId)}
                     disabled={pending}
                     className="mt-5 h-14 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-base font-bold uppercase tracking-widest text-slate-950 shadow-[0_0_40px_rgba(16,185,129,0.35)] transition active:scale-[0.98] disabled:opacity-40"
                 >

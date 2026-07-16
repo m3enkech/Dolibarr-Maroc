@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'type', 'code', 'statut', 'tiers_id', 'source_document_id', 'pos_session_id',
-    'date_document', 'date_echeance', 'total_ht', 'total_tva', 'total_ttc',
+    'entrepot_id', 'date_document', 'date_echeance', 'total_ht', 'total_tva', 'total_ttc',
     'notes', 'validated_at',
 ])]
 class DocumentVente extends Model
@@ -64,6 +64,11 @@ class DocumentVente extends Model
     public function source(): BelongsTo
     {
         return $this->belongsTo(self::class, 'source_document_id');
+    }
+
+    public function entrepot(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Stock\Models\Entrepot::class);
     }
 
     public function isBrouillon(): bool

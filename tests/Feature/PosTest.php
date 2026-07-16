@@ -138,6 +138,36 @@ class PosTest extends TestCase
             ->assertJsonPath('rapport.total_ttc', '183.60');
     }
 
+    public function test_vente_sort_du_stock_de_l_entrepot_de_la_caisse(): void
+    {
+        $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $produit = $this->createProduit($token);
+
+        // Deux entrepôts : le 1er devient défaut, le 2e est la boutique.
+        $principal = $this->withToken($token)->postJson('/api/v1/stock/entrepots', ['name' => 'Principal'])->json('data');
+        $boutique = $this->withToken($token)->postJson('/api/v1/stock/entrepots', ['name' => 'Boutique Centre'])->json('data');
+
+        // Session de caisse rattachée à la boutique.
+        $this->withToken($token)->postJson('/api/v1/pos/session/ouvrir', [
+            'fond_caisse' => 0, 'entrepot_id' => $boutique['id'],
+        ])->assertCreated()->assertJsonPath('data.entrepot_nom', 'Boutique Centre');
+
+        // Vente 2 unités (85 HT → 102 TTC × 2 = 204).
+        $this->withToken($token)->postJson('/api/v1/pos/ventes', [
+            'lignes' => [['produit_id' => $produit['id'], 'quantite' => 2]],
+            'paiements' => [['mode' => 'especes', 'montant' => 204]],
+        ])->assertCreated();
+
+        // La sortie de stock vise la boutique, pas l'entrepôt par défaut.
+        $this->withToken($token)->getJson("/api/v1/stock/mouvements?entrepot_id={$boutique['id']}")
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.quantite', '-2.000')
+            ->assertJsonPath('data.0.entrepot.name', 'Boutique Centre');
+
+        $this->withToken($token)->getJson("/api/v1/stock/mouvements?entrepot_id={$principal['id']}")
+            ->assertJsonPath('meta.total', 0);
+    }
+
     public function test_vente_rejects_wrong_payment_total(): void
     {
         $token = $this->registerTenant('Tenant A', 'a@test.ma');

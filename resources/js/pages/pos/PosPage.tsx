@@ -7,7 +7,7 @@ import PosPaiement, { type PaiementSaisi } from '@/pages/pos/PosPaiement';
 import { FermerCaisse, OuvrirCaisse, SessionFermee } from '@/pages/pos/PosSessionOverlays';
 import PosTicket from '@/pages/pos/PosTicket';
 import { RemiseChips, calcLigne, calcTotaux, dh, remiseEffective, type CartLine } from '@/pages/pos/ui';
-import type { DocumentVente, Paginated, PosRapport, PosSession, Produit, StockNiveau } from '@/types';
+import type { DocumentVente, Entrepot, Paginated, PosRapport, PosSession, Produit, StockNiveau } from '@/types';
 
 interface SessionResponse {
     data: PosSession | null;
@@ -85,11 +85,16 @@ export default function PosPage() {
         },
     });
 
+    const { data: entrepots } = useQuery({
+        queryKey: ['pos-entrepots'],
+        queryFn: async () => (await api.get<{ data: Entrepot[] }>('/stock/entrepots')).data.data,
+    });
+
     const { data: niveaux } = useQuery({
-        queryKey: ['pos-niveaux'],
+        queryKey: ['pos-niveaux', session?.entrepot_id ?? null],
         queryFn: async () => {
             const { data } = await api.get<Paginated<StockNiveau>>('/stock/niveaux', {
-                params: { per_page: 500 },
+                params: { per_page: 500, entrepot_id: session?.entrepot_id ?? undefined },
             });
             return new Map(data.data.map((n) => [n.produit_id, parseFloat(n.quantite)]));
         },
@@ -113,7 +118,8 @@ export default function PosPage() {
     };
 
     const ouvrir = useMutation({
-        mutationFn: (fondCaisse: number) => api.post('/pos/session/ouvrir', { fond_caisse: fondCaisse }),
+        mutationFn: (vars: { fond: number; entrepotId: number | null }) =>
+            api.post('/pos/session/ouvrir', { fond_caisse: vars.fond, entrepot_id: vars.entrepotId }),
         onSuccess: () => {
             setSessionError(null);
             setClosed(null);
@@ -283,6 +289,9 @@ export default function PosPage() {
                             <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" />
                             <span className="font-semibold text-emerald-300">{session.code}</span>
                             <span className="text-slate-400">· {user?.name}</span>
+                            {session.entrepot_nom && (
+                                <span className="text-slate-400">· 🏬 {session.entrepot_nom}</span>
+                            )}
                             {rapport && (
                                 <span className="text-slate-400">
                                     · {rapport.tickets} ticket{rapport.tickets > 1 ? 's' : ''} ·{' '}
@@ -545,7 +554,8 @@ export default function PosPage() {
                 <OuvrirCaisse
                     pending={ouvrir.isPending}
                     error={sessionError}
-                    onOuvrir={(fond) => ouvrir.mutate(fond)}
+                    entrepots={entrepots ?? []}
+                    onOuvrir={(fond, entrepotId) => ouvrir.mutate({ fond, entrepotId })}
                 />
             )}
 

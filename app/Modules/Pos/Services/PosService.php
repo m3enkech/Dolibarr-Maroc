@@ -33,7 +33,7 @@ class PosService
             ->first();
     }
 
-    public function ouvrirSession(float $fondCaisse, ?string $note = null): PosSession
+    public function ouvrirSession(float $fondCaisse, ?int $entrepotId = null, ?string $note = null): PosSession
     {
         if ($this->sessionOuverte() !== null) {
             throw ValidationException::withMessages([
@@ -43,6 +43,7 @@ class PosService
 
         return PosSession::create([
             'user_id' => auth()->id(),
+            'entrepot_id' => $entrepotId,
             'code' => $this->sequences->next('CS'),
             'statut' => PosSession::STATUT_OUVERTE,
             'fond_caisse' => $fondCaisse,
@@ -110,7 +111,8 @@ class PosService
                 ]);
             }
 
-            $document->update(['pos_session_id' => $session->id]);
+            // La vente sort du stock de l'entrepôt rattaché à la caisse.
+            $document->update(['pos_session_id' => $session->id, 'entrepot_id' => $session->entrepot_id]);
             $document = $this->ventes->valider($document);
 
             foreach ($paiements as $paiement) {
