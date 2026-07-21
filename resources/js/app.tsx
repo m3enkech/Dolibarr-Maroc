@@ -106,3 +106,11 @@ function App() {
 }
 
 createRoot(document.getElementById('root')!).render(<App />);
+
+// Service worker (PWA / caisse hors-ligne) : uniquement en production, pour ne
+// pas interférer avec le HMR de Vite en développement.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+}

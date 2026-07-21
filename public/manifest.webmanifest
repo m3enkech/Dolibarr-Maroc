@@ -1,0 +1,19 @@
+{
+    "name": "Dolibarr Maroc — Caisse",
+    "short_name": "Caisse",
+    "description": "Caisse (POS) Dolibarr Maroc, utilisable hors-ligne.",
+    "start_url": "/caisse",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#020617",
+    "theme_color": "#059669",
+    "icons": [
+        {
+            "src": "/pos-icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}

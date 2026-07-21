@@ -168,6 +168,37 @@ class PosTest extends TestCase
             ->assertJsonPath('meta.total', 0);
     }
 
+    public function test_vente_est_idempotente_par_client_uuid(): void
+    {
+        $token = $this->registerTenant('Tenant A', 'a@test.ma');
+        $produit = $this->createProduit($token); // 85 HT → 102 TTC
+        $this->ouvrirSession($token);
+
+        $uuid = '11111111-2222-3333-4444-555555555555';
+        $payload = [
+            'lignes' => [['produit_id' => $produit['id'], 'quantite' => 1]],
+            'paiements' => [['mode' => 'especes', 'montant' => 102]],
+            'client_uuid' => $uuid,
+        ];
+
+        // 1er envoi : crée la facture.
+        $premier = $this->withToken($token)->postJson('/api/v1/pos/ventes', $payload)->assertCreated();
+        $code = $premier->json('data.code');
+
+        // 2e envoi identique (rejoué après une coupure réseau) : même facture, pas de doublon.
+        $this->withToken($token)->postJson('/api/v1/pos/ventes', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.code', $code);
+
+        // Une seule facture, un seul mouvement de stock, un seul ticket dans le rapport.
+        $this->withToken($token)->getJson('/api/v1/ventes/documents?type=facture')
+            ->assertJsonPath('meta.total', 1);
+        $this->withToken($token)->getJson('/api/v1/stock/mouvements')
+            ->assertJsonPath('meta.total', 1);
+        $this->withToken($token)->getJson('/api/v1/pos/session')
+            ->assertJsonPath('rapport.tickets', 1);
+    }
+
     public function test_vente_rejects_wrong_payment_total(): void
     {
         $token = $this->registerTenant('Tenant A', 'a@test.ma');

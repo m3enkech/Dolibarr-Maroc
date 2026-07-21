@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import PosPaiement, { type PaiementSaisi } from '@/pages/pos/PosPaiement';
 import { FermerCaisse, OuvrirCaisse, SessionFermee } from '@/pages/pos/PosSessionOverlays';
 import PosTicket from '@/pages/pos/PosTicket';
+import { buildLocalDoc, enqueueSale, queueCount, syncQueue } from '@/pages/pos/offlineQueue';
 import { RemiseChips, calcLigne, calcTotaux, dh, remiseEffective, type CartLine } from '@/pages/pos/ui';
 import type { DocumentVente, Entrepot, Paginated, PosRapport, PosSession, Produit, StockNiveau } from '@/types';
 
@@ -37,15 +38,29 @@ export default function PosPage() {
     const [now, setNow] = useState(new Date());
     const [payOpen, setPayOpen] = useState(false);
     const [closing, setClosing] = useState(false);
-    const [success, setSuccess] = useState<{ doc: DocumentVente; rendu: string | null; donne: number | null } | null>(null);
+    const [success, setSuccess] = useState<{ doc: DocumentVente; rendu: string | null; donne: number | null; offline?: boolean } | null>(null);
     const [closed, setClosed] = useState<{ session: PosSession; rapport: PosRapport } | null>(null);
     const [venteError, setVenteError] = useState<string | null>(null);
     const [sessionError, setSessionError] = useState<string | null>(null);
+    const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+    const [pending, setPending] = useState(queueCount());
 
     /* Horloge temps réel. */
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
+    }, []);
+
+    /* État de connexion (pour la caisse hors-ligne). */
+    useEffect(() => {
+        const up = () => setOnline(true);
+        const down = () => setOnline(false);
+        window.addEventListener('online', up);
+        window.addEventListener('offline', down);
+        return () => {
+            window.removeEventListener('online', up);
+            window.removeEventListener('offline', down);
+        };
     }, []);
 
     /* Raccourcis clavier : F9 = encaisser, Échap = fermer l'encaissement. */
@@ -109,6 +124,24 @@ export default function PosPage() {
         queryClient.invalidateQueries({ queryKey: ['pos-niveaux'] });
     };
 
+    /* Rejoue la file des ventes hors-ligne : au montage, au retour en ligne, et toutes les 15 s. */
+    useEffect(() => {
+        if (!online) return;
+        let alive = true;
+        const run = async () => {
+            const n = await syncQueue();
+            if (!alive) return;
+            setPending(queueCount());
+            if (n > 0) invalidatePos();
+        };
+        run();
+        const id = setInterval(run, 15000);
+        return () => {
+            alive = false;
+            clearInterval(id);
+        };
+    }, [online]); // eslint-disable-line react-hooks/exhaustive-deps
+
     /** Vide le panier et remet à zéro les remises et leurs éditeurs. */
     const viderPanier = () => {
         setCart([]);
@@ -145,7 +178,8 @@ export default function PosPage() {
 
     const vendre = useMutation({
         mutationFn: async (payload: { paiements: PaiementSaisi[]; montantDonne: number | null }) => {
-            const { data } = await api.post<VenteResponse>('/pos/ventes', {
+            const clientUuid = crypto.randomUUID();
+            const body = {
                 lignes: cart.map((line) => ({
                     produit_id: line.produit_id,
                     designation: line.designation,
@@ -156,13 +190,39 @@ export default function PosPage() {
                 })),
                 paiements: payload.paiements,
                 montant_donne: payload.montantDonne ?? undefined,
-            });
-            return { ...data, donne: payload.montantDonne };
+                client_uuid: clientUuid,
+            };
+
+            try {
+                const { data } = await api.post<VenteResponse>('/pos/ventes', body);
+                return { ...data, donne: payload.montantDonne, offline: false };
+            } catch (err: any) {
+                // Pas de réponse serveur = coupure réseau → on encaisse hors-ligne :
+                // la vente est mise en file et rejouée (idempotente) au retour du réseau.
+                if (!err?.response) {
+                    enqueueSale({ client_uuid: clientUuid, body, created_at: new Date().toISOString() });
+                    const cash = payload.paiements
+                        .filter((p) => p.mode === 'especes')
+                        .reduce((s, p) => s + p.montant, 0);
+                    const rendu =
+                        payload.montantDonne !== null
+                            ? Math.max(0, Math.round((payload.montantDonne - cash) * 100) / 100).toFixed(2)
+                            : null;
+                    return {
+                        data: buildLocalDoc(cart, payload.paiements, remiseTicket, clientUuid),
+                        rendu,
+                        donne: payload.montantDonne,
+                        offline: true,
+                    };
+                }
+                throw err;
+            }
         },
         onSuccess: (data) => {
             setVenteError(null);
+            setPending(queueCount());
             setPayOpen(false);
-            setSuccess({ doc: data.data, rendu: data.rendu, donne: data.donne });
+            setSuccess({ doc: data.data, rendu: data.rendu, donne: data.donne, offline: data.offline });
             viderPanier();
             invalidatePos();
         },
@@ -311,6 +371,20 @@ export default function PosPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {!online && (
+                        <span className="flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-300">
+                            <span className="h-2 w-2 rounded-full bg-amber-400" />
+                            Hors ligne
+                        </span>
+                    )}
+                    {pending > 0 && (
+                        <span
+                            className="flex items-center gap-1.5 rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-300"
+                            title="Ventes enregistrées hors-ligne, en attente de synchronisation"
+                        >
+                            ⟳ {pending} en attente
+                        </span>
+                    )}
                     {session && (
                         <button
                             onClick={() => setClosing(true)}
@@ -623,6 +697,11 @@ export default function PosPage() {
                         </svg>
                         <h2 className="mt-3 text-2xl font-bold text-white">Vente encaissée</h2>
                         <p className="mt-1 font-mono text-sm text-slate-400">{success.doc.code}</p>
+                        {success.offline && (
+                            <p className="mx-auto mt-2 max-w-xs rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
+                                Encaissée hors-ligne. Elle sera synchronisée et numérotée automatiquement au retour du réseau.
+                            </p>
+                        )}
 
                         {success.rendu !== null && parseFloat(success.rendu) > 0 && (
                             <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-6 py-4">

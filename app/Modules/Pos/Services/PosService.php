@@ -86,11 +86,21 @@ class PosService
      * @param array<int, array<string, mixed>> $lignes
      * @param array<int, array{mode: string, montant: float|string, reference?: ?string}> $paiements
      */
-    public function vendre(PosSession $session, array $lignes, array $paiements, ?int $tiersId = null): DocumentVente
+    public function vendre(PosSession $session, array $lignes, array $paiements, ?int $tiersId = null, ?string $clientUuid = null): DocumentVente
     {
         $this->assertOuverte($session);
 
-        return DB::transaction(function () use ($session, $lignes, $paiements, $tiersId) {
+        // Idempotence : une vente déjà enregistrée (même client_uuid, rejouée par
+        // la file d'attente hors-ligne après une coupure) renvoie la facture
+        // existante au lieu d'en créer un doublon.
+        if ($clientUuid !== null) {
+            $existant = DocumentVente::where('client_uuid', $clientUuid)->first();
+            if ($existant !== null) {
+                return $existant->fresh(['lignes', 'tiers', 'paiements']);
+            }
+        }
+
+        return DB::transaction(function () use ($session, $lignes, $paiements, $tiersId, $clientUuid) {
             $document = $this->ventes->create([
                 'type' => DocumentVente::TYPE_FACTURE,
                 'tiers_id' => $tiersId ?? $this->clientComptoir()->id,
@@ -112,7 +122,11 @@ class PosService
             }
 
             // La vente sort du stock de l'entrepôt rattaché à la caisse.
-            $document->update(['pos_session_id' => $session->id, 'entrepot_id' => $session->entrepot_id]);
+            $document->update([
+                'pos_session_id' => $session->id,
+                'entrepot_id' => $session->entrepot_id,
+                'client_uuid' => $clientUuid,
+            ]);
             $document = $this->ventes->valider($document);
 
             foreach ($paiements as $paiement) {

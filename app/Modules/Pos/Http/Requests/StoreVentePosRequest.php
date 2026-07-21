@@ -44,6 +44,10 @@ class StoreVentePosRequest extends FormRequest
 
             // Espèces réellement remises par le client (pour afficher le rendu).
             'montant_donne' => ['nullable', 'numeric', 'min:0'],
+
+            // Clé d'idempotence (caisse hors-ligne) : rejouer la même vente ne
+            // crée pas de doublon.
+            'client_uuid' => ['nullable', 'uuid'],
         ];
     }
 }
