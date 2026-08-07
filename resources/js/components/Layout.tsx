@@ -85,6 +85,7 @@ const GROUPS: MenuGroup[] = [
                     { to: '/compta?section=ecritures', label: 'Écritures', domain: 'compta', def: true },
                     { to: '/compta?section=balance', label: 'Balance', domain: 'compta' },
                     { to: '/compta?section=balance-agee', label: 'Balance âgée', domain: 'compta' },
+                    { to: '/compta?section=rapprochement', label: 'Rapprochement bancaire', domain: 'compta' },
                     { to: '/compta?section=etats', label: 'Bilan / CPC', domain: 'compta' },
                     { to: '/compta?section=tva', label: 'État TVA', domain: 'compta' },
                     { to: '/compta?section=immobilisations', label: 'Immobilisations', domain: 'compta' },

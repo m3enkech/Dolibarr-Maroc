@@ -6,6 +6,7 @@ use App\Modules\Compta\Http\Controllers\EcrituresController;
 use App\Modules\Compta\Http\Controllers\ImmobilisationsController;
 use App\Modules\Compta\Http\Controllers\LettrageController;
 use App\Modules\Compta\Http\Controllers\OuvertureController;
+use App\Modules\Compta\Http\Controllers\RapprochementController;
 use App\Modules\Compta\Http\Controllers\RapportsController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,6 +33,15 @@ Route::prefix('compta')->group(function () {
     Route::get('ouverture/modele', [OuvertureController::class, 'modele']);
     Route::post('ouverture/previsualiser', [OuvertureController::class, 'previsualiser']);
     Route::post('ouverture/importer', [OuvertureController::class, 'importer']);
+
+    // Rapprochement bancaire
+    Route::get('rapprochement', [RapprochementController::class, 'index']);
+    Route::post('rapprochement/import', [RapprochementController::class, 'importer']);
+    Route::get('rapprochement/{statement}', [RapprochementController::class, 'show']);
+    Route::delete('rapprochement/{statement}', [RapprochementController::class, 'destroy']);
+    Route::post('rapprochement/{statement}/auto', [RapprochementController::class, 'auto']);
+    Route::post('rapprochement/lignes/{ligne}/pointer', [RapprochementController::class, 'pointer']);
+    Route::post('rapprochement/lignes/{ligne}/depointer', [RapprochementController::class, 'depointer']);
 
     Route::get('exercices', [ClotureController::class, 'index']);
     Route::post('exercices/cloturer', [ClotureController::class, 'cloturer']);

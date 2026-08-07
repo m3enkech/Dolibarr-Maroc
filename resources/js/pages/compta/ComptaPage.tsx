@@ -11,6 +11,7 @@ import Immobilisations from '@/pages/compta/Immobilisations';
 import Lettrage from '@/pages/compta/Lettrage';
 import Ouverture from '@/pages/compta/Ouverture';
 import PlanComptable from '@/pages/compta/PlanComptable';
+import Rapprochement from '@/pages/compta/Rapprochement';
 import type { ComptaMappingRow, Compte } from '@/types';
 
 const TABS = [
@@ -18,6 +19,7 @@ const TABS = [
     { key: 'lettrage', label: 'Lettrage' },
     { key: 'balance', label: 'Balance' },
     { key: 'balance-agee', label: 'Balance âgée' },
+    { key: 'rapprochement', label: 'Rapprochement' },
     { key: 'etats', label: 'Bilan / CPC' },
     { key: 'tva', label: 'État TVA' },
     { key: 'immobilisations', label: 'Immobilisations' },
@@ -81,6 +83,7 @@ export default function ComptaPage() {
             )}
             {tab === 'balance' && <Balance />}
             {tab === 'balance-agee' && <BalanceAgee />}
+            {tab === 'rapprochement' && <Rapprochement />}
             {tab === 'etats' && <EtatsSynthese />}
             {tab === 'tva' && <EtatTva />}
             {tab === 'immobilisations' && <Immobilisations />}
