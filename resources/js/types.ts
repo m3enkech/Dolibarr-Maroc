@@ -20,6 +20,9 @@ export interface Tiers {
     name: string;
     is_client: boolean;
     is_supplier: boolean;
+    is_prospect: boolean;
+    lead_source: string | null;
+    converti_at: string | null;
     ice: string | null;
     if_number: string | null;
     rc: string | null;
@@ -367,6 +370,85 @@ export interface Opportunite {
     vendeur: string | null;
     close_at: string | null;
     created_at: string;
+}
+
+/** Origines de lead (miroir de Tiers::LEAD_SOURCES côté serveur). */
+export const LEAD_SOURCES = [
+    'site_web', 'salon', 'recommandation', 'appel_entrant',
+    'prospection', 'reseaux_sociaux', 'autre',
+] as const;
+
+export const LEAD_SOURCE_LABELS: Record<string, string> = {
+    site_web: 'Site web',
+    salon: 'Salon / foire',
+    recommandation: 'Recommandation',
+    appel_entrant: 'Appel entrant',
+    prospection: 'Prospection',
+    reseaux_sociaux: 'Réseaux sociaux',
+    autre: 'Autre',
+};
+
+export interface CrmStats {
+    synthese: {
+        total: number;
+        ouvertes: number;
+        gagnees: number;
+        perdues: number;
+        taux_conversion: number;
+        montant_gagne: string;
+        montant_perdu: string;
+        pipeline_ouvert: string;
+        forecast_pondere: string;
+        panier_moyen_gagne: string;
+        duree_moyenne_jours: number | null;
+    };
+    par_etape: { etape: string; nombre: number; montant: string }[];
+    par_vendeur: {
+        user_id: number | null;
+        vendeur: string;
+        total: number;
+        gagnees: number;
+        perdues: number;
+        ouvertes: number;
+        taux_conversion: number;
+        montant_gagne: string;
+        pipeline: string;
+    }[];
+    par_source: { source: string; total: number; prospects: number; convertis: number }[];
+    transformation: {
+        opportunites: number;
+        devis: number;
+        factures: number;
+        ca_facture: string;
+        taux_devis: number;
+    };
+}
+
+export interface OpportuniteDetail {
+    opportunite: Opportunite;
+    vendeur: string | null;
+    activites: {
+        id: number;
+        type: string;
+        sujet: string;
+        note: string | null;
+        date_prevue: string | null;
+        fait: boolean;
+    }[];
+    documents: {
+        id: number;
+        code: string;
+        type: string;
+        statut: string;
+        date_document: string | null;
+        total_ttc: string;
+    }[];
+    dates: {
+        creee_le: string | null;
+        close_le: string | null;
+        cloture_prevue: string | null;
+        jours_ouverts: number | null;
+    };
 }
 
 export type ActiviteType = 'appel' | 'email' | 'reunion' | 'note' | 'tache';

@@ -4,12 +4,16 @@ namespace App\Modules\Crm\Services;
 
 use App\Core\Sequences\SequenceService;
 use App\Modules\Crm\Models\Opportunite;
+use App\Modules\Tiers\Services\TiersService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class OpportuniteService
 {
-    public function __construct(private SequenceService $sequences) {}
+    public function __construct(
+        private SequenceService $sequences,
+        private TiersService $tiers,
+    ) {}
 
     public function creer(array $data): Opportunite
     {
@@ -66,6 +70,11 @@ class OpportuniteService
             'probabilite' => $statut === Opportunite::STATUT_GAGNEE ? 100 : 0,
             'close_at' => now(),
         ]);
+
+        // Une affaire gagnée transforme le prospect en client.
+        if ($statut === Opportunite::STATUT_GAGNEE && $opportunite->tiers !== null) {
+            $this->tiers->convertirEnClient($opportunite->tiers);
+        }
 
         return $opportunite->refresh();
     }

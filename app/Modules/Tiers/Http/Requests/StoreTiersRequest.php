@@ -2,7 +2,9 @@
 
 namespace App\Modules\Tiers\Http\Requests;
 
+use App\Modules\Tiers\Models\Tiers;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreTiersRequest extends FormRequest
 {
@@ -17,6 +19,10 @@ class StoreTiersRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'is_client' => ['boolean'],
             'is_supplier' => ['boolean'],
+
+            // Qualification commerciale (CRM) : prospect + origine du lead.
+            'is_prospect' => ['boolean'],
+            'lead_source' => ['nullable', Rule::in(Tiers::LEAD_SOURCES)],
 
             // Identifiants marocains : l'ICE fait légalement 15 chiffres.
             'ice' => ['nullable', 'digits:15'],

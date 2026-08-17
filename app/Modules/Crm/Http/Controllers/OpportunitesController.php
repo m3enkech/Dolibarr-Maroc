@@ -67,6 +67,60 @@ class OpportunitesController extends Controller
         return response()->json(OpportuniteResource::collection($opportunites)->response()->getData(true));
     }
 
+    /**
+     * Fiche complète d'une opportunité : le tiers, ses activités, les documents
+     * de vente générés depuis elle, et les dates clés.
+     */
+    public function show(Request $request, Opportunite $opportunite): JsonResponse
+    {
+        $this->assertFeature($request);
+
+        $opportunite->load(['tiers', 'user']);
+
+        $activites = \App\Modules\Crm\Models\Activite::query()
+            ->where('opportunite_id', $opportunite->id)
+            ->orderByRaw('COALESCE(date_prevue, created_at) desc')
+            ->get()
+            ->map(fn ($a) => [
+                'id' => $a->id,
+                'type' => $a->type,
+                'sujet' => $a->sujet,
+                'note' => $a->note,
+                'date_prevue' => $a->date_prevue?->toDateString(),
+                'fait' => (bool) $a->fait,
+            ]);
+
+        $documents = \App\Modules\Ventes\Models\DocumentVente::query()
+            ->where('opportunite_id', $opportunite->id)
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($d) => [
+                'id' => $d->id,
+                'code' => $d->code,
+                'type' => $d->type,
+                'statut' => $d->statut,
+                'date_document' => $d->date_document?->toDateString(),
+                'total_ttc' => number_format((float) $d->total_ttc, 2, '.', ''),
+            ]);
+
+        return response()->json([
+            'data' => [
+                'opportunite' => new OpportuniteResource($opportunite),
+                'vendeur' => $opportunite->user?->name,
+                'activites' => $activites,
+                'documents' => $documents,
+                'dates' => [
+                    'creee_le' => $opportunite->created_at?->toDateString(),
+                    'close_le' => $opportunite->close_at?->toDateString(),
+                    'cloture_prevue' => $opportunite->date_cloture_prevue?->toDateString(),
+                    'jours_ouverts' => $opportunite->created_at
+                        ? (int) $opportunite->created_at->diffInDays($opportunite->close_at ?? now())
+                        : null,
+                ],
+            ],
+        ]);
+    }
+
     public function store(StoreOpportuniteRequest $request): JsonResponse
     {
         $this->assertFeature($request);
@@ -127,6 +181,10 @@ class OpportunitesController extends Controller
                 'tva_rate' => 20,
             ]],
         ]);
+
+        // Lien structuré (en plus de la note) : alimente la fiche de
+        // l'opportunité et l'entonnoir des statistiques.
+        $devis->update(['opportunite_id' => $opportunite->id]);
 
         if ($opportunite->isOuverte() && $opportunite->etape === Opportunite::ETAPES[0]) {
             $this->service->deplacer($opportunite, 'proposition');

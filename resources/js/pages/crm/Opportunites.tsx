@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import type { Opportunite, OpportuniteEtape, Paginated, PipelineBoard, Tiers } from '@/types';
@@ -235,7 +235,13 @@ function Carte({
             className="cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:shadow-md active:cursor-grabbing"
         >
             <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-medium text-slate-900">{opp.titre}</span>
+                <Link
+                    to={`/crm/opportunites/${opp.id}`}
+                    className="text-sm font-medium text-slate-900 hover:text-emerald-600 hover:underline"
+                    title="Ouvrir la fiche"
+                >
+                    {opp.titre}
+                </Link>
                 <span className="shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
                     {opp.probabilite}%
                 </span>

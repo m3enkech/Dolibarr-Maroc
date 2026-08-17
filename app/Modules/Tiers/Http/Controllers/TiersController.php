@@ -25,8 +25,14 @@ class TiersController extends Controller
                     ->orWhere('code', 'like', $search)
                     ->orWhere('ice', 'like', $search));
             })
-            ->when($request->string('type')->toString() === 'client', fn ($q) => $q->where('is_client', true))
+            // Un prospect reste un client potentiel (is_client=true) : le filtre
+            // « client » ne montre que les clients déjà convertis.
+            ->when($request->string('type')->toString() === 'client',
+                fn ($q) => $q->where('is_client', true)->where('is_prospect', false))
+            ->when($request->string('type')->toString() === 'prospect', fn ($q) => $q->where('is_prospect', true))
             ->when($request->string('type')->toString() === 'fournisseur', fn ($q) => $q->where('is_supplier', true))
+            ->when($request->string('lead_source')->isNotEmpty(),
+                fn ($q) => $q->where('lead_source', $request->string('lead_source')->toString()))
             ->orderBy('name')
             ->paginate($request->integer('per_page', 15));
 
@@ -46,6 +52,12 @@ class TiersController extends Controller
     public function update(UpdateTiersRequest $request, Tiers $tiers): TiersResource
     {
         return new TiersResource($this->service->update($tiers, $request->validated()));
+    }
+
+    /** Convertit un prospect en client (le tiers garde son code et son historique). */
+    public function convertir(Tiers $tiers): TiersResource
+    {
+        return new TiersResource($this->service->convertirEnClient($tiers));
     }
 
     public function destroy(Tiers $tiers): \Illuminate\Http\JsonResponse

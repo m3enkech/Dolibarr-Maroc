@@ -70,6 +70,7 @@ export default function TiersList() {
                 >
                     <option value="">Tous</option>
                     <option value="client">Clients</option>
+                    <option value="prospect">Prospects</option>
                     <option value="fournisseur">Fournisseurs</option>
                 </select>
             </div>
@@ -114,7 +115,12 @@ export default function TiersList() {
                                     )}
                                 </td>
                                 <td className="px-4 py-3">
-                                    {tiers.is_client && (
+                                    {tiers.is_prospect && (
+                                        <span className="mr-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
+                                            Prospect
+                                        </span>
+                                    )}
+                                    {tiers.is_client && !tiers.is_prospect && (
                                         <span className="mr-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">
                                             Client
                                         </span>

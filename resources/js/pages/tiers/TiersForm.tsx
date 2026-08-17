@@ -4,12 +4,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useFeatures } from '@/lib/features';
 import TiersTimeline from '@/pages/tiers/TiersTimeline';
-import type { Tiers } from '@/types';
+import { LEAD_SOURCES, LEAD_SOURCE_LABELS, type Tiers } from '@/types';
 
 interface TiersFormData {
     name: string;
     is_client: boolean;
     is_supplier: boolean;
+    is_prospect: boolean;
+    lead_source: string;
     ice: string;
     if_number: string;
     rc: string;
@@ -30,6 +32,8 @@ const emptyForm: TiersFormData = {
     name: '',
     is_client: true,
     is_supplier: false,
+    is_prospect: false,
+    lead_source: '',
     ice: '',
     if_number: '',
     rc: '',
@@ -77,6 +81,8 @@ export default function TiersForm() {
                 name: existing.name,
                 is_client: existing.is_client,
                 is_supplier: existing.is_supplier,
+                is_prospect: existing.is_prospect,
+                lead_source: existing.lead_source ?? '',
                 ice: existing.ice ?? '',
                 if_number: existing.if_number ?? '',
                 rc: existing.rc ?? '',
@@ -111,6 +117,16 @@ export default function TiersForm() {
                     : 'Enregistrement impossible.',
             );
         },
+    });
+
+    /** Conversion prospect → client : le tiers garde son code et son historique. */
+    const convertir = useMutation({
+        mutationFn: () => api.post(`/tiers/${id}/convertir`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['tiers'] });
+            queryClient.invalidateQueries({ queryKey: ['tiers-detail', id] });
+        },
+        onError: () => setError('Conversion impossible.'),
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -180,6 +196,15 @@ export default function TiersForm() {
                             <label className="flex items-center gap-2 text-sm text-slate-700">
                                 <input
                                     type="checkbox"
+                                    checked={form.is_prospect}
+                                    onChange={check('is_prospect')}
+                                    className="rounded border-slate-300"
+                                />
+                                Prospect
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-slate-700">
+                                <input
+                                    type="checkbox"
                                     checked={form.is_active}
                                     onChange={check('is_active')}
                                     className="rounded border-slate-300"
@@ -187,7 +212,40 @@ export default function TiersForm() {
                                 Actif
                             </label>
                         </div>
+
+                        {form.is_prospect && (
+                            <div>
+                                <label className="mb-1 block text-sm text-slate-600">Origine du lead</label>
+                                <select
+                                    value={form.lead_source}
+                                    onChange={(e) => setForm((f) => ({ ...f, lead_source: e.target.value }))}
+                                    className={input}
+                                >
+                                    <option value="">— Non renseignée —</option>
+                                    {LEAD_SOURCES.map((s) => (
+                                        <option key={s} value={s}>{LEAD_SOURCE_LABELS[s]}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
+
+                    {isEdit && existing?.is_prospect && (
+                        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                            <span className="text-sm text-amber-800">
+                                Ce tiers est un <strong>prospect</strong>. Convertissez-le en client une fois l'affaire
+                                signée — il conserve son code et tout son historique.
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => convertir.mutate()}
+                                disabled={convertir.isPending}
+                                className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
+                            >
+                                {convertir.isPending ? 'Conversion…' : '✓ Convertir en client'}
+                            </button>
+                        </div>
+                    )}
                 </fieldset>
 
                 <fieldset className="rounded-xl bg-white p-5 shadow-sm">

@@ -175,6 +175,9 @@ class VenteService
                 // L'avoir/BL/facture issu d'une source hérite de son entrepôt :
                 // le retour de stock d'un avoir vise le même entrepôt que la vente.
                 'entrepot_id' => $source->entrepot_id,
+                // …et de son opportunité, pour que l'affaire suive toute la chaîne
+                // devis → commande → BL → facture (entonnoir CRM et documents liés).
+                'opportunite_id' => $source->opportunite_id,
                 'date_document' => now()->toDateString(),
                 'notes' => $source->notes,
                 'total_ht' => $source->total_ht,

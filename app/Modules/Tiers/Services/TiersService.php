@@ -26,4 +26,24 @@ class TiersService
 
         return $tiers->refresh();
     }
+
+    /**
+     * Conversion prospect → client : on lève le flag et on horodate. Le tiers
+     * conserve son code et tout son historique (devis, activités, opportunités).
+     * Idempotent : reconvertir un client déjà converti ne change rien.
+     */
+    public function convertirEnClient(Tiers $tiers): Tiers
+    {
+        if (! $tiers->is_prospect) {
+            return $tiers;
+        }
+
+        $tiers->update([
+            'is_prospect' => false,
+            'is_client' => true,
+            'converti_at' => now(),
+        ]);
+
+        return $tiers->refresh();
+    }
 }

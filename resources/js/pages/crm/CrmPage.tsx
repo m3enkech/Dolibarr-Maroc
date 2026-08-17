@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import Activites from '@/pages/crm/Activites';
+import CrmStats from '@/pages/crm/CrmStats';
 import Opportunites from '@/pages/crm/Opportunites';
 
 const TABS = [
     { key: 'pipeline', label: 'Pipeline' },
     { key: 'activites', label: 'Activités' },
+    { key: 'stats', label: 'Statistiques' },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
@@ -37,6 +39,7 @@ export default function CrmPage() {
 
             {tab === 'pipeline' && <Opportunites />}
             {tab === 'activites' && <Activites />}
+            {tab === 'stats' && <CrmStats />}
         </div>
     );
 }

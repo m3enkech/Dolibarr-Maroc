@@ -22,6 +22,7 @@ import AchatForm from '@/pages/achats/AchatForm';
 import AchatsList from '@/pages/achats/AchatsList';
 import ComptaPage from '@/pages/compta/ComptaPage';
 import CrmPage from '@/pages/crm/CrmPage';
+import OpportuniteDetail from '@/pages/crm/OpportuniteDetail';
 import Effets from '@/pages/effets/Effets';
 import Parametres from '@/pages/Parametres';
 import PosPage from '@/pages/pos/PosPage';
@@ -89,6 +90,7 @@ function App() {
                             <Route path="/stock" element={<StockPage />} />
                             <Route path="/relances" element={<Relances />} />
                             <Route path="/crm" element={<CrmPage />} />
+                            <Route path="/crm/opportunites/:id" element={<OpportuniteDetail />} />
                             <Route path="/effets" element={<Effets />} />
                             <Route path="/compta" element={<ComptaPage />} />
                             <Route path="/equipe" element={<Equipe />} />
