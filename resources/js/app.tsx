@@ -15,6 +15,7 @@ import Abonnement from '@/pages/abonnement/Abonnement';
 import Equipe from '@/pages/equipe/Equipe';
 import Superadmin from '@/pages/superadmin/Superadmin';
 import CategoriesProduit from '@/pages/catalogue/CategoriesProduit';
+import Tarifs from '@/pages/catalogue/Tarifs';
 import ProduitForm from '@/pages/catalogue/ProduitForm';
 import ProduitsList from '@/pages/catalogue/ProduitsList';
 import AchatDetail from '@/pages/achats/AchatDetail';
@@ -77,6 +78,7 @@ function App() {
                             <Route path="/tiers/:id" element={<TiersForm />} />
                             <Route path="/catalogue" element={<ProduitsList />} />
                             <Route path="/catalogue/categories" element={<CategoriesProduit />} />
+                            <Route path="/catalogue/tarifs" element={<Tarifs />} />
                             <Route path="/catalogue/nouveau" element={<ProduitForm />} />
                             <Route path="/catalogue/:id" element={<ProduitForm />} />
                             <Route path="/ventes" element={<VentesList />} />

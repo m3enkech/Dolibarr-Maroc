@@ -25,7 +25,10 @@ class VenteService
         DocumentVente::TYPE_AVOIR => 'AV',
     ];
 
-    public function __construct(private SequenceService $sequences) {}
+    public function __construct(
+        private SequenceService $sequences,
+        private \App\Modules\Catalogue\Services\TarifService $tarifs,
+    ) {}
 
     public function create(array $data): DocumentVente
     {
@@ -257,18 +260,21 @@ class VenteService
         $totalHt = 0.0;
         $totalTva = 0.0;
         $position = 1;
+        $client = $document->tiers;
 
         foreach ($lignes as $data) {
             $produit = ! empty($data['produit_id']) ? Produit::find($data['produit_id']) : null;
+            $quantite = (float) $data['quantite'];
 
             $designation = $data['designation'] ?? $produit?->name;
+            // Prix explicite = décision du vendeur (négociation ponctuelle).
+            // Sinon le tarif du client s'applique, paliers de quantité compris.
             $prixUnitaire = isset($data['prix_unitaire']) && $data['prix_unitaire'] !== null
                 ? (float) $data['prix_unitaire']
-                : (float) ($produit?->sell_price ?? 0);
+                : ($produit !== null ? $this->tarifs->prixPour($produit, $client, $quantite) : 0.0);
             $tvaRate = isset($data['tva_rate']) && $data['tva_rate'] !== null
                 ? (float) $data['tva_rate']
                 : (float) ($produit?->tva_rate ?? 20);
-            $quantite = (float) $data['quantite'];
             $remise = (float) ($data['remise_percent'] ?? 0);
 
             $montantHt = round($quantite * $prixUnitaire * (1 - $remise / 100), 2);

@@ -7,6 +7,7 @@ import PosPaiement, { type PaiementSaisi } from '@/pages/pos/PosPaiement';
 import { FermerCaisse, OuvrirCaisse, SessionFermee } from '@/pages/pos/PosSessionOverlays';
 import PosTicket from '@/pages/pos/PosTicket';
 import { buildLocalDoc, enqueueSale, queueCount, syncQueue } from '@/pages/pos/offlineQueue';
+import { construireGrille, prixApplicable, type TarifProduit } from '@/pages/pos/tarifs';
 import { RemiseChips, calcLigne, calcTotaux, dh, remiseEffective, type CartLine } from '@/pages/pos/ui';
 import type { DocumentVente, Entrepot, Paginated, PosRapport, PosSession, Produit, StockNiveau } from '@/types';
 
@@ -31,6 +32,8 @@ export default function PosPage() {
     const queryClient = useQueryClient();
 
     const [cart, setCart] = useState<CartLine[]>([]);
+    const [client, setClient] = useState<{ id: number; name: string } | null>(null);
+    const [clientOpen, setClientOpen] = useState(false);
     const [remiseTicket, setRemiseTicket] = useState(0); // remise globale ticket (%)
     const [remiseEditKey, setRemiseEditKey] = useState<string | null>(null); // ligne en édition de remise
     const [remiseTicketOpen, setRemiseTicketOpen] = useState(false);
@@ -105,6 +108,37 @@ export default function PosPage() {
         queryFn: async () => (await api.get<{ data: Entrepot[] }>('/stock/entrepots')).data.data,
     });
 
+    /* Clients : la caisse d'un grossiste vend à des comptes identifiés. */
+    const { data: clients } = useQuery({
+        queryKey: ['pos-clients'],
+        queryFn: async () =>
+            (await api.get<Paginated<{ id: number; name: string; code: string }>>('/tiers', {
+                params: { type: 'client', per_page: 300 },
+            })).data.data,
+    });
+
+    /* Grille tarifaire applicable : dépend du client sélectionné. */
+    const { data: grille } = useQuery({
+        queryKey: ['pos-tarifs', client?.id ?? null],
+        queryFn: async () => {
+            const { data } = await api.get<{ data: TarifProduit[] }>('/tarifs/grille', {
+                params: { tiers_id: client?.id },
+            });
+            return construireGrille(data.data);
+        },
+    });
+
+    /* Changement de client : tout le panier repasse au tarif du nouveau compte. */
+    useEffect(() => {
+        setCart((lines) =>
+            lines.map((line) =>
+                line.prixManuel
+                    ? line
+                    : { ...line, prix: prixApplicable(grille, line.produit_id, line.quantite, line.prixCatalogue) },
+            ),
+        );
+    }, [grille]);
+
     const { data: niveaux } = useQuery({
         queryKey: ['pos-niveaux', session?.entrepot_id ?? null],
         queryFn: async () => {
@@ -142,12 +176,18 @@ export default function PosPage() {
         };
     }, [online]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    /** Vide le panier et remet à zéro les remises et leurs éditeurs. */
+    /**
+     * Vide le panier et remet tout à zéro. Le compte client est réinitialisé
+     * volontairement : le ticket suivant ne doit jamais partir sur le compte du
+     * client précédent.
+     */
     const viderPanier = () => {
         setCart([]);
         setRemiseTicket(0);
         setRemiseEditKey(null);
         setRemiseTicketOpen(false);
+        setClient(null);
+        setClientOpen(false);
     };
 
     const ouvrir = useMutation({
@@ -180,11 +220,14 @@ export default function PosPage() {
         mutationFn: async (payload: { paiements: PaiementSaisi[]; montantDonne: number | null }) => {
             const clientUuid = crypto.randomUUID();
             const body = {
+                tiers_id: client?.id,
                 lignes: cart.map((line) => ({
                     produit_id: line.produit_id,
                     designation: line.designation,
                     quantite: line.quantite,
-                    prix_unitaire: line.prix,
+                    // Prix envoyé UNIQUEMENT s'il a été forcé : sinon le serveur
+                    // applique lui-même le tarif du client (source de vérité).
+                    prix_unitaire: line.prixManuel ? line.prix : undefined,
                     remise_percent: remiseEffective(line, remiseTicket),
                     tva_rate: line.tva,
                 })),
@@ -233,26 +276,36 @@ export default function PosPage() {
     /* Panier                                                              */
     /* ------------------------------------------------------------------ */
 
+    /** Réapplique le tarif du client à une ligne (sauf prix forcé à la main). */
+    const applique = (line: CartLine): CartLine =>
+        line.prixManuel
+            ? line
+            : { ...line, prix: prixApplicable(grille, line.produit_id, line.quantite, line.prixCatalogue) };
+
     const addProduit = (produit: Produit) => {
         setCart((lines) => {
             const existing = lines.find((line) => line.produit_id === produit.id);
             if (existing) {
                 return lines.map((line) =>
-                    line.produit_id === produit.id ? { ...line, quantite: line.quantite + 1 } : line,
+                    line.produit_id === produit.id ? applique({ ...line, quantite: line.quantite + 1 }) : line,
                 );
             }
+
+            const catalogue = parseFloat(produit.sell_price);
             return [
                 ...lines,
-                {
+                applique({
                     key: `${produit.id}-${Date.now()}`,
                     produit_id: produit.id,
                     designation: produit.name,
-                    prix: parseFloat(produit.sell_price),
+                    prix: catalogue,
+                    prixCatalogue: catalogue,
+                    prixManuel: false,
                     tva: parseFloat(produit.tva_rate),
                     quantite: 1,
                     remise: 0,
                     unit: produit.unit,
-                },
+                }),
             ];
         });
     };
@@ -260,7 +313,11 @@ export default function PosPage() {
     const changerQuantite = (key: string, delta: number) => {
         setCart((lines) =>
             lines
-                .map((line) => (line.key === key ? { ...line, quantite: Math.round((line.quantite + delta) * 1000) / 1000 } : line))
+                .map((line) =>
+                    line.key === key
+                        ? applique({ ...line, quantite: Math.round((line.quantite + delta) * 1000) / 1000 })
+                        : line,
+                )
                 .filter((line) => line.quantite > 0),
         );
     };
@@ -473,12 +530,47 @@ export default function PosPage() {
 
                 {/* Panier */}
                 <aside className="flex w-[360px] shrink-0 flex-col rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl">
-                    <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
-                        <span className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Ticket</span>
+                    <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-5 py-4">
+                        {/* Compte client : applique automatiquement son tarif. */}
+                        <div className="relative min-w-0">
+                            <button
+                                onClick={() => setClientOpen((v) => !v)}
+                                className={`flex max-w-[13rem] items-center gap-1.5 truncate rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                                    client
+                                        ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
+                                        : 'border-white/10 bg-white/[0.05] text-slate-400 hover:text-slate-200'
+                                }`}
+                                title="Vendre à un compte client (applique son tarif)"
+                            >
+                                👤 {client ? client.name : 'Client comptoir'}
+                            </button>
+
+                            {clientOpen && (
+                                <div className="absolute left-0 z-30 mt-1 max-h-72 w-64 overflow-y-auto rounded-xl border border-white/10 bg-slate-900 p-1 shadow-2xl">
+                                    <button
+                                        onClick={() => { setClient(null); setClientOpen(false); }}
+                                        className="w-full rounded-lg px-3 py-2 text-left text-xs text-slate-300 hover:bg-white/[0.07]"
+                                    >
+                                        Client comptoir <span className="text-slate-500">· prix catalogue</span>
+                                    </button>
+                                    {(clients ?? []).map((c) => (
+                                        <button
+                                            key={c.id}
+                                            onClick={() => { setClient({ id: c.id, name: c.name }); setClientOpen(false); }}
+                                            className="w-full truncate rounded-lg px-3 py-2 text-left text-xs text-slate-200 hover:bg-white/[0.07]"
+                                        >
+                                            {c.name}
+                                            <span className="ml-1 font-mono text-[10px] text-slate-500">{c.code}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         {cart.length > 0 && (
                             <button
                                 onClick={viderPanier}
-                                className="text-xs text-slate-500 transition hover:text-red-400"
+                                className="shrink-0 text-xs text-slate-500 transition hover:text-red-400"
                             >
                                 Vider
                             </button>
@@ -507,7 +599,14 @@ export default function PosPage() {
                                     style={{ animation: 'pos-pop 0.2s ease-out' }}
                                 >
                                     <div className="flex items-start justify-between gap-2">
-                                        <span className="text-sm font-medium text-white">{line.designation}</span>
+                                        <span className="text-sm font-medium text-white">
+                                            {line.designation}
+                                            {line.prix !== line.prixCatalogue && (
+                                                <span className="ml-1.5 align-middle text-[10px] font-semibold text-emerald-400">
+                                                    tarif {dh(line.prix)}
+                                                </span>
+                                            )}
+                                        </span>
                                         <button
                                             onClick={() => changerQuantite(line.key, -line.quantite)}
                                             className="text-slate-600 transition hover:text-red-400"

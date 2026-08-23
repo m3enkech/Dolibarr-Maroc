@@ -12,6 +12,7 @@ interface TiersFormData {
     is_supplier: boolean;
     is_prospect: boolean;
     lead_source: string;
+    categorie_tarifaire_id: string;
     ice: string;
     if_number: string;
     rc: string;
@@ -34,6 +35,7 @@ const emptyForm: TiersFormData = {
     is_supplier: false,
     is_prospect: false,
     lead_source: '',
+    categorie_tarifaire_id: '',
     ice: '',
     if_number: '',
     rc: '',
@@ -66,6 +68,13 @@ export default function TiersForm() {
     const [form, setForm] = useState<TiersFormData>(emptyForm);
     const [error, setError] = useState<string | null>(null);
 
+    const { data: categoriesTarifaires } = useQuery({
+        queryKey: ['categories-tarifaires'],
+        queryFn: async () =>
+            (await api.get<{ data: { id: number; name: string; is_default: boolean }[] }>('/categories-tarifaires'))
+                .data.data,
+    });
+
     const { data: existing } = useQuery({
         queryKey: ['tiers-detail', id],
         queryFn: async () => {
@@ -83,6 +92,7 @@ export default function TiersForm() {
                 is_supplier: existing.is_supplier,
                 is_prospect: existing.is_prospect,
                 lead_source: existing.lead_source ?? '',
+                categorie_tarifaire_id: existing.categorie_tarifaire_id ? String(existing.categorie_tarifaire_id) : '',
                 ice: existing.ice ?? '',
                 if_number: existing.if_number ?? '',
                 rc: existing.rc ?? '',
@@ -211,6 +221,22 @@ export default function TiersForm() {
                                 />
                                 Actif
                             </label>
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-sm text-slate-600">Niveau de tarif</label>
+                            <select
+                                value={form.categorie_tarifaire_id}
+                                onChange={(e) => setForm((f) => ({ ...f, categorie_tarifaire_id: e.target.value }))}
+                                className={input}
+                            >
+                                <option value="">— Prix catalogue —</option>
+                                {(categoriesTarifaires ?? []).map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.name}{c.is_default ? ' (défaut)' : ''}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         {form.is_prospect && (

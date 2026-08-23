@@ -7,7 +7,10 @@ export interface CartLine {
     key: string;
     produit_id: number | null;
     designation: string;
-    prix: number; // HT
+    prix: number; // HT — tarif du client, ou prix saisi si prixManuel
+    prixCatalogue: number; // prix de référence de l'article
+    /** Le caissier a forcé le prix : le tarif client ne s'applique plus. */
+    prixManuel: boolean;
     tva: number;
     quantite: number;
     remise: number;

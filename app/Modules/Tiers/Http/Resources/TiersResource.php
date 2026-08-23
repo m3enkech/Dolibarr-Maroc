@@ -18,6 +18,7 @@ class TiersResource extends JsonResource
             'is_prospect' => $this->is_prospect,
             'lead_source' => $this->lead_source,
             'converti_at' => $this->converti_at,
+            'categorie_tarifaire_id' => $this->categorie_tarifaire_id,
             'ice' => $this->ice,
             'if_number' => $this->if_number,
             'rc' => $this->rc,

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'code', 'name', 'is_client', 'is_supplier', 'is_prospect', 'lead_source', 'converti_at',
+    'categorie_tarifaire_id',
     'ice', 'if_number', 'rc', 'patente', 'cnss',
     'address', 'city', 'postal_code', 'country',
     'phone', 'email', 'website', 'contact_name',

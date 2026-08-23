@@ -48,6 +48,7 @@ const GROUPS: MenuGroup[] = [
                 children: [
                     { to: '/catalogue', label: 'Produits & services', domain: 'catalogue' },
                     { to: '/catalogue/categories', label: 'Catégories', domain: 'catalogue' },
+                    { to: '/catalogue/tarifs', label: 'Tarifs & prix gros', domain: 'catalogue' },
                 ],
             },
             {

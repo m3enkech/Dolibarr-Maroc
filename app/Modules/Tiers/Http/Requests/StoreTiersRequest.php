@@ -24,6 +24,13 @@ class StoreTiersRequest extends FormRequest
             'is_prospect' => ['boolean'],
             'lead_source' => ['nullable', Rule::in(Tiers::LEAD_SOURCES)],
 
+            // Niveau de tarif appliqué à ce client (gros, demi-gros, détail…).
+            'categorie_tarifaire_id' => ['nullable', 'integer', function (string $attr, mixed $value, \Closure $fail) {
+                if ($value !== null && ! \App\Modules\Catalogue\Models\CategorieTarifaire::whereKey($value)->exists()) {
+                    $fail('Cette catégorie tarifaire n\'existe pas.');
+                }
+            }],
+
             // Identifiants marocains : l'ICE fait légalement 15 chiffres.
             'ice' => ['nullable', 'digits:15'],
             'if_number' => ['nullable', 'string', 'max:20'],

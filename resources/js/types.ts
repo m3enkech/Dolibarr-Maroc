@@ -23,6 +23,7 @@ export interface Tiers {
     is_prospect: boolean;
     lead_source: string | null;
     converti_at: string | null;
+    categorie_tarifaire_id: number | null;
     ice: string | null;
     if_number: string | null;
     rc: string | null;
