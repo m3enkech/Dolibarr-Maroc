@@ -13,6 +13,8 @@ interface TiersFormData {
     is_prospect: boolean;
     lead_source: string;
     categorie_tarifaire_id: string;
+    plafond_credit: string;
+    delai_paiement_jours: string;
     ice: string;
     if_number: string;
     rc: string;
@@ -36,6 +38,8 @@ const emptyForm: TiersFormData = {
     is_prospect: false,
     lead_source: '',
     categorie_tarifaire_id: '',
+    plafond_credit: '',
+    delai_paiement_jours: '',
     ice: '',
     if_number: '',
     rc: '',
@@ -93,6 +97,8 @@ export default function TiersForm() {
                 is_prospect: existing.is_prospect,
                 lead_source: existing.lead_source ?? '',
                 categorie_tarifaire_id: existing.categorie_tarifaire_id ? String(existing.categorie_tarifaire_id) : '',
+                plafond_credit: existing.plafond_credit ?? '',
+                delai_paiement_jours: existing.delai_paiement_jours != null ? String(existing.delai_paiement_jours) : '',
                 ice: existing.ice ?? '',
                 if_number: existing.if_number ?? '',
                 rc: existing.rc ?? '',
@@ -221,6 +227,31 @@ export default function TiersForm() {
                                 />
                                 Actif
                             </label>
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-sm text-slate-600">Plafond de crédit (DH)</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={form.plafond_credit}
+                                onChange={text('plafond_credit')}
+                                placeholder="Vide = pas de plafond"
+                                className={input}
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-sm text-slate-600">Délai de paiement (jours)</label>
+                            <input
+                                type="number"
+                                min="0"
+                                max="365"
+                                value={form.delai_paiement_jours}
+                                onChange={text('delai_paiement_jours')}
+                                placeholder="0"
+                                className={input}
+                            />
                         </div>
 
                         <div>

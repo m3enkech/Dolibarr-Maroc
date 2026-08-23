@@ -243,6 +243,9 @@ class VenteService
                 'mode' => $data['mode'],
                 'reference' => $data['reference'] ?? null,
                 'note' => $data['note'] ?? null,
+                // Session de caisse qui encaisse réellement l'argent : c'est
+                // elle, et non celle qui a émis le ticket, que crédite le Z.
+                'pos_session_id' => $data['pos_session_id'] ?? null,
             ]);
 
             if ($document->resteAPayer() <= 0.009) {

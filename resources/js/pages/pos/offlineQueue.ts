@@ -92,20 +92,23 @@ export function buildLocalDoc(
     paiements: PaiementSaisi[],
     remiseTicket: number,
     clientUuid: string,
+    client: { name: string } | null = null,
 ): DocumentVente {
     const totaux = calcTotaux(cart, remiseTicket);
+    const paye = paiements.reduce((s, p) => s + p.montant, 0);
 
     const doc = {
         id: -1,
         code: 'HORS-LIGNE',
         client_uuid: clientUuid,
         type: 'facture',
-        statut: 'paye',
+        // Ne jamais annoncer « payé » sur un ticket qui ne l'est pas.
+        statut: totaux.ttc - paye <= 0.009 ? 'paye' : 'valide',
         created_at: new Date().toISOString(),
         total_ht: totaux.ht.toFixed(2),
         total_tva: totaux.tva.toFixed(2),
         total_ttc: totaux.ttc.toFixed(2),
-        tiers: { name: 'Client comptoir' },
+        tiers: { name: client?.name ?? 'Client comptoir' },
         lignes: cart.map((line, i) => {
             const c = calcLigne(line, remiseTicket);
             return {

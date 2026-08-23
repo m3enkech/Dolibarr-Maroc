@@ -37,10 +37,16 @@ class StoreVentePosRequest extends FormRequest
             'lignes.*.remise_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lignes.*.tva_rate' => ['nullable', 'numeric', Rule::in(Produit::TVA_RATES)],
 
-            'paiements' => ['required', 'array', 'min:1'],
+            // Peut être vide : une vente 100 % à crédit n'encaisse rien. Le
+            // crédit est l'ABSENCE de paiement, jamais un paiement de 0.
+            'paiements' => ['present', 'array'],
             'paiements.*.mode' => ['required', Rule::in(Paiement::MODES)],
             'paiements.*.montant' => ['required', 'numeric', 'gt:0'],
             'paiements.*.reference' => ['nullable', 'string', 'max:255'],
+
+            // Laisser un solde dû doit être demandé explicitement : sans ce
+            // drapeau, un écart reste une erreur de saisie du caissier.
+            'vente_credit' => ['boolean'],
 
             // Espèces réellement remises par le client (pour afficher le rendu).
             'montant_donne' => ['nullable', 'numeric', 'min:0'],

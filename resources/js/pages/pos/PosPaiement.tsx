@@ -16,8 +16,14 @@ interface PosPaiementProps {
     total: number;
     pending: boolean;
     error: string | null;
+    /** Client identifié : sans lui, pas de crédit possible. */
+    client: { id: number; name: string } | null;
+    /** Encours disponible du client, null = pas de plafond. */
+    creditDisponible: number | null;
+    /** Le crédit exige le réseau : le serveur doit valider le plafond. */
+    creditPossible: boolean;
     onCancel: () => void;
-    onSubmit: (paiements: PaiementSaisi[], montantDonne: number | null) => void;
+    onSubmit: (paiements: PaiementSaisi[], montantDonne: number | null, venteCredit: boolean) => void;
 }
 
 /**
@@ -25,7 +31,9 @@ interface PosPaiementProps {
  * au pavé numérique (espèces) et peut mixer plusieurs paiements. Le rendu de
  * monnaie s'affiche en direct dès que les espèces dépassent le reste dû.
  */
-export default function PosPaiement({ total, pending, error, onCancel, onSubmit }: PosPaiementProps) {
+export default function PosPaiement({
+    total, pending, error, client, creditDisponible, creditPossible, onCancel, onSubmit,
+}: PosPaiementProps) {
     const [paiements, setPaiements] = useState<PaiementSaisi[]>([]);
     const [donne, setDonne] = useState(0); // espèces réellement remises
     const [input, setInput] = useState('');
@@ -39,6 +47,11 @@ export default function PosPaiement({ total, pending, error, onCancel, onSubmit 
     const especesPayees = paiements.filter((p) => p.mode === 'especes').reduce((s, p) => s + p.montant, 0);
     const rendu = Math.max(0, Math.round((donne - especesPayees) * 100) / 100);
     const complet = reste <= 0.009;
+
+    // Le crédit exige un client identifié et le réseau (contrôle du plafond
+    // côté serveur) ; il doit rester sous l'encours disponible.
+    const creditAutorise =
+        client !== null && creditPossible && (creditDisponible === null || reste <= creditDisponible + 0.009);
 
     const encaisser = () => {
         if (reste <= 0.009) return;
@@ -204,8 +217,31 @@ export default function PosPaiement({ total, pending, error, onCancel, onSubmit 
                             )}
                         </div>
 
+                        {/* Vente à crédit : le solde reste dû par le client. */}
+                        {!complet && (
+                            <div className="mt-4">
+                                {creditAutorise ? (
+                                    <button
+                                        onClick={() => onSubmit(paiements, donne > 0 ? donne : null, true)}
+                                        disabled={pending}
+                                        className="h-14 w-full rounded-2xl border border-amber-400/40 bg-amber-400/10 text-sm font-bold uppercase tracking-widest text-amber-300 transition active:scale-[0.98] hover:bg-amber-400/20 disabled:opacity-40"
+                                    >
+                                        Laisser {dh(reste)} DH à crédit — {client?.name}
+                                    </button>
+                                ) : (
+                                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-xs text-slate-400">
+                                        {client === null
+                                            ? 'Sélectionnez un compte client pour vendre à crédit.'
+                                            : !creditPossible
+                                              ? 'Vente à crédit indisponible hors ligne : le plafond doit être vérifié.'
+                                              : `Crédit refusé : il ne reste que ${dh(creditDisponible ?? 0)} DH d'encours autorisé.`}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <button
-                            onClick={() => onSubmit(paiements, donne > 0 ? donne : null)}
+                            onClick={() => onSubmit(paiements, donne > 0 ? donne : null, false)}
                             disabled={!complet || pending}
                             className={`mt-4 h-16 rounded-2xl text-lg font-bold uppercase tracking-widest transition active:scale-[0.98] disabled:opacity-30 ${
                                 complet

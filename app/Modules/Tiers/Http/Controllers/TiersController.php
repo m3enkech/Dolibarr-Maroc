@@ -54,6 +54,19 @@ class TiersController extends Controller
         return new TiersResource($this->service->update($tiers, $request->validated()));
     }
 
+    /** Encours et plafond de crédit d'un client (contrôle avant vente à crédit). */
+    public function encours(Tiers $tiers, \App\Modules\Tiers\Services\EncoursService $service): \Illuminate\Http\JsonResponse
+    {
+        $controle = $service->verifier($tiers, 0);
+
+        return response()->json(['data' => [
+            'tiers_id' => $tiers->id,
+            'encours' => number_format($controle['encours'], 2, '.', ''),
+            'plafond' => $controle['plafond'] !== null ? number_format($controle['plafond'], 2, '.', '') : null,
+            'disponible' => $controle['disponible'] !== null ? number_format($controle['disponible'], 2, '.', '') : null,
+        ]]);
+    }
+
     /** Convertit un prospect en client (le tiers garde son code et son historique). */
     public function convertir(Tiers $tiers): TiersResource
     {

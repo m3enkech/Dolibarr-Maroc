@@ -24,6 +24,8 @@ export interface Tiers {
     lead_source: string | null;
     converti_at: string | null;
     categorie_tarifaire_id: number | null;
+    plafond_credit: string | null;
+    delai_paiement_jours: number | null;
     ice: string | null;
     if_number: string | null;
     rc: string | null;

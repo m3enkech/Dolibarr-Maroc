@@ -19,6 +19,8 @@ class TiersResource extends JsonResource
             'lead_source' => $this->lead_source,
             'converti_at' => $this->converti_at,
             'categorie_tarifaire_id' => $this->categorie_tarifaire_id,
+            'plafond_credit' => $this->plafond_credit,
+            'delai_paiement_jours' => $this->delai_paiement_jours,
             'ice' => $this->ice,
             'if_number' => $this->if_number,
             'rc' => $this->rc,

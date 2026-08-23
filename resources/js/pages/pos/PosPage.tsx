@@ -24,7 +24,9 @@ interface VenteResponse {
 
 const extraireErreur = (err: any): string => {
     const messages = err?.response?.data?.errors;
-    return messages ? (Object.values(messages).flat() as string[]).join(' ') : 'Action impossible.';
+    if (messages) return (Object.values(messages).flat() as string[]).join(' ');
+    // Erreur levée côté caisse (ex. crédit refusé hors ligne) : garder son texte.
+    return err?.message ?? 'Action impossible.';
 };
 
 export default function PosPage() {
@@ -128,6 +130,18 @@ export default function PosPage() {
         },
     });
 
+    /* Encours du client : borne le crédit qu'on peut lui accorder. */
+    const { data: encours } = useQuery({
+        queryKey: ['pos-encours', client?.id ?? null],
+        queryFn: async () =>
+            (await api.get<{ data: { encours: string; plafond: string | null; disponible: string | null } }>(
+                `/tiers/${client!.id}/encours`,
+            )).data.data,
+        enabled: client !== null,
+    });
+
+    const creditDisponible = encours?.disponible != null ? parseFloat(encours.disponible) : null;
+
     /* Changement de client : tout le panier repasse au tarif du nouveau compte. */
     useEffect(() => {
         setCart((lines) =>
@@ -217,7 +231,7 @@ export default function PosPage() {
     });
 
     const vendre = useMutation({
-        mutationFn: async (payload: { paiements: PaiementSaisi[]; montantDonne: number | null }) => {
+        mutationFn: async (payload: { paiements: PaiementSaisi[]; montantDonne: number | null; venteCredit: boolean }) => {
             const clientUuid = crypto.randomUUID();
             const body = {
                 tiers_id: client?.id,
@@ -234,12 +248,23 @@ export default function PosPage() {
                 paiements: payload.paiements,
                 montant_donne: payload.montantDonne ?? undefined,
                 client_uuid: clientUuid,
+                vente_credit: payload.venteCredit,
             };
 
             try {
                 const { data } = await api.post<VenteResponse>('/pos/ventes', body);
                 return { ...data, donne: payload.montantDonne, offline: false };
             } catch (err: any) {
+                // Une vente à crédit ne part JAMAIS en file : le plafond ne peut
+                // être vérifié que par le serveur, et un rejet à la
+                // synchronisation ferait disparaître la vente en silence.
+                if (!err?.response && payload.venteCredit) {
+                    throw new Error(
+                        'Réseau indisponible : une vente à crédit ne peut pas être enregistrée hors ligne. '
+                        + 'Encaissez le ticket en totalité, ou réessayez une fois la connexion revenue.',
+                    );
+                }
+
                 // Pas de réponse serveur = coupure réseau → on encaisse hors-ligne :
                 // la vente est mise en file et rejouée (idempotente) au retour du réseau.
                 if (!err?.response) {
@@ -252,7 +277,7 @@ export default function PosPage() {
                             ? Math.max(0, Math.round((payload.montantDonne - cash) * 100) / 100).toFixed(2)
                             : null;
                     return {
-                        data: buildLocalDoc(cart, payload.paiements, remiseTicket, clientUuid),
+                        data: buildLocalDoc(cart, payload.paiements, remiseTicket, clientUuid, client),
                         rendu,
                         donne: payload.montantDonne,
                         offline: true,
@@ -756,11 +781,18 @@ export default function PosPage() {
                     total={totaux.ttc}
                     pending={vendre.isPending}
                     error={venteError}
+                    client={client}
+                    creditDisponible={creditDisponible}
+                    // Hors ligne, le plafond ne peut pas être vérifié : une vente
+                    // à crédit rejetée à la synchronisation serait perdue.
+                    creditPossible={online}
                     onCancel={() => {
                         setPayOpen(false);
                         setVenteError(null);
                     }}
-                    onSubmit={(paiements, montantDonne) => vendre.mutate({ paiements, montantDonne })}
+                    onSubmit={(paiements, montantDonne, venteCredit) =>
+                        vendre.mutate({ paiements, montantDonne, venteCredit })
+                    }
                 />
             )}
 

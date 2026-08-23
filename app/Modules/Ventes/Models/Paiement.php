@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['document_vente_id', 'date_paiement', 'montant', 'mode', 'reference', 'note'])]
+#[Fillable(['document_vente_id', 'pos_session_id', 'date_paiement', 'montant', 'mode', 'reference', 'note'])]
 class Paiement extends Model
 {
     use BelongsToTenant;

@@ -109,6 +109,7 @@ class PosController extends Controller
             $data['paiements'],
             $data['tiers_id'] ?? null,
             $data['client_uuid'] ?? null,
+            (bool) ($data['vente_credit'] ?? false),
         );
 
         // Rendu de monnaie : espèces remises − part payée en espèces.

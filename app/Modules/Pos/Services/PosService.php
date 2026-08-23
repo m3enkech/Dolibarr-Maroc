@@ -18,6 +18,7 @@ class PosService
         private VenteService $ventes,
         private TiersService $tiers,
         private SequenceService $sequences,
+        private \App\Modules\Tiers\Services\EncoursService $encours,
     ) {}
 
     /* ------------------------------------------------------------------ */
@@ -86,7 +87,14 @@ class PosService
      * @param array<int, array<string, mixed>> $lignes
      * @param array<int, array{mode: string, montant: float|string, reference?: ?string}> $paiements
      */
-    public function vendre(PosSession $session, array $lignes, array $paiements, ?int $tiersId = null, ?string $clientUuid = null): DocumentVente
+    public function vendre(
+        PosSession $session,
+        array $lignes,
+        array $paiements,
+        ?int $tiersId = null,
+        ?string $clientUuid = null,
+        bool $venteCredit = false,
+    ): DocumentVente
     {
         $this->assertOuverte($session);
 
@@ -100,21 +108,43 @@ class PosService
             }
         }
 
-        return DB::transaction(function () use ($session, $lignes, $paiements, $tiersId, $clientUuid) {
+        return DB::transaction(function () use ($session, $lignes, $paiements, $tiersId, $clientUuid, $venteCredit) {
+            // Le crédit engage un client nommé : verrouillé le temps du contrôle
+            // d'encours, pour que deux caisses ne le dépassent pas simultanément.
+            $client = $tiersId !== null
+                ? Tiers::whereKey($tiersId)->lockForUpdate()->first()
+                : null;
+
             $document = $this->ventes->create([
                 'type' => DocumentVente::TYPE_FACTURE,
-                'tiers_id' => $tiersId ?? $this->clientComptoir()->id,
+                'tiers_id' => $client?->id ?? $this->clientComptoir()->id,
                 'lignes' => $lignes,
             ]);
 
-            // Un ticket de caisse est payé en totalité, ni plus ni moins.
             $totalEncaisse = round(array_sum(array_map(fn ($p) => (float) $p['montant'], $paiements)), 2);
             $totalTicket = (float) $document->total_ttc;
+            $reste = round($totalTicket - $totalEncaisse, 2);
 
-            if (abs($totalEncaisse - $totalTicket) > 0.009) {
+            if ($reste > 0.009) {
+                // Un solde n'est jamais implicite : sans demande explicite de
+                // crédit, l'écart reste une faute de frappe du caissier.
+                if (! $venteCredit) {
+                    throw ValidationException::withMessages([
+                        'paiements' => sprintf(
+                            'Le total encaissé (%.2f MAD) ne correspond pas au total du ticket (%.2f MAD).',
+                            $totalEncaisse,
+                            $totalTicket,
+                        ),
+                    ]);
+                }
+
+                $this->assertCreditAutorise($client, $reste);
+            }
+
+            if ($reste < -0.009) {
                 throw ValidationException::withMessages([
                     'paiements' => sprintf(
-                        'Le total encaissé (%.2f MAD) ne correspond pas au total du ticket (%.2f MAD).',
+                        'Le total encaissé (%.2f MAD) dépasse le total du ticket (%.2f MAD).',
                         $totalEncaisse,
                         $totalTicket,
                     ),
@@ -126,6 +156,10 @@ class PosService
                 'pos_session_id' => $session->id,
                 'entrepot_id' => $session->entrepot_id,
                 'client_uuid' => $clientUuid,
+                // Échéance du crédit : délai accordé au client, sinon le jour même.
+                'date_echeance' => $reste > 0.009
+                    ? now()->addDays((int) ($client?->delai_paiement_jours ?? 0))->toDateString()
+                    : null,
             ]);
             $document = $this->ventes->valider($document);
 
@@ -134,11 +168,42 @@ class PosService
                     'montant' => $paiement['montant'],
                     'mode' => $paiement['mode'],
                     'reference' => $paiement['reference'] ?? null,
+                    // Rattache l'argent à la session qui l'a encaissé, et non à
+                    // celle qui a émis le ticket (règlement d'un crédit plus tard).
+                    'pos_session_id' => $session->id,
                 ]);
             }
 
             return $document->fresh(['lignes', 'tiers', 'paiements']);
         });
+    }
+
+    /**
+     * Un crédit ne s'accorde qu'à un client identifié, et dans la limite de son
+     * encours autorisé. Le client de passage ne peut rien devoir : il est
+     * anonyme et partagé par toutes les ventes au comptoir.
+     */
+    private function assertCreditAutorise(?Tiers $client, float $montantCredit): void
+    {
+        if ($client === null || $client->id === $this->clientComptoir()->id) {
+            throw ValidationException::withMessages([
+                'tiers_id' => 'Une vente à crédit exige un client identifié : sélectionnez-le avant d\'encaisser.',
+            ]);
+        }
+
+        $controle = $this->encours->verifier($client, $montantCredit);
+
+        if (! $controle['autorise']) {
+            throw ValidationException::withMessages([
+                'tiers_id' => sprintf(
+                    'Plafond de crédit dépassé pour %s : encours %.2f MAD, plafond %.2f MAD, dépassement %.2f MAD.',
+                    $client->name,
+                    $controle['encours'],
+                    $controle['plafond'],
+                    $controle['depassement'],
+                ),
+            ]);
+        }
     }
 
     /** Client de passage, créé à la volée (même principe que l'entrepôt par défaut). */
@@ -166,7 +231,10 @@ class PosService
             fn ($ligne) => round((float) $ligne->quantite * (float) $ligne->prix_unitaire - (float) $ligne->montant_ht, 2),
         ), 2);
 
-        $paiements = Paiement::whereIn('document_vente_id', $ventes->pluck('id'))->get();
+        // L'argent est rattaché à la session qui l'a ENCAISSÉ : le règlement
+        // d'un crédit accordé un autre jour appartient à la session du jour,
+        // pas à celle qui a émis le ticket.
+        $paiements = Paiement::where('pos_session_id', $session->id)->get();
 
         $parMode = collect(Paiement::MODES)
             ->mapWithKeys(fn (string $mode) => [
@@ -177,13 +245,30 @@ class PosService
 
         $especes = (float) $paiements->where('mode', 'especes')->sum('montant');
 
+        // Vendu ≠ encaissé dès qu'une vente part à crédit.
+        //
+        // Le crédit accordé est borné À CETTE SESSION : on ne retranche que ce
+        // qui a été encaissé PENDANT la session sur ses propres tickets. Sans
+        // cette borne, le règlement ultérieur d'un crédit ferait retomber le
+        // chiffre à zéro et un Z réimprimé contredirait le Z de clôture.
+        $totalVendu = round((float) $ventes->sum('total_ttc'), 2);
+        $encaisseSurTickets = round((float) Paiement::whereIn('document_vente_id', $ventes->pluck('id'))
+            ->where('pos_session_id', $session->id)
+            ->sum('montant'), 2);
+        $totalCredit = round($totalVendu - $encaisseSurTickets, 2);
+
         return [
             'tickets' => $ventes->count(),
             'total_ht' => number_format((float) $ventes->sum('total_ht'), 2, '.', ''),
             'total_tva' => number_format((float) $ventes->sum('total_tva'), 2, '.', ''),
-            'total_ttc' => number_format((float) $ventes->sum('total_ttc'), 2, '.', ''),
+            'total_ttc' => number_format($totalVendu, 2, '.', ''),
             'par_mode' => $parMode,
             'total_remises' => number_format($totalRemises, 2, '.', ''),
+            // Encaissé pendant la session, tous tickets confondus (y compris le
+            // règlement d'anciens crédits).
+            'total_encaisse' => number_format(round((float) $paiements->sum('montant'), 2), 2, '.', ''),
+            // Crédit accordé sur les ventes de cette session.
+            'total_credit' => number_format(max(0, $totalCredit), 2, '.', ''),
             'fond_caisse' => number_format((float) $session->fond_caisse, 2, '.', ''),
             'especes_theorique' => number_format((float) $session->fond_caisse + $especes, 2, '.', ''),
         ];

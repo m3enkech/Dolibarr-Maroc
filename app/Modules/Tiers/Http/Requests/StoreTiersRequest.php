@@ -24,6 +24,11 @@ class StoreTiersRequest extends FormRequest
             'is_prospect' => ['boolean'],
             'lead_source' => ['nullable', Rule::in(Tiers::LEAD_SOURCES)],
 
+            // Vente à crédit : encours autorisé (null = pas de plafond) et
+            // délai accordé, qui fixe l'échéance des ventes à crédit.
+            'plafond_credit' => ['nullable', 'numeric', 'min:0'],
+            'delai_paiement_jours' => ['nullable', 'integer', 'min:0', 'max:365'],
+
             // Niveau de tarif appliqué à ce client (gros, demi-gros, détail…).
             'categorie_tarifaire_id' => ['nullable', 'integer', function (string $attr, mixed $value, \Closure $fail) {
                 if ($value !== null && ! \App\Modules\Catalogue\Models\CategorieTarifaire::whereKey($value)->exists()) {

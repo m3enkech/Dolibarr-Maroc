@@ -35,6 +35,11 @@ export default function PosTicket({ doc, tenant, vendeur, rendu, donne }: PosTic
     }
     remiseTotale = Math.round(remiseTotale * 100) / 100;
 
+    // Un ticket à crédit doit porter noir sur blanc ce qui reste dû : c'est la
+    // seule trace remise au client.
+    const totalPaye = (doc.paiements ?? []).reduce((s, p) => s + parseFloat(p.montant), 0);
+    const resteDu = Math.round((parseFloat(doc.total_ttc) - totalPaye) * 100) / 100;
+
     return (
         <div
             id="pos-ticket"
@@ -108,6 +113,19 @@ export default function PosTicket({ doc, tenant, vendeur, rendu, donne }: PosTic
                     <div className="flex justify-between font-bold">
                         <span>RENDU</span>
                         <span>{dh(rendu)} DH</span>
+                    </div>
+                )}
+                {resteDu > 0.009 && (
+                    <div className="mt-1 border-t border-slate-300 pt-1">
+                        <div className="flex justify-between text-[13px] font-bold">
+                            <span>RESTE DÛ</span>
+                            <span>{dh(resteDu)} DH</span>
+                        </div>
+                        {doc.date_echeance && (
+                            <div className="text-[10px]">
+                                À régler avant le {new Date(doc.date_echeance).toLocaleDateString('fr-MA')}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
