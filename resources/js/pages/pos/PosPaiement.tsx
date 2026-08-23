@@ -76,10 +76,12 @@ export default function PosPaiement({
         }
     };
 
+    // L'overlay défile : sur un écran court, le mode crédit rallonge le contenu
+    // et son bouton doit rester atteignable.
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-sm sm:items-center">
             <div
-                className="w-full max-w-3xl rounded-3xl border border-white/10 bg-slate-900/90 p-6 shadow-2xl shadow-emerald-500/10"
+                className="my-auto w-full max-w-3xl rounded-3xl border border-white/10 bg-slate-900/90 p-6 shadow-2xl shadow-emerald-500/10"
                 style={{ animation: 'pos-pop 0.25s ease-out' }}
             >
                 <div className="flex items-start justify-between">
