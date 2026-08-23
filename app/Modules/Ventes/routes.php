@@ -13,6 +13,7 @@ Route::prefix('ventes')->group(function () {
     Route::post('documents/{document}/valider', [VentesController::class, 'valider']);
     Route::post('documents/{document}/statut', [VentesController::class, 'changerStatut']);
     Route::post('documents/{document}/transformer', [VentesController::class, 'transformer']);
+    Route::post('documents/{document}/livrer', [VentesController::class, 'livrer']);
     Route::post('documents/{document}/paiements', [VentesController::class, 'ajouterPaiement']);
     Route::get('documents/{document}/pdf', [VentesController::class, 'pdf']);
     Route::get('documents/{document}/efacture', [VentesController::class, 'efacture']);

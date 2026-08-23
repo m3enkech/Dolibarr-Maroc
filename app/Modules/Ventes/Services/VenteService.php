@@ -11,6 +11,7 @@ use App\Modules\Ventes\Events\DevisValide;
 use App\Modules\Ventes\Events\FactureValidee;
 use App\Modules\Ventes\Events\PaiementEnregistre;
 use App\Modules\Ventes\Models\DocumentVente;
+use App\Modules\Ventes\Models\DocumentVenteLigne;
 use App\Modules\Ventes\Models\Paiement;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -83,6 +84,153 @@ class VenteService
         $document->delete();
     }
 
+    /**
+     * Bon de livraison partiel : on ne livre qu'une partie des lignes d'une
+     * commande, le reste demeure en reliquat sur la commande.
+     *
+     * @param  array<int, array{source_ligne_id: int, quantite: float}>  $lignes
+     */
+    public function livrerPartiellement(DocumentVente $commande, array $lignes): DocumentVente
+    {
+        if ($commande->type !== DocumentVente::TYPE_COMMANDE) {
+            throw ValidationException::withMessages([
+                'type' => 'Seule une commande peut faire l\'objet d\'une livraison partielle.',
+            ]);
+        }
+
+        if ($commande->statut !== DocumentVente::STATUT_VALIDE) {
+            throw ValidationException::withMessages([
+                'statut' => 'La commande doit être validée avant d\'être livrée.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($commande, $lignes) {
+            $aLivrer = [];
+
+            foreach ($lignes as $demande) {
+                $source = DocumentVenteLigne::whereKey($demande['source_ligne_id'])
+                    ->where('document_vente_id', $commande->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($source === null) {
+                    throw ValidationException::withMessages([
+                        'lignes' => 'Ligne de commande introuvable.',
+                    ]);
+                }
+
+                $quantite = round((float) $demande['quantite'], 3);
+
+                if ($quantite <= 0) {
+                    continue; // ligne non livrée cette fois
+                }
+
+                if ($quantite > $source->resteALivrer() + 0.0009) {
+                    throw ValidationException::withMessages([
+                        'lignes' => sprintf(
+                            'Sur-livraison refusée pour « %s » : %s commandé, %s déjà livré, %s demandé.',
+                            $source->designation,
+                            rtrim(rtrim((string) $source->quantite, '0'), '.'),
+                            rtrim(rtrim((string) $source->quantite_livree, '0'), '.'),
+                            rtrim(rtrim((string) $quantite, '0'), '.'),
+                        ),
+                    ]);
+                }
+
+                $aLivrer[] = ['source' => $source, 'quantite' => $quantite];
+            }
+
+            if ($aLivrer === []) {
+                throw ValidationException::withMessages([
+                    'lignes' => 'Aucune quantité à livrer.',
+                ]);
+            }
+
+            $bl = DocumentVente::create([
+                'type' => DocumentVente::TYPE_BON_LIVRAISON,
+                'code' => $this->sequences->next(self::PREFIXES[DocumentVente::TYPE_BON_LIVRAISON]),
+                'statut' => DocumentVente::STATUT_BROUILLON,
+                'tiers_id' => $commande->tiers_id,
+                'source_document_id' => $commande->id,
+                'entrepot_id' => $commande->entrepot_id,
+                'opportunite_id' => $commande->opportunite_id,
+                'date_document' => now()->toDateString(),
+            ]);
+
+            $position = 1;
+            $totalHt = 0.0;
+            $totalTva = 0.0;
+
+            foreach ($aLivrer as $item) {
+                /** @var DocumentVenteLigne $source */
+                $source = $item['source'];
+                $quantite = $item['quantite'];
+
+                $montantHt = round($quantite * (float) $source->prix_unitaire * (1 - (float) $source->remise_percent / 100), 2);
+                $montantTva = round($montantHt * (float) $source->tva_rate / 100, 2);
+
+                $bl->lignes()->create([
+                    'produit_id' => $source->produit_id,
+                    'source_ligne_id' => $source->id,
+                    'conditionnement_id' => $source->conditionnement_id,
+                    'designation' => $source->designation,
+                    'quantite' => $quantite,
+                    'prix_unitaire' => $source->prix_unitaire,
+                    'remise_percent' => $source->remise_percent,
+                    'tva_rate' => $source->tva_rate,
+                    'montant_ht' => $montantHt,
+                    'montant_tva' => $montantTva,
+                    'montant_ttc' => round($montantHt + $montantTva, 2),
+                    'position' => $position++,
+                ]);
+
+                $totalHt = round($totalHt + $montantHt, 2);
+                $totalTva = round($totalTva + $montantTva, 2);
+            }
+
+            $bl->update([
+                'total_ht' => $totalHt,
+                'total_tva' => $totalTva,
+                'total_ttc' => round($totalHt + $totalTva, 2),
+            ]);
+
+            return $bl->fresh(['lignes', 'tiers']);
+        });
+    }
+
+    /**
+     * Reporte sur la commande ce qui vient d'être livré. Appelé à la validation
+     * du bon de livraison, c'est-à-dire au moment où la marchandise part.
+     */
+    private function reporterLivraison(DocumentVente $bl): void
+    {
+        foreach ($bl->lignes as $ligne) {
+            if ($ligne->source_ligne_id === null) {
+                continue; // BL direct, sans commande
+            }
+
+            $source = DocumentVenteLigne::whereKey($ligne->source_ligne_id)->lockForUpdate()->first();
+
+            if ($source === null) {
+                continue;
+            }
+
+            if ((float) $ligne->quantite > $source->resteALivrer() + 0.0009) {
+                throw ValidationException::withMessages([
+                    'lignes' => sprintf(
+                        'Sur-livraison refusée pour « %s » : reste %s à livrer.',
+                        $source->designation,
+                        rtrim(rtrim((string) $source->resteALivrer(), '0'), '.'),
+                    ),
+                ]);
+            }
+
+            $source->update([
+                'quantite_livree' => round((float) $source->quantite_livree + (float) $ligne->quantite, 3),
+            ]);
+        }
+    }
+
     public function valider(DocumentVente $document): DocumentVente
     {
         $this->assertBrouillon($document);
@@ -104,6 +252,11 @@ class VenteService
             }
 
             $document->update($updates);
+
+            // La marchandise part : on impute les quantités sur la commande.
+            if ($document->type === DocumentVente::TYPE_BON_LIVRAISON) {
+                $this->reporterLivraison($document->fresh(['lignes']));
+            }
 
             match ($document->type) {
                 DocumentVente::TYPE_DEVIS => event(new DevisValide($document)),
@@ -188,12 +341,18 @@ class VenteService
                 'total_ttc' => $source->total_ttc,
             ]);
 
+            // Une commande livrée en totalité garde le lien ligne à ligne, pour
+            // que le reliquat se solde comme lors d'une livraison partielle.
+            $tracerLivraison = $source->type === DocumentVente::TYPE_COMMANDE
+                && $targetType === DocumentVente::TYPE_BON_LIVRAISON;
+
             foreach ($source->lignes as $ligne) {
                 $document->lignes()->create($ligne->only([
-                    'produit_id', 'designation', 'quantite', 'prix_unitaire',
+                    'produit_id', 'conditionnement_id', 'quantite_colis',
+                    'designation', 'quantite', 'prix_unitaire',
                     'remise_percent', 'tva_rate', 'montant_ht', 'montant_tva',
                     'montant_ttc', 'position',
-                ]));
+                ]) + ['source_ligne_id' => $tracerLivraison ? $ligne->id : null]);
             }
 
             // Transformer un devis validé vaut acceptation.

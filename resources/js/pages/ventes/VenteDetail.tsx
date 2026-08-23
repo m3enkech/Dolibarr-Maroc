@@ -57,6 +57,29 @@ export default function VenteDetail() {
         onError,
     });
 
+    /* Livraison partielle : quantités saisies ligne par ligne. */
+    const [livraisonOpen, setLivraisonOpen] = useState(false);
+    const [aLivrer, setALivrer] = useState<Record<number, string>>({});
+
+    const livrer = useMutation({
+        mutationFn: () =>
+            api.post(`/ventes/documents/${id}/livrer`, {
+                lignes: Object.entries(aLivrer).map(([ligneId, q]) => ({
+                    source_ligne_id: Number(ligneId),
+                    quantite: Number(q) || 0,
+                })),
+            }),
+        onSuccess: ({ data }) => {
+            setLivraisonOpen(false);
+            setALivrer({});
+            navigate(`/ventes/${data.data.id}`);
+        },
+        onError: (err: any) => {
+            const messages = err?.response?.data?.errors;
+            setError(messages ? (Object.values(messages).flat() as string[]).join(' ') : 'Livraison impossible.');
+        },
+    });
+
     const transformer = useMutation({
         mutationFn: (targetType: string) =>
             api.post(`/ventes/documents/${id}/transformer`, { type: targetType }),
@@ -190,9 +213,16 @@ export default function VenteDetail() {
                         )}
                         {doc.type === 'commande' && doc.statut === 'valide' && (
                             <>
-                                <button onClick={() => transformer.mutate('bon_livraison')} className={btnSecondary}>
-                                    → Bon de livraison
-                                </button>
+                                {doc.livraison !== 'complete' && (
+                                    <>
+                                        <button onClick={() => transformer.mutate('bon_livraison')} className={btnSecondary}>
+                                            → Livrer en totalité
+                                        </button>
+                                        <button onClick={() => setLivraisonOpen(true)} className={btnSecondary}>
+                                            → Livrer une partie
+                                        </button>
+                                    </>
+                                )}
                                 <button onClick={() => transformer.mutate('facture')} className={btnSecondary}>
                                     → Facture
                                 </button>
@@ -394,6 +424,81 @@ export default function VenteDetail() {
                 <div className="rounded-xl bg-white p-5 shadow-sm">
                     <h2 className="mb-2 font-medium text-slate-900">Notes</h2>
                     <p className="whitespace-pre-wrap text-sm text-slate-600">{doc.notes}</p>
+                </div>
+            )}
+
+            {/* Livraison partielle : on saisit ce qui part aujourd'hui. */}
+            {livraisonOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+                    <div className="w-full max-w-2xl rounded-xl bg-white p-5 shadow-xl">
+                        <h2 className="font-medium text-slate-900">Livrer une partie de la commande</h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                            Saisissez les quantités qui partent maintenant. Le reste demeure en reliquat sur la
+                            commande.
+                        </p>
+
+                        <table className="mt-4 w-full text-left text-sm">
+                            <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                                <tr>
+                                    <th className="py-2">Article</th>
+                                    <th className="py-2 text-right">Commandé</th>
+                                    <th className="py-2 text-right">Déjà livré</th>
+                                    <th className="py-2 text-right">Reste</th>
+                                    <th className="py-2 text-right">À livrer</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {(doc.lignes ?? []).map((ligne) => {
+                                    const reste = parseFloat(ligne.reste_a_livrer ?? '0');
+                                    return (
+                                        <tr key={ligne.id}>
+                                            <td className="py-2 text-slate-700">{ligne.designation}</td>
+                                            <td className="py-2 text-right tabular-nums text-slate-500">
+                                                {parseFloat(ligne.quantite)}
+                                            </td>
+                                            <td className="py-2 text-right tabular-nums text-slate-500">
+                                                {parseFloat(ligne.quantite_livree ?? '0')}
+                                            </td>
+                                            <td className="py-2 text-right tabular-nums font-medium text-slate-800">
+                                                {reste}
+                                            </td>
+                                            <td className="py-2 text-right">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max={reste}
+                                                    step="any"
+                                                    disabled={reste <= 0}
+                                                    value={aLivrer[ligne.id] ?? ''}
+                                                    onChange={(e) =>
+                                                        setALivrer((s) => ({ ...s, [ligne.id]: e.target.value }))
+                                                    }
+                                                    placeholder="0"
+                                                    className="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm disabled:bg-slate-50"
+                                                />
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+
+                        <div className="mt-5 flex justify-end gap-2">
+                            <button
+                                onClick={() => { setLivraisonOpen(false); setALivrer({}); }}
+                                className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={() => livrer.mutate()}
+                                disabled={livrer.isPending || Object.values(aLivrer).every((v) => !Number(v))}
+                                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                                {livrer.isPending ? 'Création…' : 'Créer le bon de livraison'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

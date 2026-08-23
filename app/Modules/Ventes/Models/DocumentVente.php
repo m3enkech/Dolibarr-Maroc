@@ -71,6 +71,26 @@ class DocumentVente extends Model
         return $this->belongsTo(\App\Modules\Stock\Models\Entrepot::class);
     }
 
+    /**
+     * État de livraison d'une commande, déduit de ses lignes : « aucune »,
+     * « partielle » ou « complete ». Volontairement dérivé plutôt que stocké
+     * dans un statut, que d'autres modules filtrent en dur.
+     */
+    public function etatLivraison(): string
+    {
+        $lignes = $this->relationLoaded('lignes') ? $this->lignes : $this->lignes()->get();
+
+        if ($lignes->isEmpty()) {
+            return 'aucune';
+        }
+
+        if ($lignes->every(fn ($l) => $l->resteALivrer() <= 0.0009)) {
+            return 'complete';
+        }
+
+        return $lignes->every(fn ($l) => (float) $l->quantite_livree <= 0.0009) ? 'aucune' : 'partielle';
+    }
+
     public function isBrouillon(): bool
     {
         return $this->statut === self::STATUT_BROUILLON;

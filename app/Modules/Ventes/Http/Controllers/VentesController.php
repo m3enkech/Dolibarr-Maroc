@@ -87,6 +87,20 @@ class VentesController extends Controller
         return new DocumentVenteResource($this->service->transformer($document, $data['type']));
     }
 
+    /** Livraison partielle d'une commande : le reste demeure en reliquat. */
+    public function livrer(Request $request, DocumentVente $document): DocumentVenteResource
+    {
+        $data = $request->validate([
+            'lignes' => ['required', 'array', 'min:1'],
+            'lignes.*.source_ligne_id' => ['required', 'integer'],
+            'lignes.*.quantite' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $bl = $this->service->livrerPartiellement($document, $data['lignes']);
+
+        return new DocumentVenteResource($bl->load(['lignes', 'tiers']));
+    }
+
     public function ajouterPaiement(StorePaiementRequest $request, DocumentVente $document): DocumentVenteResource
     {
         $this->service->ajouterPaiement($document, $request->validated());

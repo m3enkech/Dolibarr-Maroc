@@ -103,6 +103,11 @@ export interface DocumentVenteLigne {
     tva_rate: string;
     montant_ht: string;
     montant_tva: string;
+    quantite_livree?: string;
+    reste_a_livrer?: string;
+    quantite_colis?: string | null;
+    conditionnement?: string | null;
+    source_ligne_id?: number | null;
     montant_ttc: string;
     position: number;
 }
@@ -130,6 +135,8 @@ export interface DocumentVente {
     total_ttc: string;
     notes: string | null;
     validated_at: string | null;
+    /** Commandes : état de livraison dérivé des lignes. */
+    livraison?: 'aucune' | 'partielle' | 'complete';
     lignes?: DocumentVenteLigne[];
     paiements?: Paiement[];
     montant_paye?: string;

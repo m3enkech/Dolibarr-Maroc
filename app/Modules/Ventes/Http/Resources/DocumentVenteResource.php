@@ -30,14 +30,23 @@ class DocumentVenteResource extends JsonResource
             'total_ttc' => $this->total_ttc,
             'notes' => $this->notes,
             'validated_at' => $this->validated_at,
+            // État de livraison DÉRIVÉ des lignes : on n'ajoute pas de statut,
+            // que d'autres écrans filtrent en dur.
+            'livraison' => $this->when(
+                $this->type === \App\Modules\Ventes\Models\DocumentVente::TYPE_COMMANDE,
+                fn () => $this->etatLivraison(),
+            ),
             'lignes' => $this->whenLoaded('lignes', fn () => $this->lignes->map(fn ($ligne) => [
                 'id' => $ligne->id,
                 'produit_id' => $ligne->produit_id,
                 'conditionnement_id' => $ligne->conditionnement_id,
                 'quantite_colis' => $ligne->quantite_colis,
                 'conditionnement' => $ligne->conditionnement?->nom,
+                'source_ligne_id' => $ligne->source_ligne_id,
                 'designation' => $ligne->designation,
                 'quantite' => $ligne->quantite,
+                'quantite_livree' => $ligne->quantite_livree,
+                'reste_a_livrer' => number_format($ligne->resteALivrer(), 3, '.', ''),
                 'prix_unitaire' => $ligne->prix_unitaire,
                 'remise_percent' => $ligne->remise_percent,
                 'tva_rate' => $ligne->tva_rate,
