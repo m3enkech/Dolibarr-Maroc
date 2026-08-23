@@ -89,7 +89,16 @@
         @foreach ($document->lignes as $ligne)
             <tr>
                 <td>{{ $ligne->designation }}</td>
-                <td class="num">{{ rtrim(rtrim(number_format((float) $ligne->quantite, 3, ',', ' '), '0'), ',') }}</td>
+                <td class="num">
+                    {{ rtrim(rtrim(number_format((float) $ligne->quantite, 3, ',', ' '), '0'), ',') }}
+                    @if ($ligne->conditionnement_id && $ligne->quantite_colis)
+                        {{-- Vente au colis : le client commande des cartons, pas des pièces. --}}
+                        <div style="font-size: 9px; color: #666;">
+                            {{ rtrim(rtrim(number_format((float) $ligne->quantite_colis, 3, ',', ' '), '0'), ',') }}
+                            × {{ $ligne->conditionnement->nom ?? 'colis' }}
+                        </div>
+                    @endif
+                </td>
                 <td class="num">{{ $fmt($ligne->prix_unitaire) }}</td>
                 <td class="num">{{ (float) $ligne->remise_percent > 0 ? $fmt($ligne->remise_percent).' %' : '—' }}</td>
                 <td class="num">{{ number_format((float) $ligne->tva_rate, 0) }} %</td>

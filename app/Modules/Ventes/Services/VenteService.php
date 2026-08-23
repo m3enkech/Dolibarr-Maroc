@@ -267,7 +267,19 @@ class VenteService
 
         foreach ($lignes as $data) {
             $produit = ! empty($data['produit_id']) ? Produit::find($data['produit_id']) : null;
-            $quantite = (float) $data['quantite'];
+
+            // Vente au colis : le carton est converti en unité de stock, car
+            // c'est en unité de stock que raisonnent le stock et la compta.
+            $conditionnement = ! empty($data['conditionnement_id'])
+                ? \App\Modules\Catalogue\Models\ProduitConditionnement::find($data['conditionnement_id'])
+                : null;
+            $quantiteColis = $conditionnement !== null && isset($data['quantite_colis'])
+                ? (float) $data['quantite_colis']
+                : null;
+
+            $quantite = $quantiteColis !== null
+                ? round($quantiteColis * (float) $conditionnement->quantite_base, 3)
+                : (float) $data['quantite'];
 
             $designation = $data['designation'] ?? $produit?->name;
             // Prix explicite = décision du vendeur (négociation ponctuelle).
@@ -285,6 +297,8 @@ class VenteService
 
             $document->lignes()->create([
                 'produit_id' => $produit?->id,
+                'conditionnement_id' => $conditionnement?->id,
+                'quantite_colis' => $quantiteColis,
                 'designation' => $designation,
                 'quantite' => $quantite,
                 'prix_unitaire' => $prixUnitaire,

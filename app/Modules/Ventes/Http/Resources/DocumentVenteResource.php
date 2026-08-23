@@ -33,6 +33,9 @@ class DocumentVenteResource extends JsonResource
             'lignes' => $this->whenLoaded('lignes', fn () => $this->lignes->map(fn ($ligne) => [
                 'id' => $ligne->id,
                 'produit_id' => $ligne->produit_id,
+                'conditionnement_id' => $ligne->conditionnement_id,
+                'quantite_colis' => $ligne->quantite_colis,
+                'conditionnement' => $ligne->conditionnement?->nom,
                 'designation' => $ligne->designation,
                 'quantite' => $ligne->quantite,
                 'prix_unitaire' => $ligne->prix_unitaire,

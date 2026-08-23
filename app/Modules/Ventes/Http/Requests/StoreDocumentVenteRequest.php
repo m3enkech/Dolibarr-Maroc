@@ -37,7 +37,15 @@ class StoreDocumentVenteRequest extends FormRequest
                 }
             }],
             'lignes.*.designation' => ['required_without:lignes.*.produit_id', 'nullable', 'string', 'max:255'],
-            'lignes.*.quantite' => ['required', 'numeric', 'gt:0'],
+            // Saisie au colis : quantite devient facultative, elle est déduite
+            // du conditionnement (5 cartons de 12 → 60 en unité de stock).
+            'lignes.*.quantite' => ['required_without:lignes.*.conditionnement_id', 'nullable', 'numeric', 'gt:0'],
+            'lignes.*.conditionnement_id' => ['nullable', 'integer', function (string $attribute, mixed $value, \Closure $fail) {
+                if ($value !== null && ! \App\Modules\Catalogue\Models\ProduitConditionnement::whereKey($value)->exists()) {
+                    $fail('Ce conditionnement n\'existe pas.');
+                }
+            }],
+            'lignes.*.quantite_colis' => ['nullable', 'numeric', 'gt:0', 'required_with:lignes.*.conditionnement_id'],
             'lignes.*.prix_unitaire' => ['nullable', 'numeric', 'min:0'],
             'lignes.*.remise_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lignes.*.tva_rate' => ['nullable', 'numeric', Rule::in(Produit::TVA_RATES)],

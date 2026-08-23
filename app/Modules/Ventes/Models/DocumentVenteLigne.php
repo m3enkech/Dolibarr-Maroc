@@ -12,7 +12,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * document parent (jamais d'endpoint direct sur les lignes).
  */
 #[Fillable([
-    'produit_id', 'designation', 'quantite', 'prix_unitaire',
+    'produit_id', 'conditionnement_id', 'quantite_colis',
+    'designation', 'quantite', 'prix_unitaire',
     'remise_percent', 'tva_rate', 'montant_ht', 'montant_tva', 'montant_ttc',
     'position',
 ])]
@@ -24,6 +25,7 @@ class DocumentVenteLigne extends Model
     {
         return [
             'quantite' => 'decimal:3',
+            'quantite_colis' => 'decimal:3',
             'prix_unitaire' => 'decimal:2',
             'remise_percent' => 'decimal:2',
             'tva_rate' => 'decimal:2',
@@ -36,6 +38,11 @@ class DocumentVenteLigne extends Model
     public function document(): BelongsTo
     {
         return $this->belongsTo(DocumentVente::class, 'document_vente_id');
+    }
+
+    public function conditionnement(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Catalogue\Models\ProduitConditionnement::class, 'conditionnement_id');
     }
 
     public function produit(): BelongsTo

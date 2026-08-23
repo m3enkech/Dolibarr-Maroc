@@ -39,6 +39,12 @@ class Produit extends Model
         return $this->hasMany(KitComposant::class, 'kit_id');
     }
 
+    /** Colis de vente (carton, palette…), exprimés en unité de stock. */
+    public function conditionnements(): HasMany
+    {
+        return $this->hasMany(ProduitConditionnement::class)->orderBy('quantite_base');
+    }
+
     public function isKit(): bool
     {
         return $this->type === self::TYPE_KIT;

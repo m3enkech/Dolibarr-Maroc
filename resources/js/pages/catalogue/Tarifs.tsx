@@ -12,6 +12,14 @@ interface CategorieTarifaire {
     tarifs_count: number;
 }
 
+interface Conditionnement {
+    id: number;
+    nom: string;
+    quantite_base: number;
+    barcode: string | null;
+    is_default: boolean;
+}
+
 interface LigneTarif {
     id: number;
     categorie_tarifaire_id: number | null;
@@ -105,6 +113,43 @@ export default function Tarifs() {
     const supprimerTarif = useMutation({
         mutationFn: (id: number) => api.delete(`/tarifs/${id}`),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['produit-tarifs', produitId] }),
+    });
+
+    /* --- Conditionnements (carton, palette) --- */
+    const [condNom, setCondNom] = useState('');
+    const [condQte, setCondQte] = useState('');
+    const [condBarcode, setCondBarcode] = useState('');
+
+    const { data: conditionnements } = useQuery({
+        queryKey: ['produit-conditionnements', produitId],
+        queryFn: async () =>
+            (await api.get<{ data: Conditionnement[] }>(`/produits/${produitId}/conditionnements`)).data.data,
+        enabled: produitId !== '',
+    });
+
+    const rafraichirCond = () =>
+        queryClient.invalidateQueries({ queryKey: ['produit-conditionnements', produitId] });
+
+    const ajouterConditionnement = useMutation({
+        mutationFn: () =>
+            api.post(`/produits/${produitId}/conditionnements`, {
+                nom: condNom,
+                quantite_base: Number(condQte),
+                barcode: condBarcode || null,
+            }),
+        onSuccess: () => {
+            setCondNom('');
+            setCondQte('');
+            setCondBarcode('');
+            setError(null);
+            rafraichirCond();
+        },
+        onError: (err) => setError(errMsg(err, 'Ajout du conditionnement impossible.')),
+    });
+
+    const supprimerConditionnement = useMutation({
+        mutationFn: (id: number) => api.delete(`/conditionnements/${id}`),
+        onSuccess: rafraichirCond,
     });
 
     const champ = 'rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none';
@@ -301,6 +346,79 @@ export default function Tarifs() {
                     </>
                 )}
             </section>
+
+            {/* Conditionnements de l'article sélectionné */}
+            {produitId !== '' && (
+                <section className="rounded-xl bg-white p-5 shadow-sm">
+                    <h2 className="font-medium text-slate-900">Conditionnements</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Vendez au carton ou à la palette : le stock reste tenu à l'unité. Un code-barres par colis
+                        permet de le scanner en caisse.
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap items-end gap-3">
+                        <div>
+                            <label className="mb-1 block text-xs text-slate-500">Nom</label>
+                            <input
+                                value={condNom}
+                                onChange={(e) => setCondNom(e.target.value)}
+                                placeholder="Carton de 12"
+                                className={champ}
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-xs text-slate-500">Contient (unités)</label>
+                            <input
+                                type="number"
+                                step="any"
+                                min="0.001"
+                                value={condQte}
+                                onChange={(e) => setCondQte(e.target.value)}
+                                className={`w-32 ${champ}`}
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-xs text-slate-500">Code-barres (optionnel)</label>
+                            <input
+                                value={condBarcode}
+                                onChange={(e) => setCondBarcode(e.target.value)}
+                                className={champ}
+                            />
+                        </div>
+                        <button
+                            onClick={() => ajouterConditionnement.mutate()}
+                            disabled={!condNom || !condQte || ajouterConditionnement.isPending}
+                            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                            Ajouter
+                        </button>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        {(conditionnements ?? []).map((c) => (
+                            <span
+                                key={c.id}
+                                className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700"
+                            >
+                                <strong>{c.nom}</strong>
+                                <span className="text-xs text-slate-500">= {c.quantite_base} unités</span>
+                                {c.barcode && <span className="font-mono text-xs text-slate-400">{c.barcode}</span>}
+                                <button
+                                    onClick={() => supprimerConditionnement.mutate(c.id)}
+                                    className="text-slate-300 transition hover:text-red-500"
+                                >
+                                    ✕
+                                </button>
+                            </span>
+                        ))}
+                        {(conditionnements ?? []).length === 0 && (
+                            <span className="text-sm text-slate-400">
+                                Aucun colis : cet article se vend à l'unité.
+                            </span>
+                        )}
+                    </div>
+                </section>
+            )}
         </div>
     );
 }

@@ -307,12 +307,15 @@ export default function PosPage() {
             ? line
             : { ...line, prix: prixApplicable(grille, line.produit_id, line.quantite, line.prixCatalogue) };
 
-    const addProduit = (produit: Produit) => {
+    const addProduit = (produit: Produit) => ajouterQuantite(produit, 1);
+
+    /** Ajoute N unités d'un article (1 au toucher, le contenu d'un colis au scan). */
+    const ajouterQuantite = (produit: Produit, quantite: number) => {
         setCart((lines) => {
             const existing = lines.find((line) => line.produit_id === produit.id);
             if (existing) {
                 return lines.map((line) =>
-                    line.produit_id === produit.id ? applique({ ...line, quantite: line.quantite + 1 }) : line,
+                    line.produit_id === produit.id ? applique({ ...line, quantite: line.quantite + quantite }) : line,
                 );
             }
 
@@ -327,7 +330,7 @@ export default function PosPage() {
                     prixCatalogue: catalogue,
                     prixManuel: false,
                     tva: parseFloat(produit.tva_rate),
-                    quantite: 1,
+                    quantite,
                     remise: 0,
                     unit: produit.unit,
                 }),
@@ -363,14 +366,42 @@ export default function PosPage() {
         );
     }, [produits, search]);
 
-    /** Douchette : Entrée = code-barres exact, sinon résultat unique. */
-    const onSearchEnter = () => {
+    /**
+     * Douchette : code-barres article exact, puis code-barres de COLIS (scanner
+     * un carton ajoute son contenu), sinon résultat unique de la recherche.
+     */
+    const onSearchEnter = async () => {
         const q = search.trim().toLowerCase();
         if (!q) return;
+
         const exact = (produits ?? []).find((p) => (p.barcode ?? '').toLowerCase() === q);
-        const cible = exact ?? (filtres.length === 1 ? filtres[0] : null);
-        if (cible) {
-            addProduit(cible);
+        if (exact) {
+            addProduit(exact);
+            setSearch('');
+            return;
+        }
+
+        // Code-barres de conditionnement (requête GET, donc servie par le cache
+        // du service worker quand la caisse est hors ligne).
+        try {
+            const { data } = await api.get<{ data: { produit_id: number; quantite_base: number } | null }>(
+                '/conditionnements/barcode',
+                { params: { barcode: search.trim() } },
+            );
+            if (data.data) {
+                const produit = (produits ?? []).find((p) => p.id === data.data!.produit_id);
+                if (produit) {
+                    ajouterQuantite(produit, data.data.quantite_base);
+                    setSearch('');
+                    return;
+                }
+            }
+        } catch {
+            // Hors ligne sans cache : on retombe sur la recherche classique.
+        }
+
+        if (filtres.length === 1) {
+            addProduit(filtres[0]);
             setSearch('');
         }
     };
