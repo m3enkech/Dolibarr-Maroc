@@ -8,6 +8,7 @@ use App\Modules\Compta\ComptaServiceProvider;
 use App\Modules\Crm\CrmServiceProvider;
 use App\Modules\Dashboard\DashboardServiceProvider;
 use App\Modules\Effets\EffetsServiceProvider;
+use App\Modules\Portail\PortailServiceProvider;
 use App\Modules\Equipe\EquipeServiceProvider;
 use App\Modules\Parametres\ParametresServiceProvider;
 use App\Modules\Pos\PosServiceProvider;
@@ -36,4 +37,5 @@ return [
     EquipeServiceProvider::class,
     DashboardServiceProvider::class,
     SuperadminServiceProvider::class,
+    PortailServiceProvider::class,
 ];

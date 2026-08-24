@@ -51,6 +51,13 @@ return [
             'driver' => 'sanctum',
             'provider' => 'users',
         ],
+
+        // Acheteurs du portail : porteurs de jeton d'un TOUT AUTRE type, qui ne
+        // doivent jamais authentifier une route de l'ERP.
+        'acheteur' => [
+            'driver' => 'sanctum',
+            'provider' => 'acheteurs',
+        ],
     ],
 
     /*
@@ -74,6 +81,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'acheteurs' => [
+            'driver' => 'eloquent',
+            'model' => App\Modules\Portail\Models\Acheteur::class,
         ],
 
         // 'users' => [
