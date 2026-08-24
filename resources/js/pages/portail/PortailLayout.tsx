@@ -50,6 +50,9 @@ export default function PortailLayout() {
                         <NavLink to={`/portail/${grossiste}/commandes`} className={lien}>
                             Mes commandes
                         </NavLink>
+                        <NavLink to={`/portail/${grossiste}/factures`} className={lien}>
+                            Mes factures
+                        </NavLink>
                         <NavLink to={`/portail/${grossiste}/compte`} className={lien}>
                             Mon compte
                         </NavLink>

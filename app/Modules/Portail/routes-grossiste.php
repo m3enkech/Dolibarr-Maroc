@@ -2,6 +2,7 @@
 
 use App\Modules\Portail\Http\Controllers\CataloguePortailController;
 use App\Modules\Portail\Http\Controllers\CommandesPortailController;
+use App\Modules\Portail\Http\Controllers\FacturesPortailController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -20,5 +21,9 @@ Route::get('catalogue/{produit}', [CataloguePortailController::class, 'show']);
 Route::get('commandes', [CommandesPortailController::class, 'index']);
 Route::post('commandes', [CommandesPortailController::class, 'store']);
 Route::get('commandes/{commande}', [CommandesPortailController::class, 'show']);
+
+Route::get('factures', [FacturesPortailController::class, 'index']);
+Route::get('factures/{facture}', [FacturesPortailController::class, 'show']);
+Route::get('factures/{facture}/pdf', [FacturesPortailController::class, 'pdf']);
 
 Route::get('mon-compte', [CommandesPortailController::class, 'monCompte']);

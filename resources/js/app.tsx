@@ -11,6 +11,8 @@ import PortailGrossistes from '@/pages/portail/PortailGrossistes';
 import PortailCatalogue from '@/pages/portail/PortailCatalogue';
 import PortailCommandes from '@/pages/portail/PortailCommandes';
 import PortailCommandeDetail from '@/pages/portail/PortailCommandeDetail';
+import PortailFactures from '@/pages/portail/PortailFactures';
+import PortailFactureDetail from '@/pages/portail/PortailFactureDetail';
 import PortailCompte from '@/pages/portail/PortailCompte';
 import Dashboard from '@/pages/Dashboard';
 import Login from '@/pages/Login';
@@ -84,6 +86,8 @@ function App() {
                                 <Route path=":grossiste/catalogue" element={<PortailCatalogue />} />
                                 <Route path=":grossiste/commandes" element={<PortailCommandes />} />
                                 <Route path=":grossiste/commandes/:id" element={<PortailCommandeDetail />} />
+                                <Route path=":grossiste/factures" element={<PortailFactures />} />
+                                <Route path=":grossiste/factures/:id" element={<PortailFactureDetail />} />
                                 <Route path=":grossiste/compte" element={<PortailCompte />} />
                             </Route>
                         </Route>

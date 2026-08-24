@@ -8,9 +8,9 @@ use App\Modules\Ventes\Http\Requests\StorePaiementRequest;
 use App\Modules\Ventes\Http\Requests\UpdateDocumentVenteRequest;
 use App\Modules\Ventes\Http\Resources\DocumentVenteResource;
 use App\Modules\Ventes\Models\DocumentVente;
+use App\Modules\Ventes\Services\DocumentPdfService;
 use App\Modules\Ventes\Services\EFactureService;
 use App\Modules\Ventes\Services\VenteService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -122,26 +122,8 @@ class VentesController extends Controller
         ]);
     }
 
-    public function pdf(DocumentVente $document)
+    public function pdf(DocumentVente $document, DocumentPdfService $pdf)
     {
-        $document->load(['lignes', 'tiers', 'tenant', 'paiements', 'source']);
-
-        // Ventilation de la TVA par taux (exigence des factures marocaines).
-        $tvaBreakdown = $document->lignes
-            ->groupBy(fn ($ligne) => (string) $ligne->tva_rate)
-            ->map(fn ($lignes, $rate) => [
-                'rate' => (float) $rate,
-                'ht' => $lignes->sum(fn ($l) => (float) $l->montant_ht),
-                'tva' => $lignes->sum(fn ($l) => (float) $l->montant_tva),
-            ])
-            ->sortByDesc('rate')
-            ->values();
-
-        $pdf = Pdf::loadView('pdf.document-vente', [
-            'document' => $document,
-            'tvaBreakdown' => $tvaBreakdown,
-        ]);
-
-        return $pdf->download($document->code.'.pdf');
+        return $pdf->rendre($document)->download($document->code.'.pdf');
     }
 }

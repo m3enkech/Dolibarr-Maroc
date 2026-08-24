@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Modules\Catalogue\Models\CategorieTarifaire;
 use App\Modules\Catalogue\Models\ProduitTarif;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\MontePortail;
 use Tests\TestCase;
 
 /**
@@ -13,40 +14,7 @@ use Tests\TestCase;
  */
 class PortailCommandeTest extends TestCase
 {
-    use RefreshDatabase;
-
-    /** @return array{token: string, slug: string} */
-    private function grossiste(string $company, string $email): array
-    {
-        $r = $this->postJson('/api/v1/auth/register', [
-            'company_name' => $company, 'name' => 'Patron', 'email' => $email, 'password' => 'password123',
-        ])->assertCreated();
-
-        return ['token' => $r->json('token'), 'slug' => $r->json('tenant.slug')];
-    }
-
-    private function acheteur(string $email, string $nom = 'Épicerie'): string
-    {
-        return $this->postJson('/api/portail/v1/auth/inscription', [
-            'name' => $nom, 'email' => $email, 'password' => 'password123',
-        ])->assertCreated()->json('token');
-    }
-
-    /** @return int id du compte client créé chez le grossiste */
-    private function rattacher(string $tokenAcheteur, array $g, string $email, ?int $tiersId = null): int
-    {
-        $this->withToken($tokenAcheteur)
-            ->postJson('/api/portail/v1/demander-acces', ['slug' => $g['slug']])->assertCreated();
-
-        $demande = collect($this->withToken($g['token'])->getJson('/api/v1/portail/adhesions')->json('data'))
-            ->firstWhere('acheteur.email', $email);
-
-        $this->withToken($g['token'])
-            ->postJson("/api/v1/portail/adhesions/{$demande['id']}/approuver", ['tiers_id' => $tiersId])->assertOk();
-
-        return collect($this->withToken($g['token'])->getJson('/api/v1/portail/adhesions')->json('data'))
-            ->firstWhere('acheteur.email', $email)['client']['id'];
-    }
+    use MontePortail, RefreshDatabase;
 
     private function produit(array $g, string $nom = 'Huile 5L', float $prix = 120): array
     {

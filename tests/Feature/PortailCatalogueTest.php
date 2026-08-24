@@ -7,6 +7,7 @@ use App\Modules\Catalogue\Models\Produit;
 use App\Modules\Catalogue\Models\ProduitConditionnement;
 use App\Modules\Catalogue\Models\ProduitTarif;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\MontePortail;
 use Tests\TestCase;
 
 /**
@@ -15,44 +16,7 @@ use Tests\TestCase;
  */
 class PortailCatalogueTest extends TestCase
 {
-    use RefreshDatabase;
-
-    /** @return array{token: string, slug: string} */
-    private function grossiste(string $company, string $email): array
-    {
-        $r = $this->postJson('/api/v1/auth/register', [
-            'company_name' => $company, 'name' => 'Patron', 'email' => $email, 'password' => 'password123',
-        ])->assertCreated();
-
-        return ['token' => $r->json('token'), 'slug' => $r->json('tenant.slug')];
-    }
-
-    private function acheteur(string $email, string $nom = 'Épicerie'): string
-    {
-        return $this->postJson('/api/portail/v1/auth/inscription', [
-            'name' => $nom, 'email' => $email, 'password' => 'password123',
-        ])->assertCreated()->json('token');
-    }
-
-    /**
-     * Rattache l'acheteur au grossiste. La demande est retrouvée par l'EMAIL de
-     * l'acheteur, jamais par sa position dans la liste : deux demandes déposées
-     * dans la même seconde rendraient le tri ambigu.
-     */
-    private function rattacher(string $tokenAcheteur, array $g, string $email, ?int $tiersId = null): void
-    {
-        $this->withToken($tokenAcheteur)
-            ->postJson('/api/portail/v1/demander-acces', ['slug' => $g['slug']])->assertCreated();
-
-        $demande = collect($this->withToken($g['token'])->getJson('/api/v1/portail/adhesions')->json('data'))
-            ->firstWhere('acheteur.email', $email);
-
-        $this->assertNotNull($demande, "Demande introuvable pour {$email}.");
-
-        $this->withToken($g['token'])
-            ->postJson("/api/v1/portail/adhesions/{$demande['id']}/approuver", ['tiers_id' => $tiersId])
-            ->assertOk();
-    }
+    use MontePortail, RefreshDatabase;
 
     /* ---------------------------------------------------------------- */
 

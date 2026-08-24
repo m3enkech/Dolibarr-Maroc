@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { formatMAD } from '@/lib/format';
 import { portailApi } from '@/lib/portail-api';
 
@@ -71,6 +71,20 @@ export default function PortailCompte() {
                         Délai de règlement accordé : <strong>{data.delai_paiement_jours} jours</strong>.
                     </p>
                 )}
+
+                {/* L'encours vient du grand livre : il inclut les traites tirées
+                    et déduit les avoirs. Il ne coïncide donc PAS avec le « à
+                    payer » de l'écran des factures, qui écarte les deux — d'où
+                    la phrase, sans quoi l'acheteur croirait à une erreur. */}
+                <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                    Ce montant tient compte de vos traites en cours et déduit vos avoirs.
+                </p>
+                <Link
+                    to={`/portail/${grossiste}/factures`}
+                    className="mt-2 inline-block text-sm font-medium text-emerald-600 hover:underline"
+                >
+                    Voir le détail de mes factures →
+                </Link>
             </section>
         </div>
     );

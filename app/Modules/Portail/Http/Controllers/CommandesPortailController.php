@@ -3,15 +3,16 @@
 namespace App\Modules\Portail\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Portail\Models\AcheteurTiers;
+use App\Modules\Portail\Http\ClientDuGrossiste;
 use App\Modules\Portail\Services\PortailCommandeService;
-use App\Modules\Tiers\Models\Tiers;
 use App\Modules\Tiers\Services\EncoursService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class CommandesPortailController extends Controller
 {
+    use ClientDuGrossiste;
+
     public function __construct(
         private PortailCommandeService $service,
         private EncoursService $encours,
@@ -67,17 +68,5 @@ class CommandesPortailController extends Controller
             'disponible' => $controle['disponible'] !== null ? number_format($controle['disponible'], 2, '.', '') : null,
             'delai_paiement_jours' => $client->delai_paiement_jours,
         ]]);
-    }
-
-    private function client(Request $request): Tiers
-    {
-        /** @var AcheteurTiers $rattachement */
-        $rattachement = $request->attributes->get('portail_rattachement');
-
-        $client = Tiers::find($rattachement->tiers_id);
-
-        abort_if($client === null, 403, 'Votre compte client n\'est plus disponible chez ce grossiste.');
-
-        return $client;
     }
 }
