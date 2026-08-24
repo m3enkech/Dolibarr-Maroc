@@ -42,6 +42,15 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Déclaré explicitement : laissé implicite, Sanctum le fabrique avec un
+        // provider nul, et le contrôle de type du porteur du jeton ne s'applique
+        // plus. On veut qu'un jeton d'acheteur ne puisse jamais authentifier
+        // une route de l'ERP.
+        'sanctum' => [
+            'driver' => 'sanctum',
+            'provider' => 'users',
+        ],
     ],
 
     /*

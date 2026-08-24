@@ -12,9 +12,21 @@ class TenantScope implements Scope
     {
         $tenantId = static::currentTenantId();
 
-        if ($tenantId !== null) {
-            $builder->where($model->qualifyColumn('tenant_id'), $tenantId);
+        if ($tenantId === null) {
+            // FAIL-CLOSED : sans tenant courant, on ne renvoie RIEN plutôt que
+            // TOUT. Le portail acheteur sert des requêtes sans utilisateur
+            // d'entreprise : la moindre erreur de câblage exposerait sinon les
+            // données de tous les grossistes.
+            // Les lectures légitimement inter-entreprises passent explicitement
+            // par TenantContext::runGlobal() ou withoutGlobalScopes().
+            if (! TenantContext::globalAllowed()) {
+                $builder->whereRaw('1 = 0');
+            }
+
+            return;
         }
+
+        $builder->where($model->qualifyColumn('tenant_id'), $tenantId);
     }
 
     /**
