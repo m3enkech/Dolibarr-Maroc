@@ -37,6 +37,7 @@ import Parametres from '@/pages/Parametres';
 import PosPage from '@/pages/pos/PosPage';
 import Relances from '@/pages/relances/Relances';
 import StockPage from '@/pages/stock/StockPage';
+import Adhesions from '@/pages/tiers/Adhesions';
 import TiersForm from '@/pages/tiers/TiersForm';
 import TiersList from '@/pages/tiers/TiersList';
 import VenteDetail from '@/pages/ventes/VenteDetail';
@@ -113,6 +114,7 @@ function App() {
                             <Route path="/tiers" element={<TiersList />} />
                             <Route path="/tiers/nouveau" element={<TiersForm />} />
                             <Route path="/tiers/:id" element={<TiersForm />} />
+                            <Route path="/adhesions" element={<Adhesions />} />
                             <Route path="/catalogue" element={<ProduitsList />} />
                             <Route path="/catalogue/categories" element={<CategoriesProduit />} />
                             <Route path="/catalogue/tarifs" element={<Tarifs />} />

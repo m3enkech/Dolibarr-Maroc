@@ -712,6 +712,18 @@ export interface Effet {
     created_at: string;
 }
 
+export type AdhesionStatut = 'en_attente' | 'approuve' | 'refuse' | 'revoque';
+
+/** Demande d'accès d'un acheteur au portail, vue côté grossiste. */
+export interface PortailAdhesion {
+    id: number;
+    acheteur: { name: string | null; email: string | null; phone: string | null };
+    client: { id: number; code: string; name: string } | null;
+    statut: AdhesionStatut;
+    demande_at: string | null;
+    approuve_at: string | null;
+}
+
 export interface Paginated<T> {
     data: T[];
     meta: {

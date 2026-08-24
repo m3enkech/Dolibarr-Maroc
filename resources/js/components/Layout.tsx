@@ -41,6 +41,7 @@ const GROUPS: MenuGroup[] = [
         title: 'Commercial',
         items: [
             { to: '/tiers', label: 'Tiers', icon: '👥', domain: 'tiers' },
+            { to: '/adhesions', label: 'Adhésions portail', icon: '🤝', domain: 'tiers' },
             {
                 label: 'Catalogue',
                 icon: '📦',
