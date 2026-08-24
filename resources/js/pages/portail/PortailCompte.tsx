@@ -1,0 +1,77 @@
+import { useQuery } from '@tanstack/react-query';
+import { useParams } from 'react-router-dom';
+import { formatMAD } from '@/lib/format';
+import { portailApi } from '@/lib/portail-api';
+
+interface Compte {
+    client: { code: string; name: string };
+    encours: string;
+    plafond: string | null;
+    disponible: string | null;
+    delai_paiement_jours: number | null;
+}
+
+export default function PortailCompte() {
+    const { grossiste } = useParams();
+
+    const { data, isLoading } = useQuery({
+        queryKey: ['portail-compte', grossiste],
+        queryFn: async () =>
+            (await portailApi.get<{ data: Compte }>(`/grossistes/${grossiste}/mon-compte`)).data.data,
+    });
+
+    if (isLoading || !data) return <p className="text-sm text-slate-400">Chargement…</p>;
+
+    const aPlafond = data.plafond !== null;
+    const encours = parseFloat(data.encours);
+    const plafond = aPlafond ? parseFloat(data.plafond as string) : 0;
+    const part = aPlafond && plafond > 0 ? Math.min(100, Math.round((encours / plafond) * 100)) : 0;
+
+    return (
+        <div className="max-w-xl space-y-4">
+            <div>
+                <h1 className="text-xl font-semibold text-slate-900">Mon compte</h1>
+                <p className="mt-1 text-sm text-slate-500">
+                    {data.client.name} · <span className="font-mono text-xs">{data.client.code}</span>
+                </p>
+            </div>
+
+            <section className="rounded-xl bg-white p-5 shadow-sm">
+                <h2 className="text-sm font-medium text-slate-900">Ce que je dois</h2>
+
+                <div className="mt-3 flex items-baseline gap-2">
+                    <span className="text-3xl font-semibold tabular-nums text-slate-900">
+                        {formatMAD(data.encours)}
+                    </span>
+                    {aPlafond && (
+                        <span className="text-sm text-slate-500">sur {formatMAD(data.plafond as string)} autorisés</span>
+                    )}
+                </div>
+
+                {aPlafond ? (
+                    <>
+                        <div className="mt-3 h-2 w-full rounded-full bg-slate-100">
+                            <div
+                                className={`h-2 rounded-full ${part >= 90 ? 'bg-red-500' : part >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                style={{ width: `${Math.max(2, part)}%` }}
+                            />
+                        </div>
+                        <p className="mt-2 text-sm text-slate-600">
+                            Il vous reste <strong>{formatMAD(data.disponible as string)}</strong> de crédit disponible.
+                        </p>
+                    </>
+                ) : (
+                    <p className="mt-2 text-sm text-slate-500">
+                        Aucun plafond de crédit n'est fixé sur votre compte.
+                    </p>
+                )}
+
+                {data.delai_paiement_jours !== null && (
+                    <p className="mt-3 border-t border-slate-100 pt-3 text-sm text-slate-600">
+                        Délai de règlement accordé : <strong>{data.delai_paiement_jours} jours</strong>.
+                    </p>
+                )}
+            </section>
+        </div>
+    );
+}

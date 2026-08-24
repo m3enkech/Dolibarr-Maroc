@@ -1,9 +1,17 @@
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { AuthProvider, RequireAuth } from '@/lib/auth';
 import Layout from '@/components/Layout';
 import Landing from '@/pages/Landing';
+import { PortailAuthProvider, RequirePortailAuth } from '@/lib/portail-auth';
+import PortailLayout from '@/pages/portail/PortailLayout';
+import PortailConnexion from '@/pages/portail/PortailConnexion';
+import PortailGrossistes from '@/pages/portail/PortailGrossistes';
+import PortailCatalogue from '@/pages/portail/PortailCatalogue';
+import PortailCommandes from '@/pages/portail/PortailCommandes';
+import PortailCommandeDetail from '@/pages/portail/PortailCommandeDetail';
+import PortailCompte from '@/pages/portail/PortailCompte';
 import Dashboard from '@/pages/Dashboard';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -50,6 +58,35 @@ function App() {
             <BrowserRouter>
                 <AuthProvider>
                     <Routes>
+                        {/*
+                         * Portail acheteur : sa PROPRE session (jeton et clés de
+                         * stockage distincts de l'ERP), sa propre coquille, et
+                         * aucun accès aux écrans de gestion.
+                         */}
+                        <Route
+                            path="/portail"
+                            element={
+                                <PortailAuthProvider>
+                                    <Outlet />
+                                </PortailAuthProvider>
+                            }
+                        >
+                            <Route path="connexion" element={<PortailConnexion />} />
+                            <Route
+                                element={
+                                    <RequirePortailAuth>
+                                        <PortailLayout />
+                                    </RequirePortailAuth>
+                                }
+                            >
+                                <Route index element={<PortailGrossistes />} />
+                                <Route path=":grossiste/catalogue" element={<PortailCatalogue />} />
+                                <Route path=":grossiste/commandes" element={<PortailCommandes />} />
+                                <Route path=":grossiste/commandes/:id" element={<PortailCommandeDetail />} />
+                                <Route path=":grossiste/compte" element={<PortailCompte />} />
+                            </Route>
+                        </Route>
+
                         <Route path="/" element={<Landing />} />
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
