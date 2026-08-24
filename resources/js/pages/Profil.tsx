@@ -3,8 +3,10 @@ import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { User } from '@/types';
+import { useT } from '@/lib/langue';
 
 export default function Profil() {
+    const t = useT();
     const { user, tenant, updateUser } = useAuth();
     const [name, setName] = useState(user?.name ?? '');
     const [nomOk, setNomOk] = useState(false);
@@ -54,7 +56,7 @@ export default function Profil() {
     return (
         <div className="max-w-2xl space-y-6">
             <div>
-                <h1 className="text-xl font-semibold text-slate-900">Mon compte</h1>
+                <h1 className="text-xl font-semibold text-slate-900">{t('Mon compte')}</h1>
                 <p className="mt-1 text-sm text-slate-500">
                     {user?.email} · {tenant?.name}
                 </p>
@@ -62,9 +64,9 @@ export default function Profil() {
 
             {/* Identité */}
             <section className="rounded-xl bg-white p-6 shadow-sm">
-                <h2 className="font-medium text-slate-900">Profil</h2>
+                <h2 className="font-medium text-slate-900">{t('Profil')}</h2>
                 <div className="mt-4">
-                    <label className="mb-1 block text-xs font-medium text-slate-600">Nom</label>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">{t('Nom')}</label>
                     <input value={name} onChange={(e) => setName(e.target.value)} className={champ} />
                 </div>
                 <div className="mt-4 flex items-center gap-3">
@@ -73,15 +75,15 @@ export default function Profil() {
                         disabled={saveNom.isPending || !name.trim()}
                         className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
                     >
-                        Enregistrer
+                        {t('Enregistrer')}
                     </button>
-                    {nomOk && <span className="text-sm text-emerald-600">✓ Enregistré</span>}
+                    {nomOk && <span className="text-sm text-emerald-600">{t('✓ Enregistré')}</span>}
                 </div>
             </section>
 
             {/* Mot de passe */}
             <section className="rounded-xl bg-white p-6 shadow-sm">
-                <h2 className="font-medium text-slate-900">Changer mon mot de passe</h2>
+                <h2 className="font-medium text-slate-900">{t('Changer mon mot de passe')}</h2>
                 {pwdMsg && (
                     <div
                         className={`mt-3 rounded-md px-3 py-2 text-sm ${
@@ -93,17 +95,17 @@ export default function Profil() {
                 )}
                 <div className="mt-4 space-y-4">
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">Mot de passe actuel</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t('Mot de passe actuel')}</label>
                         <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} className={champ} />
                     </div>
                     <div>
                         <label className="mb-1 block text-xs font-medium text-slate-600">
-                            Nouveau mot de passe <span className="font-normal text-slate-400">(8 car. min.)</span>
+                            Nouveau mot de passe <span className="font-normal text-slate-400">{t('(8 car. min.)')}</span>
                         </label>
                         <input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className={champ} />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">Confirmer</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t('Confirmer')}</label>
                         <input type="password" minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} className={champ} />
                     </div>
                 </div>

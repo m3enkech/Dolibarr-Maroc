@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/langue';
 
 export default function MotDePasseOublie() {
+    const t = useT();
     const [email, setEmail] = useState('');
     const [envoye, setEnvoye] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -22,9 +24,9 @@ export default function MotDePasseOublie() {
         <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
             <div className="w-full max-w-md">
                 <div className="mb-6 text-center">
-                    <h1 className="text-2xl font-semibold text-slate-900">Mot de passe oublié</h1>
+                    <h1 className="text-2xl font-semibold text-slate-900">{t('Mot de passe oublié')}</h1>
                     <p className="mt-1 text-sm text-slate-500">
-                        Saisissez votre email pour recevoir un lien de réinitialisation
+                        {t('Saisissez votre email pour recevoir un lien de réinitialisation')}
                     </p>
                 </div>
 
@@ -39,13 +41,13 @@ export default function MotDePasseOublie() {
                             to="/login"
                             className="mt-4 inline-block text-sm font-medium text-emerald-600 hover:underline"
                         >
-                            Retour à la connexion
+                            {t('Retour à la connexion')}
                         </Link>
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm">
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">{t('Email')}</label>
                             <input
                                 type="email"
                                 required
@@ -63,7 +65,7 @@ export default function MotDePasseOublie() {
                         </button>
                         <p className="text-center text-sm text-slate-500">
                             <Link to="/login" className="font-medium text-emerald-600 hover:underline">
-                                Retour à la connexion
+                                {t('Retour à la connexion')}
                             </Link>
                         </p>
                     </form>

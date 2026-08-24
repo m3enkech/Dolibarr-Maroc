@@ -57,7 +57,7 @@ class AuthPortailController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json(['message' => 'Déconnecté.']);
+        return response()->json(['message' => __('Déconnecté.')]);
     }
 
     /** Grossistes chez qui l'acheteur est rattaché, avec l'état de sa demande. */
@@ -89,7 +89,7 @@ class AuthPortailController extends Controller
             'statut' => $rattachement->statut,
             'message' => $rattachement->estApprouve()
                 ? 'Accès déjà actif.'
-                : 'Demande transmise au grossiste, en attente de validation.',
+                : __('Demande transmise au grossiste, en attente de validation.'),
         ]], 201);
     }
 

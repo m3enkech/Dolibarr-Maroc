@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Entrepot, Paginated, Produit } from '@/types';
+import { useT } from '@/lib/langue';
 
 interface TransfertResult {
     reference: string;
@@ -10,6 +11,7 @@ interface TransfertResult {
 }
 
 export default function Transferts({ entrepots }: { entrepots: Entrepot[] }) {
+    const t = useT();
     const [produitId, setProduitId] = useState('');
     const [sourceId, setSourceId] = useState('');
     const [destId, setDestId] = useState('');
@@ -79,9 +81,9 @@ export default function Transferts({ entrepots }: { entrepots: Entrepot[] }) {
                 {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
                 <div>
-                    <label className={label}>Produit</label>
+                    <label className={label}>{t('Produit')}</label>
                     <select required value={produitId} onChange={(e) => setProduitId(e.target.value)} className={`${input} w-full`}>
-                        <option value="">— Choisir un produit —</option>
+                        <option value="">{t('— Choisir un produit —')}</option>
                         {produits?.map((p) => (
                             <option key={p.id} value={p.id}>
                                 {p.name} ({p.code})
@@ -92,9 +94,9 @@ export default function Transferts({ entrepots }: { entrepots: Entrepot[] }) {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                        <label className={label}>Entrepôt source</label>
+                        <label className={label}>{t('Entrepôt source')}</label>
                         <select required value={sourceId} onChange={(e) => setSourceId(e.target.value)} className={`${input} w-full`}>
-                            <option value="">— Depuis —</option>
+                            <option value="">{t('— Depuis —')}</option>
                             {entrepots.map((entrepot) => (
                                 <option key={entrepot.id} value={entrepot.id}>
                                     {entrepot.name}
@@ -103,9 +105,9 @@ export default function Transferts({ entrepots }: { entrepots: Entrepot[] }) {
                         </select>
                     </div>
                     <div>
-                        <label className={label}>Entrepôt destination</label>
+                        <label className={label}>{t('Entrepôt destination')}</label>
                         <select required value={destId} onChange={(e) => setDestId(e.target.value)} className={`${input} w-full`}>
-                            <option value="">— Vers —</option>
+                            <option value="">{t('— Vers —')}</option>
                             {entrepots
                                 .filter((entrepot) => String(entrepot.id) !== sourceId)
                                 .map((entrepot) => (
@@ -119,7 +121,7 @@ export default function Transferts({ entrepots }: { entrepots: Entrepot[] }) {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                        <label className={label}>Quantité à transférer</label>
+                        <label className={label}>{t('Quantité à transférer')}</label>
                         <input
                             type="number"
                             step="0.001"
@@ -131,7 +133,7 @@ export default function Transferts({ entrepots }: { entrepots: Entrepot[] }) {
                         />
                     </div>
                     <div>
-                        <label className={label}>Note (facultatif)</label>
+                        <label className={label}>{t('Note (facultatif)')}</label>
                         <input value={note} onChange={(e) => setNote(e.target.value)} className={`${input} w-full`} />
                     </div>
                 </div>
@@ -152,7 +154,7 @@ export default function Transferts({ entrepots }: { entrepots: Entrepot[] }) {
 
                 {entrepots.length < 2 && (
                     <p className="text-xs text-amber-600">
-                        Créez au moins deux entrepôts pour effectuer un transfert.
+                        {t('Créez au moins deux entrepôts pour effectuer un transfert.')}
                     </p>
                 )}
             </form>

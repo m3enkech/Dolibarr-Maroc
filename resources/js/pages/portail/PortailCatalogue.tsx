@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formatMAD } from '@/lib/format';
 import { messageErreur, portailApi } from '@/lib/portail-api';
+import { useT } from '@/lib/langue';
 
 interface Palier {
     quantite_min: number;
@@ -42,6 +43,7 @@ export default function PortailCatalogue() {
     const { grossiste } = useParams();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const t = useT();
 
     const [recherche, setRecherche] = useState('');
     const [panier, setPanier] = useState<LignePanier[]>([]);
@@ -73,7 +75,7 @@ export default function PortailCatalogue() {
             queryClient.invalidateQueries({ queryKey: ['portail-commandes', grossiste] });
             navigate(`/portail/${grossiste}/commandes/${data.data.id}`);
         },
-        onError: (err) => setErreur(messageErreur(err, 'Commande impossible.')),
+        onError: (err) => setErreur(messageErreur(err, t('Commande impossible.'))),
     });
 
     /** Nombre d'unités que représente une ligne (colis convertis). */
@@ -125,11 +127,11 @@ export default function PortailCatalogue() {
                 <input
                     value={recherche}
                     onChange={(e) => setRecherche(e.target.value)}
-                    placeholder="Rechercher un article…"
+                    placeholder={t('Rechercher un article…')}
                     className={champ}
                 />
 
-                {isLoading && <p className="mt-4 text-sm text-slate-400">Chargement du catalogue…</p>}
+                {isLoading && <p className="mt-4 text-sm text-slate-400">{t('Chargement du catalogue…')}</p>}
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {(data?.data ?? []).map((article) => (
@@ -141,21 +143,23 @@ export default function PortailCatalogue() {
                                 </div>
                                 {!article.disponible && (
                                     <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[11px] text-slate-600">
-                                        sur commande
+                                        {t('sur commande')}
                                     </span>
                                 )}
                             </div>
 
                             <div className="mt-2 flex items-baseline gap-1.5">
                                 <span className="text-lg font-semibold text-slate-900">{formatMAD(article.prix_ht)}</span>
-                                <span className="text-xs text-slate-500">HT / {article.unit ?? 'unité'}</span>
+                                <span className="text-xs text-slate-500">
+                                    {t('HT / {unite}', { unite: article.unit ?? t('unité') })}
+                                </span>
                             </div>
 
                             {article.paliers.length > 1 && (
                                 <ul className="mt-1.5 space-y-0.5">
                                     {article.paliers.slice(1).map((p) => (
                                         <li key={p.quantite_min} className="text-xs text-emerald-700">
-                                            dès {p.quantite_min} → {formatMAD(p.prix)} HT
+                                            {t('dès {q} → {prix} HT', { q: p.quantite_min, prix: formatMAD(p.prix) })}
                                         </li>
                                     ))}
                                 </ul>
@@ -166,7 +170,7 @@ export default function PortailCatalogue() {
                                     onClick={() => ajouter(article, null)}
                                     className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700"
                                 >
-                                    + À l'unité
+                                    {t("+ À l'unité")}
                                 </button>
                                 {article.conditionnements.map((c) => (
                                     <button
@@ -183,18 +187,18 @@ export default function PortailCatalogue() {
                 </div>
 
                 {!isLoading && (data?.data ?? []).length === 0 && (
-                    <p className="mt-6 text-center text-sm text-slate-400">Aucun article ne correspond.</p>
+                    <p className="mt-6 text-center text-sm text-slate-400">{t('Aucun article ne correspond.')}</p>
                 )}
             </section>
 
             {/* Panier */}
             <aside className="lg:sticky lg:top-32 lg:self-start">
                 <div className="rounded-xl bg-white p-5 shadow-sm">
-                    <h2 className="font-medium text-slate-900">Ma commande</h2>
+                    <h2 className="font-medium text-slate-900">{t('Ma commande')}</h2>
 
                     {panier.length === 0 && (
                         <p className="mt-3 text-sm text-slate-400">
-                            Ajoutez des articles pour composer votre commande.
+                            {t('Ajoutez des articles pour composer votre commande.')}
                         </p>
                     )}
 
@@ -241,15 +245,15 @@ export default function PortailCatalogue() {
                         <>
                             <div className="mt-4 space-y-1 border-t border-slate-200 pt-3 text-sm tabular-nums">
                                 <div className="flex justify-between text-slate-500">
-                                    <span>Total HT</span>
+                                    <span>{t('Total HT')}</span>
                                     <span>{formatMAD(totaux.ht)}</span>
                                 </div>
                                 <div className="flex justify-between text-slate-500">
-                                    <span>TVA</span>
+                                    <span>{t('TVA')}</span>
                                     <span>{formatMAD(totaux.tva)}</span>
                                 </div>
                                 <div className="flex justify-between pt-1 text-base font-semibold text-slate-900">
-                                    <span>Total TTC</span>
+                                    <span>{t('Total TTC')}</span>
                                     <span>{formatMAD(totaux.ttc)}</span>
                                 </div>
                             </div>
@@ -257,7 +261,7 @@ export default function PortailCatalogue() {
                             <textarea
                                 value={note}
                                 onChange={(e) => setNote(e.target.value)}
-                                placeholder="Précision pour le grossiste (facultatif)"
+                                placeholder={t('Précision pour le grossiste (facultatif)')}
                                 rows={2}
                                 className={`mt-3 ${champ}`}
                             />
@@ -271,10 +275,10 @@ export default function PortailCatalogue() {
                                 disabled={commander.isPending}
                                 className="mt-3 w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
                             >
-                                {commander.isPending ? 'Envoi…' : 'Envoyer la commande'}
+                                {commander.isPending ? t('Envoi…') : t('Envoyer la commande')}
                             </button>
                             <p className="mt-2 text-center text-xs text-slate-400">
-                                Le montant définitif est confirmé par le grossiste.
+                                {t('Le montant définitif est confirmé par le grossiste.')}
                             </p>
                         </>
                     )}

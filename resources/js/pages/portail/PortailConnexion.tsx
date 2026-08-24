@@ -2,10 +2,13 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { messageErreur } from '@/lib/portail-api';
 import { usePortailAuth } from '@/lib/portail-auth';
+import SelecteurLangue from '@/components/SelecteurLangue';
+import { useT } from '@/lib/langue';
 
 export default function PortailConnexion() {
     const { connexion, inscription } = usePortailAuth();
     const navigate = useNavigate();
+    const t = useT();
 
     const [mode, setMode] = useState<'connexion' | 'inscription'>('connexion');
     const [nom, setNom] = useState('');
@@ -28,7 +31,7 @@ export default function PortailConnexion() {
             }
             navigate('/portail');
         } catch (err) {
-            setErreur(messageErreur(err, 'Connexion impossible.'));
+            setErreur(messageErreur(err, t('Connexion impossible.')));
         } finally {
             setEnCours(false);
         }
@@ -40,13 +43,17 @@ export default function PortailConnexion() {
     return (
         <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
             <div className="w-full max-w-md">
+                <div className="mb-4 flex justify-center">
+                    <SelecteurLangue />
+                </div>
+
                 <div className="mb-6 text-center">
                     <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 text-lg font-bold text-white">
                         ⌁
                     </span>
-                    <h1 className="text-xl font-semibold text-slate-900">Espace client</h1>
+                    <h1 className="text-xl font-semibold text-slate-900">{t('Espace client')}</h1>
                     <p className="mt-1 text-sm text-slate-500">
-                        Commandez chez vos grossistes et suivez vos livraisons.
+                        {t('Commandez chez vos grossistes et suivez vos livraisons.')}
                     </p>
                 </div>
 
@@ -61,7 +68,7 @@ export default function PortailConnexion() {
                                     mode === m ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'
                                 }`}
                             >
-                                {m === 'connexion' ? 'J\'ai un compte' : 'Créer un compte'}
+                                {m === 'connexion' ? t("J'ai un compte") : t('Créer un compte')}
                             </button>
                         ))}
                     </div>
@@ -74,18 +81,18 @@ export default function PortailConnexion() {
                         {mode === 'inscription' && (
                             <>
                                 <div>
-                                    <label className="mb-1 block text-sm text-slate-600">Nom de votre commerce</label>
+                                    <label className="mb-1 block text-sm text-slate-600">{t('Nom de votre commerce')}</label>
                                     <input
                                         required
                                         type="text"
                                         value={nom}
                                         onChange={(e) => setNom(e.target.value)}
-                                        placeholder="Épicerie Al Baraka"
+                                        placeholder={t('Épicerie Al Baraka')}
                                         className={champ}
                                     />
                                 </div>
                                 <div>
-                                    <label className="mb-1 block text-sm text-slate-600">Téléphone</label>
+                                    <label className="mb-1 block text-sm text-slate-600">{t('Téléphone')}</label>
                                     <input
                                         type="tel"
                                         value={telephone}
@@ -98,7 +105,7 @@ export default function PortailConnexion() {
                         )}
 
                         <div>
-                            <label className="mb-1 block text-sm text-slate-600">Adresse e-mail</label>
+                            <label className="mb-1 block text-sm text-slate-600">{t('Adresse e-mail')}</label>
                             <input
                                 required
                                 type="email"
@@ -109,7 +116,7 @@ export default function PortailConnexion() {
                         </div>
 
                         <div>
-                            <label className="mb-1 block text-sm text-slate-600">Mot de passe</label>
+                            <label className="mb-1 block text-sm text-slate-600">{t('Mot de passe')}</label>
                             <input
                                 required
                                 type="password"
@@ -125,7 +132,7 @@ export default function PortailConnexion() {
                             disabled={enCours}
                             className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
                         >
-                            {enCours ? 'Un instant…' : mode === 'connexion' ? 'Se connecter' : 'Créer mon compte'}
+                            {enCours ? t('Un instant…') : mode === 'connexion' ? t('Se connecter') : t('Créer mon compte')}
                         </button>
                     </form>
                 </div>

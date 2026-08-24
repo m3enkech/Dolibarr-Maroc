@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import { LEAD_SOURCE_LABELS, type CrmStats as Stats } from '@/types';
+import { useT } from '@/lib/langue';
 
 const ETAPE_LABELS: Record<string, string> = {
     nouveau: 'Nouveau',
@@ -54,6 +55,7 @@ function Barre({ ratio, tone = 'emerald' }: { ratio: number; tone?: string }) {
 }
 
 export default function CrmStats() {
+    const t = useT();
     const [periode, setPeriode] = useState('');
 
     const depuis = periode
@@ -66,7 +68,7 @@ export default function CrmStats() {
             (await api.get<{ data: Stats }>('/crm/stats', { params: { depuis } })).data.data,
     });
 
-    if (isLoading || !data) return <div className="text-sm text-slate-400">Chargement…</div>;
+    if (isLoading || !data) return <div className="text-sm text-slate-400">{t('Chargement…')}</div>;
 
     const s = data.synthese;
     const maxEtape = Math.max(1, ...data.par_etape.map((e) => parseFloat(e.montant)));
@@ -83,7 +85,7 @@ export default function CrmStats() {
                             periode === p.key ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
                         }`}
                     >
-                        {p.label}
+                        {t(p.label)}
                     </button>
                 ))}
             </div>
@@ -91,20 +93,20 @@ export default function CrmStats() {
             {/* KPIs */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Kpi
-                    label="Taux de conversion"
+                    label={t('Taux de conversion')}
                     value={`${s.taux_conversion} %`}
                     hint={`${s.gagnees} gagnées / ${s.gagnees + s.perdues} tranchées`}
                     tone="emerald"
                 />
-                <Kpi label="Montant gagné" value={formatMAD(s.montant_gagne)} hint={`${s.gagnees} affaire(s)`} tone="emerald" />
+                <Kpi label={t('Montant gagné')} value={formatMAD(s.montant_gagne)} hint={`${s.gagnees} affaire(s)`} tone="emerald" />
                 <Kpi label="Pipeline ouvert" value={formatMAD(s.pipeline_ouvert)} hint={`${s.ouvertes} en cours`} tone="indigo" />
-                <Kpi label="Prévision pondérée" value={formatMAD(s.forecast_pondere)} hint="pipeline × probabilité" tone="indigo" />
-                <Kpi label="Panier moyen gagné" value={formatMAD(s.panier_moyen_gagne)} />
-                <Kpi label="Montant perdu" value={formatMAD(s.montant_perdu)} hint={`${s.perdues} affaire(s)`} tone="red" />
+                <Kpi label={t('Prévision pondérée')} value={formatMAD(s.forecast_pondere)} hint={t('pipeline × probabilité')} tone="indigo" />
+                <Kpi label={t('Panier moyen gagné')} value={formatMAD(s.panier_moyen_gagne)} />
+                <Kpi label={t('Montant perdu')} value={formatMAD(s.montant_perdu)} hint={`${s.perdues} affaire(s)`} tone="red" />
                 <Kpi
-                    label="Durée moyenne du cycle"
+                    label={t('Durée moyenne du cycle')}
                     value={s.duree_moyenne_jours === null ? '—' : `${s.duree_moyenne_jours} j`}
-                    hint="création → clôture"
+                    hint={t('création → clôture')}
                 />
                 <Kpi
                     label="Entonnoir"
@@ -116,7 +118,7 @@ export default function CrmStats() {
             <div className="grid gap-4 lg:grid-cols-2">
                 {/* Pipeline par étape */}
                 <section className="rounded-xl bg-white p-5 shadow-sm">
-                    <h2 className="text-sm font-semibold text-slate-900">Pipeline par étape</h2>
+                    <h2 className="text-sm font-semibold text-slate-900">{t('Pipeline par étape')}</h2>
                     <div className="mt-3 space-y-3">
                         {data.par_etape.map((e) => (
                             <div key={e.etape}>
@@ -137,7 +139,7 @@ export default function CrmStats() {
 
                 {/* Origines de lead */}
                 <section className="rounded-xl bg-white p-5 shadow-sm">
-                    <h2 className="text-sm font-semibold text-slate-900">Origine des prospects</h2>
+                    <h2 className="text-sm font-semibold text-slate-900">{t('Origine des prospects')}</h2>
                     {data.par_source.length === 0 ? (
                         <p className="mt-3 text-sm text-slate-400">
                             Aucune origine renseignée. Ajoutez une source sur vos prospects pour mesurer vos canaux
@@ -147,10 +149,10 @@ export default function CrmStats() {
                         <table className="mt-3 w-full text-left text-sm">
                             <thead className="text-xs uppercase tracking-wide text-slate-400">
                                 <tr>
-                                    <th className="pb-2">Source</th>
-                                    <th className="pb-2 text-right">Total</th>
-                                    <th className="pb-2 text-right">Prospects</th>
-                                    <th className="pb-2 text-right">Convertis</th>
+                                    <th className="pb-2">{t('Source')}</th>
+                                    <th className="pb-2 text-right">{t('Total')}</th>
+                                    <th className="pb-2 text-right">{t('Prospects')}</th>
+                                    <th className="pb-2 text-right">{t('Convertis')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -173,23 +175,23 @@ export default function CrmStats() {
             {/* Performance par commercial */}
             <section className="overflow-hidden rounded-xl bg-white shadow-sm">
                 <div className="border-b border-slate-200 px-5 py-3">
-                    <h2 className="text-sm font-semibold text-slate-900">Performance par commercial</h2>
+                    <h2 className="text-sm font-semibold text-slate-900">{t('Performance par commercial')}</h2>
                     <p className="mt-0.5 text-xs text-slate-500">
                         Basée sur les opportunités affectées à chaque utilisateur (montants estimés).
                     </p>
                 </div>
                 {data.par_vendeur.length === 0 ? (
-                    <div className="px-5 py-8 text-center text-sm text-slate-400">Aucune opportunité sur la période.</div>
+                    <div className="px-5 py-8 text-center text-sm text-slate-400">{t('Aucune opportunité sur la période.')}</div>
                 ) : (
                     <table className="w-full text-left text-sm">
                         <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                             <tr>
-                                <th className="px-5 py-2">Commercial</th>
-                                <th className="px-5 py-2 text-right">Gagnées</th>
-                                <th className="px-5 py-2 text-right">Perdues</th>
-                                <th className="px-5 py-2 text-right">En cours</th>
-                                <th className="px-5 py-2 text-right">Taux</th>
-                                <th className="px-5 py-2 text-right">Montant gagné</th>
+                                <th className="px-5 py-2">{t('Commercial')}</th>
+                                <th className="px-5 py-2 text-right">{t('Gagnées')}</th>
+                                <th className="px-5 py-2 text-right">{t('Perdues')}</th>
+                                <th className="px-5 py-2 text-right">{t('En cours')}</th>
+                                <th className="px-5 py-2 text-right">{t('Taux')}</th>
+                                <th className="px-5 py-2 text-right">{t('Montant gagné')}</th>
                                 <th className="px-5 py-2 w-32" />
                             </tr>
                         </thead>

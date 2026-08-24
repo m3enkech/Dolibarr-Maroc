@@ -1,0 +1,18 @@
+{
+    "Accès accordé.": "تم منح الولوج.",
+    "Demande refusée.": "تم رفض الطلب.",
+    "Accès révoqué.": "تم سحب الولوج.",
+    "Déconnecté.": "تم تسجيل الخروج.",
+    "Demande transmise au grossiste, en attente de validation.": "تم إرسال طلبك إلى تاجر الجملة، في انتظار الموافقة.",
+    "Commande transmise au grossiste, en attente de confirmation.": "تم إرسال الطلب إلى تاجر الجملة، في انتظار التأكيد.",
+    "Grossiste introuvable.": "تاجر الجملة غير موجود.",
+    "Identifiants incorrects.": "معطيات الدخول غير صحيحة.",
+    "Ce compte est désactivé.": "هذا الحساب معطل.",
+    "Votre demande a été refusée par ce grossiste.": "رفض تاجر الجملة طلبك.",
+    "Ce client n'existe pas.": "هذا الزبون غير موجود.",
+    "Votre compte client n'est plus disponible chez ce grossiste.": "لم يعد حسابك متاحا لدى تاجر الجملة هذا.",
+    "Votre compte client n'est pas encore configuré.": "لم يتم بعد إعداد حسابك كزبون.",
+    "Un article de votre commande n'est plus disponible.": "أحد أصناف طلبك لم يعد متوفرا.",
+    "Ce conditionnement n'existe pas pour cet article.": "هذا التلفيف غير متوفر لهذا الصنف.",
+    "Vous n'avez pas les droits nécessaires sur ce module.": "لا تتوفر على الصلاحيات اللازمة في هذه الوحدة."
+}

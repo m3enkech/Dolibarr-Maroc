@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatMAD } from '@/lib/format';
 import type { EquipeUser, SuperadminData, SuperadminPayment, SuperadminTenant } from '@/types';
+import { useT } from '@/lib/langue';
 
 const STATUT: Record<string, { label: string; cls: string }> = {
     essai: { label: 'Essai', cls: 'bg-indigo-100 text-indigo-700' },
@@ -29,6 +30,7 @@ function StatCard({ label, value, tone = 'slate' }: { label: string; value: stri
 
 /** Détail dépliable : utilisateurs, sièges extra, paiement + historique. */
 function TenantDetail({ tenant, methods, colSpan }: { tenant: SuperadminTenant; methods: string[]; colSpan: number }) {
+    const t = useT();
     const queryClient = useQueryClient();
     const [amount, setAmount] = useState(String(tenant.subscription_amount));
     const [method, setMethod] = useState(methods[0] ?? 'virement');
@@ -84,7 +86,7 @@ function TenantDetail({ tenant, methods, colSpan }: { tenant: SuperadminTenant; 
                     {/* Enregistrer un paiement */}
                     <div>
                         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Enregistrer un paiement
+                            {t('Enregistrer un paiement')}
                         </div>
                         <div className="mt-2 space-y-2">
                             <div className="flex gap-2">
@@ -93,7 +95,7 @@ function TenantDetail({ tenant, methods, colSpan }: { tenant: SuperadminTenant; 
                                     value={amount}
                                     onChange={(e) => setAmount(e.target.value)}
                                     className="w-28 rounded border border-slate-300 px-2 py-1 text-sm"
-                                    placeholder="Montant"
+                                    placeholder={t('Montant')}
                                 />
                                 <select
                                     value={method}
@@ -109,7 +111,7 @@ function TenantDetail({ tenant, methods, colSpan }: { tenant: SuperadminTenant; 
                                 value={reference}
                                 onChange={(e) => setReference(e.target.value)}
                                 className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
-                                placeholder="Référence (n° virement, chèque…)"
+                                placeholder={t('Référence (n° virement, chèque…)')}
                             />
                             <button
                                 onClick={() => payer.mutate()}
@@ -138,10 +140,10 @@ function TenantDetail({ tenant, methods, colSpan }: { tenant: SuperadminTenant; 
                     {/* Historique des paiements */}
                     <div>
                         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Historique des paiements
+                            {t('Historique des paiements')}
                         </div>
                         {!data?.payments.length ? (
-                            <div className="mt-2 text-xs text-slate-400">Aucun paiement enregistré.</div>
+                            <div className="mt-2 text-xs text-slate-400">{t('Aucun paiement enregistré.')}</div>
                         ) : (
                             <ul className="mt-2 space-y-1 text-xs">
                                 {data.payments.map((p) => (
@@ -156,7 +158,7 @@ function TenantDetail({ tenant, methods, colSpan }: { tenant: SuperadminTenant; 
                                                 <button
                                                     onClick={() => telechargerFacture(p.id)}
                                                     className="text-emerald-600 hover:underline"
-                                                    title="Télécharger la facture"
+                                                    title={t('Télécharger la facture')}
                                                 >
                                                     PDF
                                                 </button>
@@ -193,6 +195,7 @@ function TenantDetail({ tenant, methods, colSpan }: { tenant: SuperadminTenant; 
 }
 
 export default function Superadmin() {
+    const t = useT();
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const [expanded, setExpanded] = useState<number | null>(null);
@@ -218,21 +221,21 @@ export default function Superadmin() {
     });
 
     if (user && !user.is_superadmin) return <Navigate to="/dashboard" replace />;
-    if (isLoading || !data) return <div className="text-sm text-slate-400">Chargement…</div>;
+    if (isLoading || !data) return <div className="text-sm text-slate-400">{t('Chargement…')}</div>;
 
     const s = data.stats;
 
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-xl font-semibold text-slate-900">Administration plateforme</h1>
-                <p className="mt-1 text-sm text-slate-500">Entreprises, abonnements et suivi des paiements.</p>
+                <h1 className="text-xl font-semibold text-slate-900">{t('Administration plateforme')}</h1>
+                <p className="mt-1 text-sm text-slate-500">{t('Entreprises, abonnements et suivi des paiements.')}</p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
                 <StatCard label="Entreprises" value={`${s.tenants_total}`} tone="emerald" />
-                <StatCard label="MRR estimé" value={formatMAD(s.mrr_estimated)} tone="emerald" />
-                <StatCard label="Encaissé ce mois" value={formatMAD(s.encaisse_mois)} tone="emerald" />
+                <StatCard label={t('MRR estimé')} value={formatMAD(s.mrr_estimated)} tone="emerald" />
+                <StatCard label={t('Encaissé ce mois')} value={formatMAD(s.encaisse_mois)} tone="emerald" />
                 <StatCard label="En essai" value={`${s.en_essai}`} tone="indigo" />
                 <StatCard label="En retard" value={`${s.en_retard}`} tone={s.en_retard ? 'red' : 'slate'} />
                 <StatCard label="Suspendues" value={`${s.tenants_suspended}`} tone={s.tenants_suspended ? 'red' : 'slate'} />
@@ -243,34 +246,34 @@ export default function Superadmin() {
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400">
-                                <th className="px-4 py-3">Entreprise</th>
-                                <th className="px-4 py-3">Plan</th>
-                                <th className="px-4 py-3">Cycle</th>
-                                <th className="px-4 py-3">Abonnement</th>
-                                <th className="px-4 py-3">Échéance</th>
-                                <th className="px-4 py-3">Montant</th>
-                                <th className="px-4 py-3 text-right">Actions</th>
+                                <th className="px-4 py-3">{t('Entreprise')}</th>
+                                <th className="px-4 py-3">{t('Plan')}</th>
+                                <th className="px-4 py-3">{t('Cycle')}</th>
+                                <th className="px-4 py-3">{t('Abonnement')}</th>
+                                <th className="px-4 py-3">{t('Échéance')}</th>
+                                <th className="px-4 py-3">{t('Montant')}</th>
+                                <th className="px-4 py-3 text-right">{t('Actions')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {data.tenants.map((t) => {
-                                const st = STATUT[t.effective_status] ?? STATUT.actif;
+                            {data.tenants.map((entreprise) => {
+                                const st = STATUT[entreprise.effective_status] ?? STATUT.actif;
                                 return (
-                                    <Fragment key={t.id}>
-                                        <tr className={t.effective_status === 'en_retard' ? 'bg-red-50/40' : ''}>
+                                    <Fragment key={entreprise.id}>
+                                        <tr className={entreprise.effective_status === 'en_retard' ? 'bg-red-50/40' : ''}>
                                             <td className="px-4 py-3">
                                                 <button
-                                                    onClick={() => setExpanded(expanded === t.id ? null : t.id)}
+                                                    onClick={() => setExpanded(expanded === entreprise.id ? null : entreprise.id)}
                                                     className="font-medium text-slate-800 hover:text-emerald-600"
                                                 >
-                                                    {expanded === t.id ? '▾' : '▸'} {t.name}
+                                                    {expanded === entreprise.id ? '▾' : '▸'} {entreprise.name}
                                                 </button>
-                                                <div className="text-xs text-slate-400">{t.users_count} utilisateur(s)</div>
+                                                <div className="text-xs text-slate-400">{entreprise.users_count} utilisateur(s)</div>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <select
-                                                    value={t.plan}
-                                                    onChange={(e) => maj.mutate({ id: t.id, plan: e.target.value })}
+                                                    value={entreprise.plan}
+                                                    onChange={(e) => maj.mutate({ id: entreprise.id, plan: e.target.value })}
                                                     className="rounded border border-slate-200 px-2 py-1 text-xs"
                                                 >
                                                     {data.plans.map((p) => (
@@ -280,12 +283,12 @@ export default function Superadmin() {
                                             </td>
                                             <td className="px-4 py-3">
                                                 <select
-                                                    value={t.billing_cycle}
-                                                    onChange={(e) => maj.mutate({ id: t.id, billing_cycle: e.target.value })}
+                                                    value={entreprise.billing_cycle}
+                                                    onChange={(e) => maj.mutate({ id: entreprise.id, billing_cycle: e.target.value })}
                                                     className="rounded border border-slate-200 px-2 py-1 text-xs"
                                                 >
-                                                    <option value="mensuel">Mensuel</option>
-                                                    <option value="annuel">Annuel</option>
+                                                    <option value="mensuel">{t('Mensuel')}</option>
+                                                    <option value="annuel">{t('Annuel')}</option>
                                                 </select>
                                             </td>
                                             <td className="px-4 py-3">
@@ -293,24 +296,24 @@ export default function Superadmin() {
                                                     {st.label}
                                                 </span>
                                             </td>
-                                            <td className={`px-4 py-3 ${t.effective_status === 'en_retard' ? 'font-medium text-red-600' : 'text-slate-600'}`}>
-                                                {t.next_due ? new Date(t.next_due).toLocaleDateString('fr-MA') : '—'}
+                                            <td className={`px-4 py-3 ${entreprise.effective_status === 'en_retard' ? 'font-medium text-red-600' : 'text-slate-600'}`}>
+                                                {entreprise.next_due ? new Date(entreprise.next_due).toLocaleDateString('fr-MA') : '—'}
                                             </td>
                                             <td className="px-4 py-3 text-slate-600">
-                                                {formatMAD(t.subscription_amount)}
-                                                <span className="text-xs text-slate-400">/{t.billing_cycle === 'annuel' ? 'an' : 'mois'}</span>
+                                                {formatMAD(entreprise.subscription_amount)}
+                                                <span className="text-xs text-slate-400">/{entreprise.billing_cycle === 'annuel' ? 'an' : 'mois'}</span>
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 <button
-                                                    onClick={() => suspendre.mutate({ id: t.id, suspend: !t.suspended })}
-                                                    className={`text-xs hover:underline ${t.suspended ? 'text-emerald-600' : 'text-red-600'}`}
+                                                    onClick={() => suspendre.mutate({ id: entreprise.id, suspend: !entreprise.suspended })}
+                                                    className={`text-xs hover:underline ${entreprise.suspended ? 'text-emerald-600' : 'text-red-600'}`}
                                                 >
-                                                    {t.suspended ? 'Réactiver' : 'Suspendre'}
+                                                    {entreprise.suspended ? 'Réactiver' : 'Suspendre'}
                                                 </button>
                                             </td>
                                         </tr>
-                                        {expanded === t.id && (
-                                            <TenantDetail tenant={t} methods={data.methods} colSpan={7} />
+                                        {expanded === entreprise.id && (
+                                            <TenantDetail tenant={entreprise} methods={data.methods} colSpan={7} />
                                         )}
                                     </Fragment>
                                 );

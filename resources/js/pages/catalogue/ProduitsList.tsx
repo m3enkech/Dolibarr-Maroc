@@ -4,8 +4,10 @@ import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatMAD, formatTva } from '@/lib/format';
 import type { Paginated, Produit } from '@/types';
+import { useT } from '@/lib/langue';
 
 export default function ProduitsList() {
+    const t = useT();
     const [search, setSearch] = useState('');
     const [type, setType] = useState('');
     const [page, setPage] = useState(1);
@@ -40,21 +42,21 @@ export default function ProduitsList() {
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-xl font-semibold text-slate-900">Catalogue</h1>
-                    <p className="mt-1 text-sm text-slate-500">Produits et services</p>
+                    <h1 className="text-xl font-semibold text-slate-900">{t('Catalogue')}</h1>
+                    <p className="mt-1 text-sm text-slate-500">{t('Produits et services')}</p>
                 </div>
                 <div className="flex gap-2">
                     <Link
                         to="/catalogue/categories"
                         className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                     >
-                        Catégories comptables
+                        {t('Catégories comptables')}
                     </Link>
                     <Link
                         to="/catalogue/nouveau"
                         className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
                     >
-                        + Nouveau produit
+                        {t('+ Nouveau produit')}
                     </Link>
                 </div>
             </div>
@@ -66,7 +68,7 @@ export default function ProduitsList() {
                         setSearch(e.target.value);
                         setPage(1);
                     }}
-                    placeholder="Rechercher par nom, code ou code-barres…"
+                    placeholder={t('Rechercher par nom, code ou code-barres…')}
                     className="w-72 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
                 <select
@@ -77,10 +79,10 @@ export default function ProduitsList() {
                     }}
                     className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                 >
-                    <option value="">Tous</option>
-                    <option value="product">Produits</option>
-                    <option value="service">Services</option>
-                    <option value="kit">Kits</option>
+                    <option value="">{t('Tous')}</option>
+                    <option value="product">{t('Produits')}</option>
+                    <option value="service">{t('Services')}</option>
+                    <option value="kit">{t('Kits')}</option>
                 </select>
             </div>
 
@@ -88,27 +90,27 @@ export default function ProduitsList() {
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th className="px-4 py-3">Code</th>
-                            <th className="px-4 py-3">Nom</th>
-                            <th className="px-4 py-3">Type</th>
-                            <th className="px-4 py-3 text-right">Prix HT</th>
+                            <th className="px-4 py-3">{t('Code')}</th>
+                            <th className="px-4 py-3">{t('Nom')}</th>
+                            <th className="px-4 py-3">{t('Type')}</th>
+                            <th className="px-4 py-3 text-right">{t('Prix HT')}</th>
                             <th className="px-4 py-3 text-right">TVA</th>
-                            <th className="px-4 py-3 text-right">Prix TTC</th>
-                            <th className="px-4 py-3 text-right">Actions</th>
+                            <th className="px-4 py-3 text-right">{t('Prix TTC')}</th>
+                            <th className="px-4 py-3 text-right">{t('Actions')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {isLoading && (
                             <tr>
                                 <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                                    Chargement…
+                                    {t('Chargement…')}
                                 </td>
                             </tr>
                         )}
                         {!isLoading && data?.data.length === 0 && (
                             <tr>
                                 <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                                    Aucun produit. Créez le premier !
+                                    {t('Aucun produit. Créez le premier !')}
                                 </td>
                             </tr>
                         )}
@@ -122,22 +124,22 @@ export default function ProduitsList() {
                                     )}
                                     {!produit.is_active && (
                                         <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
-                                            inactif
+                                            {t('inactif')}
                                         </span>
                                     )}
                                 </td>
                                 <td className="px-4 py-3">
                                     {produit.type === 'product' ? (
                                         <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
-                                            Produit
+                                            {t('Produit')}
                                         </span>
                                     ) : produit.type === 'kit' ? (
                                         <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-xs text-indigo-700">
-                                            Kit
+                                            {t('Kit')}
                                         </span>
                                     ) : (
                                         <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-700">
-                                            Service
+                                            {t('Service')}
                                         </span>
                                     )}
                                 </td>
@@ -155,13 +157,13 @@ export default function ProduitsList() {
                                         to={`/catalogue/${produit.id}`}
                                         className="mr-3 text-emerald-600 hover:underline"
                                     >
-                                        Modifier
+                                        {t('Modifier')}
                                     </Link>
                                     <button
                                         onClick={() => handleDelete(produit)}
                                         className="text-red-500 hover:underline"
                                     >
-                                        Supprimer
+                                        {t('Supprimer')}
                                     </button>
                                 </td>
                             </tr>
@@ -180,14 +182,14 @@ export default function ProduitsList() {
                                 onClick={() => setPage((p) => p - 1)}
                                 className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40"
                             >
-                                Précédent
+                                {t('Précédent')}
                             </button>
                             <button
                                 disabled={page >= data.meta.last_page}
                                 onClick={() => setPage((p) => p + 1)}
                                 className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40"
                             >
-                                Suivant
+                                {t('Suivant')}
                             </button>
                         </div>
                     </div>

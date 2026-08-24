@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useFeatures } from '@/lib/features';
+import { useT } from '@/lib/langue';
+import SelecteurLangue from '@/components/SelecteurLangue';
 
 interface MenuLeaf {
     to: string;
@@ -118,6 +120,7 @@ const LINK_BASE = 'flex items-center gap-3 rounded-md px-3 py-2 text-sm transiti
 export default function Layout() {
     const { user, tenant, logout, can } = useAuth();
     const { features } = useFeatures();
+    const t = useT();
     const navigate = useNavigate();
     const location = useLocation();
     const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
@@ -159,12 +162,12 @@ export default function Layout() {
             <div
                 key={m.label}
                 className={`${LINK_BASE} text-slate-500`}
-                title="Module à venir"
+                title={t('Module à venir')}
             >
                 {m.icon && <span aria-hidden>{m.icon}</span>}
-                {m.label}
-                <span className="ml-auto rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
-                    bientôt
+                {t(m.label)}
+                <span className="ms-auto rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+                    {t('bientôt')}
                 </span>
             </div>
         ) : (
@@ -179,7 +182,7 @@ export default function Layout() {
                 }
             >
                 {m.icon && <span aria-hidden>{m.icon}</span>}
-                {m.label}
+                {t(m.label)}
             </NavLink>
         );
 
@@ -208,7 +211,7 @@ export default function Layout() {
                         return (
                             <div key={group.title}>
                                 <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                                    {group.title}
+                                    {t(group.title)}
                                 </div>
                                 <div className="space-y-1">
                                     {items.map(({ item, children }) => {
@@ -234,10 +237,12 @@ export default function Layout() {
                                                     }`}
                                                 >
                                                     {item.icon && <span aria-hidden>{item.icon}</span>}
-                                                    {item.label}
+                                                    {t(item.label)}
                                                     <span
-                                                        className={`ml-auto text-xs transition-transform ${
-                                                            open ? 'rotate-90' : ''
+                                                        // Fermé, le chevron pointe vers l'intérieur du
+                                                        // texte : il se retourne donc en arabe.
+                                                        className={`ms-auto text-xs transition-transform ${
+                                                            open ? 'rotate-90' : 'rtl:rotate-180'
                                                         }`}
                                                         aria-hidden
                                                     >
@@ -245,7 +250,7 @@ export default function Layout() {
                                                     </span>
                                                 </button>
                                                 {open && (
-                                                    <div className="mt-1 space-y-1 border-l border-slate-800 pl-3">
+                                                    <div className="mt-1 space-y-1 border-s border-slate-800 ps-3">
                                                         {children!.map((c) => (
                                                             <Link
                                                                 key={c.to}
@@ -256,7 +261,7 @@ export default function Layout() {
                                                                         : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                                                                 }`}
                                                             >
-                                                                {c.label}
+                                                                {t(c.label)}
                                                             </Link>
                                                         ))}
                                                     </div>
@@ -270,21 +275,22 @@ export default function Layout() {
                     })}
                 </nav>
 
-                <div className="border-t border-slate-800 px-5 py-4 text-xs text-slate-400">
-                    ERP marocain multi-utilisateurs
+                <div className="flex items-center justify-between gap-2 border-t border-slate-800 px-5 py-4 text-xs text-slate-400">
+                    <span>{t('ERP marocain multi-utilisateurs')}</span>
+                    <SelecteurLangue sombre />
                 </div>
             </aside>
 
             <div className="flex flex-1 flex-col">
                 <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
                     <div className="text-sm text-slate-500">
-                        Connecté en tant que{' '}
+                        {t('Connecté en tant que')}{' '}
                         <NavLink to="/profil" className="font-medium text-slate-800 hover:text-emerald-600 hover:underline">
                             {user?.name}
                         </NavLink>
                         {user?.role && (
-                            <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">
-                                {user.role}
+                            <span className="ms-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">
+                                {t(user.role)}
                             </span>
                         )}
                     </div>
@@ -292,7 +298,7 @@ export default function Layout() {
                         onClick={handleLogout}
                         className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"
                     >
-                        Se déconnecter
+                        {t('Se déconnecter')}
                     </button>
                 </header>
                 <main className="flex-1 p-6">

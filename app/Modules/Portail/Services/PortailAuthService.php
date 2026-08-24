@@ -38,11 +38,11 @@ class PortailAuthService
         $acheteur = Acheteur::where('email', strtolower(trim($email)))->first();
 
         if ($acheteur === null || ! Hash::check($password, $acheteur->password)) {
-            throw ValidationException::withMessages(['email' => 'Identifiants incorrects.']);
+            throw ValidationException::withMessages(['email' => __('Identifiants incorrects.')]);
         }
 
         if (! $acheteur->is_active) {
-            throw ValidationException::withMessages(['email' => 'Ce compte est désactivé.']);
+            throw ValidationException::withMessages(['email' => __('Ce compte est désactivé.')]);
         }
 
         $acheteur->update(['derniere_connexion_at' => now()]);
@@ -63,7 +63,7 @@ class PortailAuthService
         $tenant = Tenant::where('slug', $slugGrossiste)->first();
 
         if ($tenant === null) {
-            throw ValidationException::withMessages(['grossiste' => 'Grossiste introuvable.']);
+            throw ValidationException::withMessages(['grossiste' => __('Grossiste introuvable.')]);
         }
 
         $existant = AcheteurTiers::where('acheteur_id', $acheteur->id)
@@ -72,7 +72,7 @@ class PortailAuthService
 
         if ($existant !== null) {
             if ($existant->statut === AcheteurTiers::STATUT_REFUSE) {
-                throw ValidationException::withMessages(['grossiste' => 'Votre demande a été refusée par ce grossiste.']);
+                throw ValidationException::withMessages(['grossiste' => __('Votre demande a été refusée par ce grossiste.')]);
             }
 
             return $existant; // demande déjà en cours ou déjà approuvée
@@ -95,7 +95,7 @@ class PortailAuthService
         $tenant = Tenant::find($rattachement->tenant_id);
 
         if ($tenant === null) {
-            throw ValidationException::withMessages(['grossiste' => 'Grossiste introuvable.']);
+            throw ValidationException::withMessages(['grossiste' => __('Grossiste introuvable.')]);
         }
 
         return DB::transaction(fn () => $this->context->runAs($tenant, function () use ($rattachement, $tiersId, $approuveParUserId) {
@@ -110,7 +110,7 @@ class PortailAuthService
                 ]);
 
             if ($tiers === null) {
-                throw ValidationException::withMessages(['tiers_id' => 'Ce client n\'existe pas.']);
+                throw ValidationException::withMessages(['tiers_id' => __('Ce client n\'existe pas.')]);
             }
 
             $rattachement->update([

@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/langue';
 
 export default function Reinitialiser() {
+    const t = useT();
     const { token = '' } = useParams();
     const [params] = useSearchParams();
     const navigate = useNavigate();
@@ -40,14 +42,14 @@ export default function Reinitialiser() {
         <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
             <div className="w-full max-w-md">
                 <div className="mb-6 text-center">
-                    <h1 className="text-2xl font-semibold text-slate-900">Nouveau mot de passe</h1>
+                    <h1 className="text-2xl font-semibold text-slate-900">{t('Nouveau mot de passe')}</h1>
                     <p className="mt-1 text-sm text-slate-500">Choisissez un nouveau mot de passe pour {email}</p>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm">
                     {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
                     <div>
                         <label className="mb-1 block text-sm font-medium text-slate-700">
-                            Nouveau mot de passe <span className="font-normal text-slate-400">(8 car. min.)</span>
+                            Nouveau mot de passe <span className="font-normal text-slate-400">{t('(8 car. min.)')}</span>
                         </label>
                         <input
                             type="password"
@@ -59,7 +61,7 @@ export default function Reinitialiser() {
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-sm font-medium text-slate-700">Confirmer</label>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">{t('Confirmer')}</label>
                         <input
                             type="password"
                             required
@@ -78,7 +80,7 @@ export default function Reinitialiser() {
                     </button>
                     <p className="text-center text-sm text-slate-500">
                         <Link to="/login" className="font-medium text-emerald-600 hover:underline">
-                            Retour à la connexion
+                            {t('Retour à la connexion')}
                         </Link>
                     </p>
                 </form>

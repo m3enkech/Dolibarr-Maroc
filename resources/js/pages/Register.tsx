@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, type RegisterPayload } from '@/lib/auth';
+import { useT } from '@/lib/langue';
 
 export default function Register() {
+    const t = useT();
     const { register } = useAuth();
     const navigate = useNavigate();
     const [form, setForm] = useState<RegisterPayload>({
@@ -38,9 +40,9 @@ export default function Register() {
         <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
             <div className="w-full max-w-md">
                 <div className="mb-6 text-center">
-                    <h1 className="text-2xl font-semibold text-slate-900">Créer votre espace</h1>
+                    <h1 className="text-2xl font-semibold text-slate-900">{t('Créer votre espace')}</h1>
                     <p className="mt-1 text-sm text-slate-500">
-                        Votre entreprise et votre compte administrateur
+                        {t('Votre entreprise et votre compte administrateur')}
                     </p>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm">
@@ -49,18 +51,18 @@ export default function Register() {
                     )}
                     <div>
                         <label className="mb-1 block text-sm font-medium text-slate-700">
-                            Nom de l'entreprise
+                            {t("Nom de l'entreprise")}
                         </label>
                         <input
                             required
                             value={form.company_name}
                             onChange={set('company_name')}
-                            placeholder="Ex. Atlas Négoce SARL"
+                            placeholder={t('Ex. Atlas Négoce SARL')}
                             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-sm font-medium text-slate-700">Votre nom</label>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">{t('Votre nom')}</label>
                         <input
                             required
                             value={form.name}
@@ -69,7 +71,7 @@ export default function Register() {
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">{t('Email')}</label>
                         <input
                             type="email"
                             required
@@ -80,7 +82,7 @@ export default function Register() {
                     </div>
                     <div>
                         <label className="mb-1 block text-sm font-medium text-slate-700">
-                            Mot de passe <span className="font-normal text-slate-400">(8 caractères min.)</span>
+                            Mot de passe <span className="font-normal text-slate-400">{t('(8 caractères min.)')}</span>
                         </label>
                         <input
                             type="password"
@@ -101,7 +103,7 @@ export default function Register() {
                     <p className="text-center text-sm text-slate-500">
                         Déjà inscrit ?{' '}
                         <Link to="/login" className="font-medium text-emerald-600 hover:underline">
-                            Se connecter
+                            {t('Se connecter')}
                         </Link>
                     </p>
                 </form>

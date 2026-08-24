@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { useFeatures } from '@/lib/features';
 import TiersTimeline from '@/pages/tiers/TiersTimeline';
 import { LEAD_SOURCES, LEAD_SOURCE_LABELS, type Tiers } from '@/types';
+import { useT } from '@/lib/langue';
 
 interface TiersFormData {
     name: string;
@@ -64,6 +65,7 @@ function toPayload(form: TiersFormData) {
 }
 
 export default function TiersForm() {
+    const t = useT();
     const { id } = useParams();
     const isEdit = id !== undefined;
     const navigate = useNavigate();
@@ -165,7 +167,7 @@ export default function TiersForm() {
         <div className="max-w-3xl space-y-4">
             <div>
                 <Link to="/tiers" className="text-sm text-emerald-600 hover:underline">
-                    ← Retour à la liste
+                    {t('← Retour à la liste')}
                 </Link>
                 <h1 className="mt-2 text-xl font-semibold text-slate-900">
                     {isEdit ? `Modifier ${existing?.name ?? ''}` : 'Nouveau tiers'}
@@ -179,15 +181,15 @@ export default function TiersForm() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <fieldset className="rounded-xl bg-white p-5 shadow-sm">
-                    <legend className="sr-only">Identité</legend>
-                    <h2 className="mb-4 font-medium text-slate-900">Identité</h2>
+                    <legend className="sr-only">{t('Identité')}</legend>
+                    <h2 className="mb-4 font-medium text-slate-900">{t('Identité')}</h2>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="sm:col-span-2">
-                            <label className={label}>Nom / Raison sociale *</label>
+                            <label className={label}>{t('Nom / Raison sociale *')}</label>
                             <input required value={form.name} onChange={text('name')} className={input} />
                         </div>
                         <div>
-                            <label className={label}>Contact principal</label>
+                            <label className={label}>{t('Contact principal')}</label>
                             <input value={form.contact_name} onChange={text('contact_name')} className={input} />
                         </div>
                         <div className="flex items-end gap-6 pb-2">
@@ -198,7 +200,7 @@ export default function TiersForm() {
                                     onChange={check('is_client')}
                                     className="rounded border-slate-300"
                                 />
-                                Client
+                                {t('Client')}
                             </label>
                             <label className="flex items-center gap-2 text-sm text-slate-700">
                                 <input
@@ -207,7 +209,7 @@ export default function TiersForm() {
                                     onChange={check('is_supplier')}
                                     className="rounded border-slate-300"
                                 />
-                                Fournisseur
+                                {t('Fournisseur')}
                             </label>
                             <label className="flex items-center gap-2 text-sm text-slate-700">
                                 <input
@@ -216,7 +218,7 @@ export default function TiersForm() {
                                     onChange={check('is_prospect')}
                                     className="rounded border-slate-300"
                                 />
-                                Prospect
+                                {t('Prospect')}
                             </label>
                             <label className="flex items-center gap-2 text-sm text-slate-700">
                                 <input
@@ -225,24 +227,24 @@ export default function TiersForm() {
                                     onChange={check('is_active')}
                                     className="rounded border-slate-300"
                                 />
-                                Actif
+                                {t('Actif')}
                             </label>
                         </div>
 
                         <div>
-                            <label className="mb-1 block text-sm text-slate-600">Plafond de crédit (DH)</label>
+                            <label className="mb-1 block text-sm text-slate-600">{t('Plafond de crédit (DH)')}</label>
                             <input
                                 type="number"
                                 step="0.01"
                                 min="0"
                                 value={form.plafond_credit}
                                 onChange={text('plafond_credit')}
-                                placeholder="Vide = pas de plafond"
+                                placeholder={t('Vide = pas de plafond')}
                                 className={input}
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm text-slate-600">Délai de paiement (jours)</label>
+                            <label className="mb-1 block text-sm text-slate-600">{t('Délai de paiement (jours)')}</label>
                             <input
                                 type="number"
                                 min="0"
@@ -255,13 +257,13 @@ export default function TiersForm() {
                         </div>
 
                         <div>
-                            <label className="mb-1 block text-sm text-slate-600">Niveau de tarif</label>
+                            <label className="mb-1 block text-sm text-slate-600">{t('Niveau de tarif')}</label>
                             <select
                                 value={form.categorie_tarifaire_id}
                                 onChange={(e) => setForm((f) => ({ ...f, categorie_tarifaire_id: e.target.value }))}
                                 className={input}
                             >
-                                <option value="">— Prix catalogue —</option>
+                                <option value="">{t('— Prix catalogue —')}</option>
                                 {(categoriesTarifaires ?? []).map((c) => (
                                     <option key={c.id} value={c.id}>
                                         {c.name}{c.is_default ? ' (défaut)' : ''}
@@ -272,13 +274,13 @@ export default function TiersForm() {
 
                         {form.is_prospect && (
                             <div>
-                                <label className="mb-1 block text-sm text-slate-600">Origine du lead</label>
+                                <label className="mb-1 block text-sm text-slate-600">{t('Origine du lead')}</label>
                                 <select
                                     value={form.lead_source}
                                     onChange={(e) => setForm((f) => ({ ...f, lead_source: e.target.value }))}
                                     className={input}
                                 >
-                                    <option value="">— Non renseignée —</option>
+                                    <option value="">{t('— Non renseignée —')}</option>
                                     {LEAD_SOURCES.map((s) => (
                                         <option key={s} value={s}>{LEAD_SOURCE_LABELS[s]}</option>
                                     ))}
@@ -306,32 +308,32 @@ export default function TiersForm() {
                 </fieldset>
 
                 <fieldset className="rounded-xl bg-white p-5 shadow-sm">
-                    <legend className="sr-only">Identifiants légaux</legend>
-                    <h2 className="mb-4 font-medium text-slate-900">Identifiants légaux (Maroc)</h2>
+                    <legend className="sr-only">{t('Identifiants légaux')}</legend>
+                    <h2 className="mb-4 font-medium text-slate-900">{t('Identifiants légaux (Maroc)')}</h2>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                             <label className={label}>
-                                ICE <span className="font-normal text-slate-400">(15 chiffres)</span>
+                                ICE <span className="font-normal text-slate-400">{t('(15 chiffres)')}</span>
                             </label>
                             <input
                                 value={form.ice}
                                 onChange={text('ice')}
                                 maxLength={15}
                                 pattern="\d{15}"
-                                title="L'ICE comporte exactement 15 chiffres"
+                                title={t("L'ICE comporte exactement 15 chiffres")}
                                 className={input}
                             />
                         </div>
                         <div>
-                            <label className={label}>Identifiant fiscal (IF)</label>
+                            <label className={label}>{t('Identifiant fiscal (IF)')}</label>
                             <input value={form.if_number} onChange={text('if_number')} className={input} />
                         </div>
                         <div>
-                            <label className={label}>Registre de commerce (RC)</label>
+                            <label className={label}>{t('Registre de commerce (RC)')}</label>
                             <input value={form.rc} onChange={text('rc')} className={input} />
                         </div>
                         <div>
-                            <label className={label}>Patente</label>
+                            <label className={label}>{t('Patente')}</label>
                             <input value={form.patente} onChange={text('patente')} className={input} />
                         </div>
                         <div>
@@ -342,41 +344,41 @@ export default function TiersForm() {
                 </fieldset>
 
                 <fieldset className="rounded-xl bg-white p-5 shadow-sm">
-                    <legend className="sr-only">Coordonnées</legend>
-                    <h2 className="mb-4 font-medium text-slate-900">Coordonnées</h2>
+                    <legend className="sr-only">{t('Coordonnées')}</legend>
+                    <h2 className="mb-4 font-medium text-slate-900">{t('Coordonnées')}</h2>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="sm:col-span-2">
-                            <label className={label}>Adresse</label>
+                            <label className={label}>{t('Adresse')}</label>
                             <input value={form.address} onChange={text('address')} className={input} />
                         </div>
                         <div>
-                            <label className={label}>Ville</label>
+                            <label className={label}>{t('Ville')}</label>
                             <input value={form.city} onChange={text('city')} className={input} />
                         </div>
                         <div>
-                            <label className={label}>Code postal</label>
+                            <label className={label}>{t('Code postal')}</label>
                             <input value={form.postal_code} onChange={text('postal_code')} className={input} />
                         </div>
                         <div>
-                            <label className={label}>Téléphone</label>
+                            <label className={label}>{t('Téléphone')}</label>
                             <input value={form.phone} onChange={text('phone')} className={input} />
                         </div>
                         <div>
-                            <label className={label}>Email</label>
+                            <label className={label}>{t('Email')}</label>
                             <input type="email" value={form.email} onChange={text('email')} className={input} />
                         </div>
                         <div className="sm:col-span-2">
-                            <label className={label}>Site web</label>
+                            <label className={label}>{t('Site web')}</label>
                             <input
                                 type="url"
                                 value={form.website}
                                 onChange={text('website')}
-                                placeholder="https://…"
+                                placeholder={t('https://…')}
                                 className={input}
                             />
                         </div>
                         <div className="sm:col-span-2">
-                            <label className={label}>Notes</label>
+                            <label className={label}>{t('Notes')}</label>
                             <textarea value={form.notes} onChange={text('notes')} rows={3} className={input} />
                         </div>
                     </div>
@@ -394,7 +396,7 @@ export default function TiersForm() {
                         to="/tiers"
                         className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
                     >
-                        Annuler
+                        {t('Annuler')}
                     </Link>
                 </div>
             </form>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Activites from '@/pages/crm/Activites';
 import CrmStats from '@/pages/crm/CrmStats';
 import Opportunites from '@/pages/crm/Opportunites';
+import { useT } from '@/lib/langue';
 
 const TABS = [
     { key: 'pipeline', label: 'Pipeline' },
@@ -12,6 +13,7 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key'];
 
 export default function CrmPage() {
+    const t = useT();
     const [tab, setTab] = useState<TabKey>('pipeline');
 
     return (
@@ -19,7 +21,7 @@ export default function CrmPage() {
             <div>
                 <h1 className="text-xl font-semibold text-slate-900">CRM</h1>
                 <p className="mt-1 text-sm text-slate-500">
-                    Pilotez votre activité commerciale : pipeline d'opportunités et suivi des interactions
+                    {t("Pilotez votre activité commerciale : pipeline d'opportunités et suivi des interactions")}
                 </p>
             </div>
 

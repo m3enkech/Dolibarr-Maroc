@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Entrepot, Inventaire, Paginated, Produit } from '@/types';
+import { useT } from '@/lib/langue';
 
 const STATUT_BADGE: Record<string, string> = {
     brouillon: 'bg-slate-100 text-slate-600',
@@ -13,6 +14,7 @@ const STATUT_BADGE: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 export default function Inventaires({ entrepots }: { entrepots: Entrepot[] }) {
+    const t = useT();
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [creating, setCreating] = useState(false);
     const [entrepotId, setEntrepotId] = useState('');
@@ -69,7 +71,7 @@ export default function Inventaires({ entrepots }: { entrepots: Entrepot[] }) {
                     disabled={entrepots.length === 0}
                     className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
                 >
-                    + Nouvel inventaire
+                    {t('+ Nouvel inventaire')}
                 </button>
             </div>
 
@@ -85,9 +87,9 @@ export default function Inventaires({ entrepots }: { entrepots: Entrepot[] }) {
                         <div className="w-full rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
                     )}
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">Entrepôt à inventorier</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t('Entrepôt à inventorier')}</label>
                         <select required value={entrepotId} onChange={(e) => setEntrepotId(e.target.value)} className={input}>
-                            <option value="">— Choisir —</option>
+                            <option value="">{t('— Choisir —')}</option>
                             {entrepots.map((entrepot) => (
                                 <option key={entrepot.id} value={entrepot.id}>
                                     {entrepot.name}
@@ -96,7 +98,7 @@ export default function Inventaires({ entrepots }: { entrepots: Entrepot[] }) {
                         </select>
                     </div>
                     <div className="flex-1">
-                        <label className="mb-1 block text-xs font-medium text-slate-600">Note</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t('Note')}</label>
                         <input value={note} onChange={(e) => setNote(e.target.value)} className={`${input} w-full`} />
                     </div>
                     <button
@@ -104,7 +106,7 @@ export default function Inventaires({ entrepots }: { entrepots: Entrepot[] }) {
                         disabled={creer.isPending}
                         className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
                     >
-                        Démarrer le comptage
+                        {t('Démarrer le comptage')}
                     </button>
                 </form>
             )}
@@ -113,23 +115,23 @@ export default function Inventaires({ entrepots }: { entrepots: Entrepot[] }) {
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th className="px-4 py-3">Code</th>
-                            <th className="px-4 py-3">Entrepôt</th>
-                            <th className="px-4 py-3">Statut</th>
-                            <th className="px-4 py-3">Date</th>
-                            <th className="px-4 py-3 text-right">Action</th>
+                            <th className="px-4 py-3">{t('Code')}</th>
+                            <th className="px-4 py-3">{t('Entrepôt')}</th>
+                            <th className="px-4 py-3">{t('Statut')}</th>
+                            <th className="px-4 py-3">{t('Date')}</th>
+                            <th className="px-4 py-3 text-right">{t('Action')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {isLoading && (
                             <tr>
-                                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">Chargement…</td>
+                                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">{t('Chargement…')}</td>
                             </tr>
                         )}
                         {!isLoading && data?.length === 0 && (
                             <tr>
                                 <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
-                                    Aucun inventaire. Démarrez-en un pour compter votre stock physique.
+                                    {t('Aucun inventaire. Démarrez-en un pour compter votre stock physique.')}
                                 </td>
                             </tr>
                         )}
@@ -167,6 +169,7 @@ export default function Inventaires({ entrepots }: { entrepots: Entrepot[] }) {
 /* ------------------------------------------------------------------ */
 
 function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
+    const t = useT();
     const [counts, setCounts] = useState<Record<number, string>>({});
     const [extra, setExtra] = useState<{ id: number; code: string; name: string; unit: string | null }[]>([]);
     const [addProduitId, setAddProduitId] = useState('');
@@ -267,7 +270,7 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
     }, [produits, inventaire, extra]);
 
     if (isLoading || !inventaire) {
-        return <div className="py-8 text-center text-slate-400">Chargement…</div>;
+        return <div className="py-8 text-center text-slate-400">{t('Chargement…')}</div>;
     }
 
     const rows = [
@@ -289,7 +292,7 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <button onClick={onBack} className="text-sm text-emerald-600 hover:underline">
-                        ← Retour aux inventaires
+                        {t('← Retour aux inventaires')}
                     </button>
                     <h2 className="mt-1 flex items-center gap-2 text-lg font-semibold text-slate-900">
                         <span className="font-mono">{inventaire.code}</span>
@@ -305,7 +308,7 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
                             onClick={() => window.confirm('Supprimer cet inventaire ?') && supprimer.mutate()}
                             className="rounded-md border border-slate-300 px-3 py-2 text-sm text-red-600 transition hover:bg-red-50"
                         >
-                            Supprimer
+                            {t('Supprimer')}
                         </button>
                         <button
                             onClick={() => enregistrer.mutate()}
@@ -331,18 +334,18 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th className="px-4 py-3">Code</th>
-                            <th className="px-4 py-3">Produit</th>
-                            <th className="px-4 py-3 text-right">Théorique</th>
-                            <th className="px-4 py-3 text-right">Compté</th>
-                            <th className="px-4 py-3 text-right">Écart</th>
+                            <th className="px-4 py-3">{t('Code')}</th>
+                            <th className="px-4 py-3">{t('Produit')}</th>
+                            <th className="px-4 py-3 text-right">{t('Théorique')}</th>
+                            <th className="px-4 py-3 text-right">{t('Compté')}</th>
+                            <th className="px-4 py-3 text-right">{t('Écart')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {rows.length === 0 && (
                             <tr>
                                 <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
-                                    Aucun stock recensé dans cet entrepôt.
+                                    {t('Aucun stock recensé dans cet entrepôt.')}
                                     {!readonly && ' Ajoutez les produits comptés ci-dessous.'}
                                 </td>
                             </tr>
@@ -397,10 +400,10 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
                 <div className="flex items-end gap-3 rounded-xl bg-white p-4 shadow-sm">
                     <div>
                         <label className="mb-1 block text-xs font-medium text-slate-600">
-                            Ajouter un produit trouvé
+                            {t('Ajouter un produit trouvé')}
                         </label>
                         <select value={addProduitId} onChange={(e) => setAddProduitId(e.target.value)} className={input}>
-                            <option value="">— Choisir —</option>
+                            <option value="">{t('— Choisir —')}</option>
                             {produitsDisponibles.map((p) => (
                                 <option key={p.id} value={p.id}>
                                     {p.name} ({p.code})
@@ -419,7 +422,7 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
                         disabled={!addProduitId}
                         className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
                     >
-                        Ajouter
+                        {t('Ajouter')}
                     </button>
                 </div>
             )}

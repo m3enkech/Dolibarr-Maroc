@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Numpad, dh } from '@/pages/pos/ui';
 import type { Entrepot, PosRapport, PosSession } from '@/types';
+import { useT } from '@/lib/langue';
 
 const MODE_LABELS: Record<string, string> = {
     especes: 'Espèces',
@@ -23,6 +24,7 @@ interface OuvrirCaisseProps {
 }
 
 export function OuvrirCaisse({ pending, error, entrepots, onOuvrir }: OuvrirCaisseProps) {
+    const t = useT();
     const [fond, setFond] = useState('');
     const defaut = entrepots.find((e) => e.is_default) ?? entrepots[0] ?? null;
     const [entrepotId, setEntrepotId] = useState<number | null>(defaut?.id ?? null);
@@ -36,7 +38,7 @@ export function OuvrirCaisse({ pending, error, entrepots, onOuvrir }: OuvrirCais
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400/10 text-3xl shadow-[0_0_40px_rgba(52,211,153,0.2)]">
                     🔓
                 </div>
-                <h2 className="mt-4 text-2xl font-bold text-white">Ouvrir la caisse</h2>
+                <h2 className="mt-4 text-2xl font-bold text-white">{t('Ouvrir la caisse')}</h2>
                 <p className="mt-1 text-sm text-slate-400">
                     Saisissez le fond de caisse (espèces présentes dans le tiroir).
                 </p>
@@ -50,7 +52,7 @@ export function OuvrirCaisse({ pending, error, entrepots, onOuvrir }: OuvrirCais
                 {entrepots.length > 1 && (
                     <div className="mt-6 text-left">
                         <label className="mb-1 block text-xs uppercase tracking-widest text-slate-500">
-                            Entrepôt de la caisse
+                            {t('Entrepôt de la caisse')}
                         </label>
                         <select
                             value={entrepotId ?? ''}
@@ -68,7 +70,7 @@ export function OuvrirCaisse({ pending, error, entrepots, onOuvrir }: OuvrirCais
                 )}
 
                 <div className="mt-6 flex h-16 items-center justify-between rounded-2xl border border-white/10 bg-black/40 px-5">
-                    <span className="text-xs uppercase tracking-widest text-slate-500">Fond de caisse</span>
+                    <span className="text-xs uppercase tracking-widest text-slate-500">{t('Fond de caisse')}</span>
                     <span className="text-3xl font-bold tabular-nums text-white">{fond === '' ? '0' : fond}</span>
                 </div>
 
@@ -88,7 +90,7 @@ export function OuvrirCaisse({ pending, error, entrepots, onOuvrir }: OuvrirCais
                     to="/dashboard"
                     className="mt-4 inline-block text-sm text-slate-500 transition hover:text-slate-300"
                 >
-                    ← Retour au tableau de bord
+                    {t('← Retour au tableau de bord')}
                 </Link>
             </div>
         </div>
@@ -109,6 +111,7 @@ interface FermerCaisseProps {
 }
 
 export function FermerCaisse({ session, rapport, pending, error, onFermer, onCancel }: FermerCaisseProps) {
+    const t = useT();
     const [compte, setCompte] = useState('');
 
     const theorique = parseFloat(rapport.especes_theorique);
@@ -124,7 +127,7 @@ export function FermerCaisse({ session, rapport, pending, error, onFermer, onCan
                 <div className="flex items-start justify-between">
                     <div>
                         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-400">
-                            Clôture de caisse — Z
+                            {t('Clôture de caisse — Z')}
                         </div>
                         <h2 className="mt-1 text-2xl font-bold text-white">{session.code}</h2>
                     </div>
@@ -132,7 +135,7 @@ export function FermerCaisse({ session, rapport, pending, error, onFermer, onCan
                         onClick={onCancel}
                         className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
                     >
-                        ✕ Continuer la vente
+                        {t('✕ Continuer la vente')}
                     </button>
                 </div>
 
@@ -147,7 +150,7 @@ export function FermerCaisse({ session, rapport, pending, error, onFermer, onCan
                     <div className="space-y-2 tabular-nums">
                         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                             <div className="flex justify-between text-sm text-slate-400">
-                                <span>Tickets émis</span>
+                                <span>{t('Tickets émis')}</span>
                                 <span className="font-bold text-white">{rapport.tickets}</span>
                             </div>
                             <div className="mt-2 flex justify-between text-sm text-slate-400">
@@ -155,12 +158,12 @@ export function FermerCaisse({ session, rapport, pending, error, onFermer, onCan
                                 <span className="font-bold text-white">{dh(rapport.total_ttc)} DH</span>
                             </div>
                             <div className="mt-1 flex justify-between text-xs text-slate-500">
-                                <span>dont TVA</span>
+                                <span>{t('dont TVA')}</span>
                                 <span>{dh(rapport.total_tva)} DH</span>
                             </div>
                             {parseFloat(rapport.total_remises) > 0 && (
                                 <div className="mt-1 flex justify-between text-xs text-amber-300/80">
-                                    <span>Remises accordées</span>
+                                    <span>{t('Remises accordées')}</span>
                                     <span>−{dh(rapport.total_remises)} DH</span>
                                 </div>
                             )}
@@ -168,10 +171,10 @@ export function FermerCaisse({ session, rapport, pending, error, onFermer, onCan
 
                         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                             <div className="mb-2 text-xs uppercase tracking-widest text-slate-500">
-                                Encaissements par mode
+                                {t('Encaissements par mode')}
                             </div>
                             {Object.keys(rapport.par_mode).length === 0 && (
-                                <div className="text-sm text-slate-500">Aucun encaissement.</div>
+                                <div className="text-sm text-slate-500">{t('Aucun encaissement.')}</div>
                             )}
                             {Object.entries(rapport.par_mode).map(([mode, montant]) => (
                                 <div key={mode} className="flex justify-between text-sm text-slate-300">
@@ -183,11 +186,11 @@ export function FermerCaisse({ session, rapport, pending, error, onFermer, onCan
 
                         <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4">
                             <div className="flex justify-between text-sm text-slate-300">
-                                <span>Fond de caisse</span>
+                                <span>{t('Fond de caisse')}</span>
                                 <span>{dh(rapport.fond_caisse)} DH</span>
                             </div>
                             <div className="mt-1 flex justify-between font-bold text-emerald-300">
-                                <span>Espèces théoriques</span>
+                                <span>{t('Espèces théoriques')}</span>
                                 <span>{dh(rapport.especes_theorique)} DH</span>
                             </div>
                         </div>
@@ -196,7 +199,7 @@ export function FermerCaisse({ session, rapport, pending, error, onFermer, onCan
                     {/* Comptage */}
                     <div>
                         <div className="flex h-16 items-center justify-between rounded-2xl border border-white/10 bg-black/40 px-5">
-                            <span className="text-xs uppercase tracking-widest text-slate-500">Espèces comptées</span>
+                            <span className="text-xs uppercase tracking-widest text-slate-500">{t('Espèces comptées')}</span>
                             <span className="text-3xl font-bold tabular-nums text-white">
                                 {compte === '' ? '—' : compte}
                             </span>
@@ -210,7 +213,7 @@ export function FermerCaisse({ session, rapport, pending, error, onFermer, onCan
                                         : 'border-amber-400/30 bg-amber-400/10 text-amber-300'
                                 }`}
                             >
-                                <span className="text-xs font-semibold uppercase tracking-widest">Écart</span>
+                                <span className="text-xs font-semibold uppercase tracking-widest">{t('Écart')}</span>
                                 <span className="text-2xl font-bold">
                                     {ecart > 0 ? '+' : ''}
                                     {dh(ecart)} DH
@@ -247,6 +250,7 @@ interface SessionFermeeProps {
 }
 
 export function SessionFermee({ session, rapport, onNouvelleSession }: SessionFermeeProps) {
+    const t = useT();
     const ecart = session.ecart === null ? 0 : parseFloat(session.ecart);
 
     return (
@@ -258,7 +262,7 @@ export function SessionFermee({ session, rapport, onNouvelleSession }: SessionFe
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400/10 text-3xl">
                     🔒
                 </div>
-                <h2 className="mt-4 text-2xl font-bold text-white">Caisse clôturée</h2>
+                <h2 className="mt-4 text-2xl font-bold text-white">{t('Caisse clôturée')}</h2>
                 <p className="mt-1 text-sm text-slate-400">{session.code}</p>
 
                 <div className="mt-6 space-y-2 rounded-2xl border border-white/10 bg-black/30 p-4 text-left tabular-nums">
@@ -272,12 +276,12 @@ export function SessionFermee({ session, rapport, onNouvelleSession }: SessionFe
                     </div>
                     {parseFloat(rapport.total_remises) > 0 && (
                         <div className="flex justify-between text-sm text-amber-300/80">
-                            <span>Remises accordées</span>
+                            <span>{t('Remises accordées')}</span>
                             <span>−{dh(rapport.total_remises)} DH</span>
                         </div>
                     )}
                     <div className="flex justify-between text-sm text-slate-400">
-                        <span>Espèces comptées</span>
+                        <span>{t('Espèces comptées')}</span>
                         <span className="text-white">{dh(session.montant_compte)} DH</span>
                     </div>
                     <div
@@ -285,7 +289,7 @@ export function SessionFermee({ session, rapport, onNouvelleSession }: SessionFe
                             Math.abs(ecart) < 0.005 ? 'text-emerald-400' : 'text-amber-300'
                         }`}
                     >
-                        <span>Écart</span>
+                        <span>{t('Écart')}</span>
                         <span>
                             {ecart > 0 ? '+' : ''}
                             {dh(ecart)} DH
@@ -298,13 +302,13 @@ export function SessionFermee({ session, rapport, onNouvelleSession }: SessionFe
                         onClick={onNouvelleSession}
                         className="h-12 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 font-bold uppercase tracking-widest text-slate-950 transition active:scale-[0.98]"
                     >
-                        Nouvelle session
+                        {t('Nouvelle session')}
                     </button>
                     <Link
                         to="/dashboard"
                         className="h-12 rounded-2xl border border-white/10 leading-[3rem] text-sm text-slate-300 transition hover:bg-white/[0.05]"
                     >
-                        Retour au tableau de bord
+                        {t('Retour au tableau de bord')}
                     </Link>
                 </div>
             </div>

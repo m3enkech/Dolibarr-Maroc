@@ -40,7 +40,7 @@ class PortailCommandeService
 
             if ($produit === null) {
                 throw ValidationException::withMessages([
-                    'lignes' => 'Un article de votre commande n\'est plus disponible.',
+                    'lignes' => __('Un article de votre commande n\'est plus disponible.'),
                 ]);
             }
 
@@ -52,7 +52,7 @@ class PortailCommandeService
 
                 if ($conditionnement === null) {
                     throw ValidationException::withMessages([
-                        'lignes' => 'Ce conditionnement n\'existe pas pour cet article.',
+                        'lignes' => __('Ce conditionnement n\'existe pas pour cet article.'),
                     ]);
                 }
             }

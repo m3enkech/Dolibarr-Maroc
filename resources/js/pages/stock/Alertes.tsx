@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Entrepot, StockAlerte } from '@/types';
+import { useT } from '@/lib/langue';
 
 export default function Alertes({ entrepots }: { entrepots: Entrepot[] }) {
+    const t = useT();
     const [entrepotId, setEntrepotId] = useState('');
 
     const { data, isLoading } = useQuery({
@@ -23,7 +25,7 @@ export default function Alertes({ entrepots }: { entrepots: Entrepot[] }) {
         <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
                 <select value={entrepotId} onChange={(e) => setEntrepotId(e.target.value)} className={input}>
-                    <option value="">Tous les entrepôts</option>
+                    <option value="">{t('Tous les entrepôts')}</option>
                     {entrepots.map((entrepot) => (
                         <option key={entrepot.id} value={entrepot.id}>
                             {entrepot.name}
@@ -41,18 +43,18 @@ export default function Alertes({ entrepots }: { entrepots: Entrepot[] }) {
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th className="px-4 py-3">Code</th>
-                            <th className="px-4 py-3">Produit</th>
-                            <th className="px-4 py-3 text-right">Stock actuel</th>
-                            <th className="px-4 py-3 text-right">Seuil</th>
-                            <th className="px-4 py-3 text-right">En commande</th>
-                            <th className="px-4 py-3 text-right">À commander</th>
+                            <th className="px-4 py-3">{t('Code')}</th>
+                            <th className="px-4 py-3">{t('Produit')}</th>
+                            <th className="px-4 py-3 text-right">{t('Stock actuel')}</th>
+                            <th className="px-4 py-3 text-right">{t('Seuil')}</th>
+                            <th className="px-4 py-3 text-right">{t('En commande')}</th>
+                            <th className="px-4 py-3 text-right">{t('À commander')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {isLoading && (
                             <tr>
-                                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">Chargement…</td>
+                                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">{t('Chargement…')}</td>
                             </tr>
                         )}
                         {!isLoading && data?.length === 0 && (
@@ -93,7 +95,7 @@ export default function Alertes({ entrepots }: { entrepots: Entrepot[] }) {
                                                 {suggestion}
                                             </span>
                                         ) : (
-                                            <span className="text-slate-400">couvert</span>
+                                            <span className="text-slate-400">{t('couvert')}</span>
                                         )}
                                     </td>
                                 </tr>

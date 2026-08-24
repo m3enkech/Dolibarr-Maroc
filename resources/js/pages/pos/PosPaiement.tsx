@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Numpad, dh } from '@/pages/pos/ui';
+import { useT } from '@/lib/langue';
 
 export interface PaiementSaisi {
     mode: string;
@@ -34,6 +35,7 @@ interface PosPaiementProps {
 export default function PosPaiement({
     total, pending, error, client, creditDisponible, creditPossible, onCancel, onSubmit,
 }: PosPaiementProps) {
+    const t = useT();
     const [paiements, setPaiements] = useState<PaiementSaisi[]>([]);
     const [donne, setDonne] = useState(0); // espèces réellement remises
     const [input, setInput] = useState('');
@@ -87,7 +89,7 @@ export default function PosPaiement({
                 <div className="flex items-start justify-between">
                     <div>
                         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-400">
-                            Encaissement
+                            {t('Encaissement')}
                         </div>
                         <div className="mt-1 flex items-baseline gap-2">
                             <span className="text-5xl font-bold tabular-nums text-white">{dh(total)}</span>
@@ -98,7 +100,7 @@ export default function PosPaiement({
                         onClick={onCancel}
                         className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
                     >
-                        ✕ Annuler
+                        {t('✕ Annuler')}
                     </button>
                 </div>
 
@@ -123,7 +125,7 @@ export default function PosPaiement({
                                     }`}
                                 >
                                     <div className="text-xl">{m.icon}</div>
-                                    {m.label}
+                                    {t(m.label)}
                                 </button>
                             ))}
                         </div>
@@ -156,7 +158,7 @@ export default function PosPaiement({
                             disabled={complet}
                             className="mt-3 h-14 w-full rounded-2xl border border-emerald-400/40 bg-emerald-500/15 text-base font-bold uppercase tracking-widest text-emerald-300 transition active:scale-[0.98] hover:bg-emerald-500/25 disabled:opacity-30"
                         >
-                            + Ajouter ce paiement
+                            {t('+ Ajouter ce paiement')}
                         </button>
                     </div>
 
@@ -167,7 +169,7 @@ export default function PosPaiement({
                                 <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-500">
                                     Aucun paiement saisi.
                                     <br />
-                                    Astuce : montant vide = <span className="text-slate-300">exact</span>.
+                                    Astuce : montant vide = <span className="text-slate-300">{t('exact')}</span>.
                                 </div>
                             )}
                             {paiements.map((paiement, index) => (
@@ -195,20 +197,20 @@ export default function PosPaiement({
 
                         <div className="mt-4 space-y-2 rounded-2xl border border-white/10 bg-black/30 p-4 tabular-nums">
                             <div className="flex justify-between text-sm text-slate-400">
-                                <span>Encaissé</span>
+                                <span>{t('Encaissé')}</span>
                                 <span>{dh(paye)} DH</span>
                             </div>
                             {rendu > 0 ? (
                                 <div className="flex items-baseline justify-between">
                                     <span className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">
-                                        Rendu monnaie
+                                        {t('Rendu monnaie')}
                                     </span>
                                     <span className="text-4xl font-bold text-amber-300">{dh(rendu)} DH</span>
                                 </div>
                             ) : (
                                 <div className="flex items-baseline justify-between">
                                     <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-                                        Reste dû
+                                        {t('Reste dû')}
                                     </span>
                                     <span
                                         className={`text-4xl font-bold ${complet ? 'text-emerald-400' : 'text-white'}`}

@@ -51,7 +51,7 @@ class CommandesPortailController extends Controller
 
         return response()->json([
             'data' => $this->service->detail($this->client($request), $commande->id),
-            'message' => 'Commande transmise au grossiste, en attente de confirmation.',
+            'message' => __('Commande transmise au grossiste, en attente de confirmation.'),
         ], 201);
     }
 

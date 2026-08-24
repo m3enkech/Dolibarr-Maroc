@@ -10,6 +10,7 @@ import { buildLocalDoc, enqueueSale, queueCount, syncQueue } from '@/pages/pos/o
 import { construireGrille, prixApplicable, type TarifProduit } from '@/pages/pos/tarifs';
 import { RemiseChips, calcLigne, calcTotaux, dh, remiseEffective, type CartLine } from '@/pages/pos/ui';
 import type { DocumentVente, Entrepot, Paginated, PosRapport, PosSession, Produit, StockNiveau } from '@/types';
+import { useT } from '@/lib/langue';
 
 interface SessionResponse {
     data: PosSession | null;
@@ -30,6 +31,7 @@ const extraireErreur = (err: any): string => {
 };
 
 export default function PosPage() {
+    const t = useT();
     const { user, tenant } = useAuth();
     const queryClient = useQueryClient();
 
@@ -451,7 +453,7 @@ export default function PosPage() {
                         ⌁
                     </span>
                     <div>
-                        <div className="text-sm font-bold uppercase tracking-[0.35em] text-white">Caisse</div>
+                        <div className="text-sm font-bold uppercase tracking-[0.35em] text-white">{t('Caisse')}</div>
                         <div className="text-xs text-slate-400">{tenant?.name}</div>
                     </div>
                 </div>
@@ -487,13 +489,13 @@ export default function PosPage() {
                     {!online && (
                         <span className="flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-300">
                             <span className="h-2 w-2 rounded-full bg-amber-400" />
-                            Hors ligne
+                            {t('Hors ligne')}
                         </span>
                     )}
                     {pending > 0 && (
                         <span
                             className="flex items-center gap-1.5 rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-300"
-                            title="Ventes enregistrées hors-ligne, en attente de synchronisation"
+                            title={t('Ventes enregistrées hors-ligne, en attente de synchronisation')}
                         >
                             ⟳ {pending} en attente
                         </span>
@@ -510,7 +512,7 @@ export default function PosPage() {
                         to="/dashboard"
                         className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
                     >
-                        ← Quitter
+                        {t('← Quitter')}
                     </Link>
                 </div>
             </header>
@@ -526,7 +528,7 @@ export default function PosPage() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && onSearchEnter()}
-                        placeholder="🔍  Rechercher un produit ou scanner un code-barres…"
+                        placeholder={t('🔍  Rechercher un produit ou scanner un code-barres…')}
                         className="h-14 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-base text-white placeholder-slate-500 outline-none backdrop-blur transition focus:border-emerald-400/50 focus:shadow-[0_0_30px_rgba(16,185,129,0.15)]"
                     />
 
@@ -551,7 +553,7 @@ export default function PosPage() {
                                             <span className="text-lg font-bold tabular-nums text-emerald-300">
                                                 {dh(produit.sell_price_ttc)}
                                             </span>
-                                            <span className="ml-1 text-[10px] text-slate-500">DH TTC</span>
+                                            <span className="ml-1 text-[10px] text-slate-500">{t('DH TTC')}</span>
                                         </div>
                                         {stock !== null ? (
                                             <span
@@ -565,11 +567,11 @@ export default function PosPage() {
                                             </span>
                                         ) : produit.type === 'kit' ? (
                                             <span className="rounded-full bg-indigo-400/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
-                                                kit
+                                                {t('kit')}
                                             </span>
                                         ) : (
                                             <span className="rounded-full bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300">
-                                                service
+                                                {t('service')}
                                             </span>
                                         )}
                                     </div>
@@ -578,7 +580,7 @@ export default function PosPage() {
                         })}
                         {(filtres ?? []).length === 0 && (
                             <div className="col-span-full py-16 text-center text-slate-500">
-                                Aucun produit. Ajoutez vos produits dans le Catalogue.
+                                {t('Aucun produit. Ajoutez vos produits dans le Catalogue.')}
                             </div>
                         )}
                     </div>
@@ -596,9 +598,9 @@ export default function PosPage() {
                                         ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
                                         : 'border-white/10 bg-white/[0.05] text-slate-400 hover:text-slate-200'
                                 }`}
-                                title="Vendre à un compte client (applique son tarif)"
+                                title={t('Vendre à un compte client (applique son tarif)')}
                             >
-                                👤 {client ? client.name : 'Client comptoir'}
+                                👤 {client ? client.name : t('Client comptoir')}
                             </button>
 
                             {clientOpen && (
@@ -607,7 +609,7 @@ export default function PosPage() {
                                         onClick={() => { setClient(null); setClientOpen(false); }}
                                         className="w-full rounded-lg px-3 py-2 text-left text-xs text-slate-300 hover:bg-white/[0.07]"
                                     >
-                                        Client comptoir <span className="text-slate-500">· prix catalogue</span>
+                                        {t('Client comptoir')} <span className="text-slate-500">{t('· prix catalogue')}</span>
                                     </button>
                                     {(clients ?? []).map((c) => (
                                         <button
@@ -628,7 +630,7 @@ export default function PosPage() {
                                 onClick={viderPanier}
                                 className="shrink-0 text-xs text-slate-500 transition hover:text-red-400"
                             >
-                                Vider
+                                {t('Vider')}
                             </button>
                         )}
                     </div>
@@ -638,9 +640,9 @@ export default function PosPage() {
                             <div className="flex h-full flex-col items-center justify-center text-center text-slate-600">
                                 <div className="text-4xl opacity-40">🛒</div>
                                 <p className="mt-3 text-sm">
-                                    Touchez un produit
+                                    {t('Touchez un produit')}
                                     <br />
-                                    pour l'ajouter au ticket
+                                    {t("pour l'ajouter au ticket")}
                                 </p>
                             </div>
                         )}
@@ -731,7 +733,7 @@ export default function PosPage() {
                                         : 'border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]'
                                 }`}
                             >
-                                <span className="uppercase tracking-widest">Remise ticket</span>
+                                <span className="uppercase tracking-widest">{t('Remise ticket')}</span>
                                 <span>{remiseTicket > 0 ? `−${remiseTicket}%` : '—'}</span>
                             </button>
                             {remiseTicketOpen && cart.length > 0 && (
@@ -747,21 +749,21 @@ export default function PosPage() {
                             )}
                         </div>
                         <div className="flex justify-between text-xs text-slate-500">
-                            <span>Total HT</span>
+                            <span>{t('Total HT')}</span>
                             <span>{dh(totaux.ht)} DH</span>
                         </div>
                         {totaux.remise > 0 && (
                             <div className="flex justify-between text-xs text-amber-300/80">
-                                <span>Remise accordée</span>
+                                <span>{t('Remise accordée')}</span>
                                 <span>−{dh(totaux.remise)} DH</span>
                             </div>
                         )}
                         <div className="flex justify-between text-xs text-slate-500">
-                            <span>TVA</span>
+                            <span>{t('TVA')}</span>
                             <span>{dh(totaux.tva)} DH</span>
                         </div>
                         <div className="flex items-baseline justify-between pt-1">
-                            <span className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Total</span>
+                            <span className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">{t('Total')}</span>
                             <span className="text-4xl font-black text-white">{dh(totaux.ttc)}</span>
                         </div>
                         <button
@@ -769,7 +771,7 @@ export default function PosPage() {
                             disabled={cart.length === 0 || !session}
                             className="mt-3 h-16 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-lg font-black uppercase tracking-[0.2em] text-slate-950 shadow-[0_0_40px_rgba(16,185,129,0.35)] transition active:scale-[0.98] hover:shadow-[0_0_60px_rgba(16,185,129,0.5)] disabled:opacity-25 disabled:shadow-none"
                         >
-                            Encaisser <span className="ml-1 text-xs font-semibold opacity-60">F9</span>
+                            {t('Encaisser')} <span className="ml-1 text-xs font-semibold opacity-60">{t('F9')}</span>
                         </button>
                     </div>
                 </aside>
@@ -857,18 +859,18 @@ export default function PosPage() {
                                 }}
                             />
                         </svg>
-                        <h2 className="mt-3 text-2xl font-bold text-white">Vente encaissée</h2>
+                        <h2 className="mt-3 text-2xl font-bold text-white">{t('Vente encaissée')}</h2>
                         <p className="mt-1 font-mono text-sm text-slate-400">{success.doc.code}</p>
                         {success.offline && (
                             <p className="mx-auto mt-2 max-w-xs rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
-                                Encaissée hors-ligne. Elle sera synchronisée et numérotée automatiquement au retour du réseau.
+                                {t('Encaissée hors-ligne. Elle sera synchronisée et numérotée automatiquement au retour du réseau.')}
                             </p>
                         )}
 
                         {success.rendu !== null && parseFloat(success.rendu) > 0 && (
                             <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-6 py-4">
                                 <div className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">
-                                    Rendu monnaie
+                                    {t('Rendu monnaie')}
                                 </div>
                                 <div className="text-5xl font-black tabular-nums text-amber-300">
                                     {dh(success.rendu)} <span className="text-2xl">DH</span>
@@ -891,13 +893,13 @@ export default function PosPage() {
                                 onClick={() => window.print()}
                                 className="h-14 rounded-2xl border border-white/10 bg-white/[0.05] font-semibold text-white transition active:scale-[0.98] hover:bg-white/[0.1]"
                             >
-                                🖨 Imprimer
+                                {t('🖨 Imprimer')}
                             </button>
                             <button
                                 onClick={() => setSuccess(null)}
                                 className="h-14 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 font-bold uppercase tracking-widest text-slate-950 shadow-[0_0_30px_rgba(16,185,129,0.35)] transition active:scale-[0.98]"
                             >
-                                Nouvelle vente
+                                {t('Nouvelle vente')}
                             </button>
                         </div>
                     </div>

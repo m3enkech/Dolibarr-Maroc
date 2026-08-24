@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatMAD } from '@/lib/format';
 import type { DashboardData, DashboardKpi } from '@/types';
+import { useT } from '@/lib/langue';
 
 const MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
@@ -54,6 +55,7 @@ function KpiCard({
 
 /** Graphe en barres du CA sur 12 mois, avec une courbe des achats en surimpression. */
 function BarChart12({ data, withAchats }: { data: DashboardData['ventes_12_mois']; withAchats: boolean }) {
+    const t = useT();
     const W = 720;
     const H = 240;
     const padL = 8;
@@ -131,6 +133,7 @@ function BarChart12({ data, withAchats }: { data: DashboardData['ventes_12_mois'
 
 /** Donut de répartition des documents de vente par type. */
 function Donut({ data }: { data: NonNullable<DashboardData['repartition_ventes']> }) {
+    const t = useT();
     const segments = [
         { label: 'Devis', value: data.devis, color: '#6366f1' },
         { label: 'Commandes', value: data.commandes, color: '#0ea5e9' },
@@ -168,14 +171,14 @@ function Donut({ data }: { data: NonNullable<DashboardData['repartition_ventes']
                     {total}
                 </text>
                 <text x="70" y="82" textAnchor="middle" className="fill-slate-400" fontSize={10}>
-                    documents
+                    {t('documents')}
                 </text>
             </svg>
             <div className="space-y-2 text-sm">
                 {segments.map((s) => (
                     <div key={s.label} className="flex items-center gap-2">
                         <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
-                        <span className="text-slate-600">{s.label}</span>
+                        <span className="text-slate-600">{t(s.label)}</span>
                         <span className="ml-auto font-medium text-slate-900">{s.value}</span>
                     </div>
                 ))}
@@ -186,9 +189,10 @@ function Donut({ data }: { data: NonNullable<DashboardData['repartition_ventes']
 
 /** Liste top (clients ou produits) avec barre de proportion. */
 function TopList({ items }: { items: { name: string; total: number }[] }) {
+    const t = useT();
     const max = Math.max(1, ...items.map((i) => i.total));
     if (items.length === 0) {
-        return <div className="py-6 text-sm text-slate-400">Aucune donnée pour l'instant.</div>;
+        return <div className="py-6 text-sm text-slate-400">{t("Aucune donnée pour l'instant.")}</div>;
     }
     return (
         <ul className="space-y-3">
@@ -208,6 +212,7 @@ function TopList({ items }: { items: { name: string; total: number }[] }) {
 }
 
 export default function Dashboard() {
+    const t = useT();
     const { tenant } = useAuth();
 
     const { data, isLoading } = useQuery({
@@ -216,7 +221,7 @@ export default function Dashboard() {
     });
 
     if (isLoading || !data) {
-        return <div className="text-sm text-slate-400">Chargement du tableau de bord…</div>;
+        return <div className="text-sm text-slate-400">{t('Chargement du tableau de bord…')}</div>;
     }
 
     const k = data.kpis;
@@ -239,36 +244,36 @@ export default function Dashboard() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-xl font-semibold text-slate-900">Tableau de bord</h1>
-                <p className="mt-1 text-sm text-slate-500">{tenant?.name} — vue d'ensemble</p>
+                <h1 className="text-xl font-semibold text-slate-900">{t('Tableau de bord')}</h1>
+                <p className="mt-1 text-sm text-slate-500">{tenant?.name} — {t("vue d'ensemble")}</p>
             </div>
 
             {/* KPIs */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {k.ca_mois && (
-                    <KpiCard label="CA du mois" value={formatMAD(k.ca_mois.value)} kpi={k.ca_mois} tone="emerald" sub="vs mois préc." />
+                    <KpiCard label={t("CA du mois")} value={formatMAD(k.ca_mois.value)} kpi={k.ca_mois} tone="emerald" sub={t("vs mois préc.")} />
                 )}
-                {k.ca_annee && <KpiCard label="CA cumulé (année)" value={formatMAD(k.ca_annee.value)} />}
+                {k.ca_annee && <KpiCard label={t("CA cumulé (année)")} value={formatMAD(k.ca_annee.value)} />}
                 {k.encaissements_mois && (
-                    <KpiCard label="Encaissements du mois" value={formatMAD(k.encaissements_mois.value)} kpi={k.encaissements_mois} sub="vs mois préc." />
+                    <KpiCard label={t("Encaissements du mois")} value={formatMAD(k.encaissements_mois.value)} kpi={k.encaissements_mois} sub={t("vs mois préc.")} />
                 )}
-                {k.tresorerie && <KpiCard label="Trésorerie" value={formatMAD(k.tresorerie.value)} />}
+                {k.tresorerie && <KpiCard label={t("Trésorerie")} value={formatMAD(k.tresorerie.value)} />}
                 {k.resultat && (
                     <KpiCard
-                        label="Résultat (année)"
+                        label={t("Résultat (année)")}
                         value={formatMAD(k.resultat.value)}
                         tone={k.resultat.value >= 0 ? 'emerald' : 'red'}
                     />
                 )}
                 {k.creances && (
                     <KpiCard
-                        label="Créances clients"
+                        label={t("Créances clients")}
                         value={formatMAD(k.creances.total)}
                         tone={k.creances.echu > 0 ? 'amber' : 'slate'}
                         sub={k.creances.echu > 0 ? `dont ${formatMAD(k.creances.echu)} ancien` : undefined}
                     />
                 )}
-                {k.dettes && <KpiCard label="Dettes fournisseurs" value={formatMAD(k.dettes.total)} />}
+                {k.dettes && <KpiCard label={t("Dettes fournisseurs")} value={formatMAD(k.dettes.total)} />}
             </div>
 
             {/* Alertes */}
@@ -281,7 +286,7 @@ export default function Dashboard() {
                             className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-4 transition hover:bg-amber-100"
                         >
                             <div>
-                                <div className="text-sm font-medium text-amber-900">{a.label}</div>
+                                <div className="text-sm font-medium text-amber-900">{t(a.label)}</div>
                                 <div className="mt-0.5 text-lg font-semibold text-amber-700">{a.value}</div>
                             </div>
                             <span className="text-amber-500" aria-hidden>→</span>
@@ -294,14 +299,14 @@ export default function Dashboard() {
             {data.capabilities.ventes && (
                 <div className="grid gap-4 lg:grid-cols-3">
                     <div className="rounded-xl bg-white p-5 shadow-sm lg:col-span-2">
-                        <h2 className="font-medium text-slate-900">Chiffre d'affaires — 12 derniers mois</h2>
+                        <h2 className="font-medium text-slate-900">{t("Chiffre d'affaires — 12 derniers mois")}</h2>
                         <div className="mt-4">
                             <BarChart12 data={data.ventes_12_mois} withAchats={data.capabilities.achats} />
                         </div>
                     </div>
                     {data.repartition_ventes && (
                         <div className="rounded-xl bg-white p-5 shadow-sm">
-                            <h2 className="font-medium text-slate-900">Documents de vente (année)</h2>
+                            <h2 className="font-medium text-slate-900">{t('Documents de vente (année)')}</h2>
                             <div className="mt-6">
                                 <Donut data={data.repartition_ventes} />
                             </div>
@@ -314,13 +319,13 @@ export default function Dashboard() {
             {data.capabilities.ventes && (
                 <div className="grid gap-4 lg:grid-cols-2">
                     <div className="rounded-xl bg-white p-5 shadow-sm">
-                        <h2 className="font-medium text-slate-900">Top 5 clients (année)</h2>
+                        <h2 className="font-medium text-slate-900">{t('Top 5 clients (année)')}</h2>
                         <div className="mt-4">
                             <TopList items={data.top_clients} />
                         </div>
                     </div>
                     <div className="rounded-xl bg-white p-5 shadow-sm">
-                        <h2 className="font-medium text-slate-900">Top 5 produits (année)</h2>
+                        <h2 className="font-medium text-slate-900">{t('Top 5 produits (année)')}</h2>
                         <div className="mt-4">
                             <TopList items={data.top_produits} />
                         </div>
@@ -331,7 +336,7 @@ export default function Dashboard() {
             {/* Fallback si aucun bloc (rôle très restreint) */}
             {!data.capabilities.ventes && !data.capabilities.compta && (
                 <div className="rounded-xl bg-white p-5 shadow-sm text-sm text-slate-500">
-                    Votre profil donne accès à la caisse et au catalogue. Rendez-vous dans le menu pour démarrer.
+                    {t('Votre profil donne accès à la caisse et au catalogue. Rendez-vous dans le menu pour démarrer.')}
                 </div>
             )}
         </div>

@@ -2,8 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Entrepot } from '@/types';
+import { useT } from '@/lib/langue';
 
 export default function Entrepots({ entrepots }: { entrepots: Entrepot[] }) {
+    const t = useT();
     const [name, setName] = useState('');
     const [address, setAddress] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -59,11 +61,11 @@ export default function Entrepots({ entrepots }: { entrepots: Entrepot[] }) {
 
             <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-5 shadow-sm">
                 <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">Nom de l'entrepôt</label>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">{t("Nom de l'entrepôt")}</label>
                     <input required value={name} onChange={(e) => setName(e.target.value)} className={`${input} w-64`} />
                 </div>
                 <div className="flex-1">
-                    <label className="mb-1 block text-xs font-medium text-slate-600">Adresse</label>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">{t('Adresse')}</label>
                     <input value={address} onChange={(e) => setAddress(e.target.value)} className={`${input} w-full`} />
                 </div>
                 <button
@@ -71,7 +73,7 @@ export default function Entrepots({ entrepots }: { entrepots: Entrepot[] }) {
                     disabled={creer.isPending}
                     className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
                 >
-                    + Ajouter
+                    {t('+ Ajouter')}
                 </button>
             </form>
 
@@ -79,18 +81,18 @@ export default function Entrepots({ entrepots }: { entrepots: Entrepot[] }) {
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th className="px-4 py-3">Code</th>
-                            <th className="px-4 py-3">Nom</th>
-                            <th className="px-4 py-3">Adresse</th>
-                            <th className="px-4 py-3">Par défaut</th>
-                            <th className="px-4 py-3 text-right">Actions</th>
+                            <th className="px-4 py-3">{t('Code')}</th>
+                            <th className="px-4 py-3">{t('Nom')}</th>
+                            <th className="px-4 py-3">{t('Adresse')}</th>
+                            <th className="px-4 py-3">{t('Par défaut')}</th>
+                            <th className="px-4 py-3 text-right">{t('Actions')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {entrepots.length === 0 && (
                             <tr>
                                 <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                                    Aucun entrepôt. Le premier créé deviendra l'entrepôt par défaut.
+                                    {t("Aucun entrepôt. Le premier créé deviendra l'entrepôt par défaut.")}
                                 </td>
                             </tr>
                         )}
@@ -102,14 +104,14 @@ export default function Entrepots({ entrepots }: { entrepots: Entrepot[] }) {
                                 <td className="px-4 py-3">
                                     {entrepot.is_default ? (
                                         <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">
-                                            Par défaut
+                                            {t('Par défaut')}
                                         </span>
                                     ) : (
                                         <button
                                             onClick={() => definirDefaut.mutate(entrepot.id)}
                                             className="text-xs text-emerald-600 hover:underline"
                                         >
-                                            Définir par défaut
+                                            {t('Définir par défaut')}
                                         </button>
                                     )}
                                 </td>
@@ -121,7 +123,7 @@ export default function Entrepots({ entrepots }: { entrepots: Entrepot[] }) {
                                         }
                                         className="text-red-500 hover:underline"
                                     >
-                                        Supprimer
+                                        {t('Supprimer')}
                                     </button>
                                 </td>
                             </tr>

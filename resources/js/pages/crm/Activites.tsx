@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Activite, ActiviteType, Paginated, Tiers } from '@/types';
+import { useT } from '@/lib/langue';
 
 const TYPES: Record<ActiviteType, { label: string; icon: string }> = {
     appel: { label: 'Appel', icon: '📞' },
@@ -12,6 +13,7 @@ const TYPES: Record<ActiviteType, { label: string; icon: string }> = {
 };
 
 export default function Activites() {
+    const t = useT();
     const queryClient = useQueryClient();
     const [vue, setVue] = useState<'a_faire' | 'tout'>('a_faire');
     const [showForm, setShowForm] = useState(false);
@@ -102,7 +104,7 @@ export default function Activites() {
                     onClick={() => setShowForm((v) => !v)}
                     className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
                 >
-                    + Activité
+                    {t('+ Activité')}
                 </button>
             </div>
 
@@ -112,7 +114,7 @@ export default function Activites() {
                 <form onSubmit={submit} className="space-y-3 rounded-xl bg-white p-5 shadow-sm">
                     <div className="flex flex-wrap items-end gap-3">
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-slate-600">Type</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">{t('Type')}</label>
                             <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className={input}>
                                 {Object.entries(TYPES).map(([value, { label, icon }]) => (
                                     <option key={value} value={value}>{icon} {label}</option>
@@ -120,19 +122,19 @@ export default function Activites() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-slate-600">Tiers</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">{t('Tiers')}</label>
                             <select required value={form.tiers_id} onChange={(e) => setForm((f) => ({ ...f, tiers_id: e.target.value }))} className={input}>
-                                <option value="">— Choisir —</option>
+                                <option value="">{t('— Choisir —')}</option>
                                 {tiers?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                             </select>
                         </div>
                         <div className="flex-1" style={{ minWidth: 180 }}>
-                            <label className="mb-1 block text-xs font-medium text-slate-600">Sujet</label>
-                            <input required value={form.sujet} onChange={(e) => setForm((f) => ({ ...f, sujet: e.target.value }))} className={`${input} w-full`} placeholder="Ex. Rappeler pour le devis" />
+                            <label className="mb-1 block text-xs font-medium text-slate-600">{t('Sujet')}</label>
+                            <input required value={form.sujet} onChange={(e) => setForm((f) => ({ ...f, sujet: e.target.value }))} className={`${input} w-full`} placeholder={t('Ex. Rappeler pour le devis')} />
                         </div>
                         <div>
                             <label className="mb-1 block text-xs font-medium text-slate-600">
-                                Échéance <span className="font-normal text-slate-400">(= à faire)</span>
+                                Échéance <span className="font-normal text-slate-400">{t('(= à faire)')}</span>
                             </label>
                             <input type="date" value={form.date_prevue} onChange={(e) => setForm((f) => ({ ...f, date_prevue: e.target.value }))} className={input} />
                         </div>
@@ -145,7 +147,7 @@ export default function Activites() {
             )}
 
             <div className="space-y-2">
-                {isLoading && <div className="py-8 text-center text-slate-400">Chargement…</div>}
+                {isLoading && <div className="py-8 text-center text-slate-400">{t('Chargement…')}</div>}
                 {!isLoading && data?.length === 0 && (
                     <div className="rounded-xl bg-white py-10 text-center text-sm text-slate-400 shadow-sm">
                         {vue === 'a_faire' ? '✓ Rien à faire, vous êtes à jour !' : 'Aucune activité pour le moment.'}
@@ -173,7 +175,7 @@ export default function Activites() {
                                 </span>
                                 {a.en_retard && (
                                     <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-                                        en retard
+                                        {t('en retard')}
                                     </span>
                                 )}
                             </div>

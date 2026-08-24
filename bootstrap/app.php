@@ -18,6 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // (sinon les assets sont référencés en http -> bloqués en mixed content).
         $middleware->trustProxies(at: '*');
 
+        // Toute réponse d'API parle la langue de l'appelant : les messages de
+        // validation et de refus s'affichent tels quels dans l'interface.
+        $middleware->api(prepend: [\App\Core\Http\DefinirLangue::class]);
+
         $middleware->alias([
             'tenant' => \App\Core\Tenancy\SetTenantContext::class,
             'superadmin' => \App\Core\Auth\EnsureSuperadmin::class,

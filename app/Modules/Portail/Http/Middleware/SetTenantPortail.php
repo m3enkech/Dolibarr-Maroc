@@ -33,7 +33,7 @@ class SetTenantPortail
         // légitimement globale.
         $tenant = Tenant::where('slug', $slug)->first();
 
-        abort_if($tenant === null, 404, 'Grossiste introuvable.');
+        abort_if($tenant === null, 404, __('Grossiste introuvable.'));
 
         /** @var Acheteur|null $acheteur */
         $acheteur = $request->user();
@@ -50,7 +50,7 @@ class SetTenantPortail
 
         // Le Tiers rattaché porte le tarif, l'encours et l'historique : sans lui
         // le portail ne peut rien afficher de fiable.
-        abort_if($rattachement->tiers_id === null, 403, 'Votre compte client n\'est pas encore configuré.');
+        abort_if($rattachement->tiers_id === null, 403, __('Votre compte client n\'est pas encore configuré.'));
 
         $request->attributes->set('portail_rattachement', $rattachement);
 

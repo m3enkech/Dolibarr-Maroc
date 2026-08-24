@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import type { Entrepot, MouvementStock, Paginated, Produit, StockNiveau } from '@/types';
+import { useT } from '@/lib/langue';
 
 const TYPES_MOUVEMENT: Record<string, string> = {
     entree: 'Entrée',
@@ -11,6 +12,7 @@ const TYPES_MOUVEMENT: Record<string, string> = {
 };
 
 export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
+    const t = useT();
     const [search, setSearch] = useState('');
     const [entrepotId, setEntrepotId] = useState('');
     const [page, setPage] = useState(1);
@@ -87,7 +89,7 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                         setSearch(e.target.value);
                         setPage(1);
                     }}
-                    placeholder="Rechercher un produit…"
+                    placeholder={t('Rechercher un produit…')}
                     className={`${input} w-64`}
                 />
                 <select
@@ -98,7 +100,7 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                     }}
                     className={input}
                 >
-                    <option value="">Tous les entrepôts</option>
+                    <option value="">{t('Tous les entrepôts')}</option>
                     {entrepots.map((entrepot) => (
                         <option key={entrepot.id} value={entrepot.id}>
                             {entrepot.name}
@@ -109,7 +111,7 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                     onClick={() => setShowForm((v) => !v)}
                     className="ml-auto rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
                 >
-                    ± Mouvement
+                    {t('± Mouvement')}
                 </button>
             </div>
 
@@ -120,9 +122,9 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                     )}
                     <div className="flex flex-wrap items-end gap-3">
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-slate-600">Produit</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">{t('Produit')}</label>
                             <select required value={produitId} onChange={(e) => setProduitId(e.target.value)} className={`${input} w-56`}>
-                                <option value="">— Choisir —</option>
+                                <option value="">{t('— Choisir —')}</option>
                                 {produits?.map((p) => (
                                     <option key={p.id} value={p.id}>
                                         {p.name}
@@ -131,9 +133,9 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-slate-600">Entrepôt</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">{t('Entrepôt')}</label>
                             <select required value={formEntrepotId} onChange={(e) => setFormEntrepotId(e.target.value)} className={input}>
-                                <option value="">— Choisir —</option>
+                                <option value="">{t('— Choisir —')}</option>
                                 {entrepots.map((entrepot) => (
                                     <option key={entrepot.id} value={entrepot.id}>
                                         {entrepot.name}
@@ -142,7 +144,7 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-slate-600">Type</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">{t('Type')}</label>
                             <select value={type} onChange={(e) => setType(e.target.value)} className={input}>
                                 {Object.entries(TYPES_MOUVEMENT).map(([value, labelText]) => (
                                     <option key={value} value={value}>
@@ -166,7 +168,7 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                             />
                         </div>
                         <div className="flex-1">
-                            <label className="mb-1 block text-xs font-medium text-slate-600">Note</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">{t('Note')}</label>
                             <input value={note} onChange={(e) => setNote(e.target.value)} className={`${input} w-full`} />
                         </div>
                         <button
@@ -174,7 +176,7 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                             disabled={mutation.isPending}
                             className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
                         >
-                            Enregistrer
+                            {t('Enregistrer')}
                         </button>
                     </div>
                 </form>
@@ -184,23 +186,23 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th className="px-4 py-3">Code</th>
-                            <th className="px-4 py-3">Produit</th>
-                            <th className="px-4 py-3 text-right">Quantité</th>
-                            <th className="px-4 py-3 text-right">En commande</th>
-                            <th className="px-4 py-3 text-right">Valeur d'achat</th>
+                            <th className="px-4 py-3">{t('Code')}</th>
+                            <th className="px-4 py-3">{t('Produit')}</th>
+                            <th className="px-4 py-3 text-right">{t('Quantité')}</th>
+                            <th className="px-4 py-3 text-right">{t('En commande')}</th>
+                            <th className="px-4 py-3 text-right">{t("Valeur d'achat")}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {isLoading && (
                             <tr>
-                                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">Chargement…</td>
+                                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">{t('Chargement…')}</td>
                             </tr>
                         )}
                         {!isLoading && data?.data.length === 0 && (
                             <tr>
                                 <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                                    Aucun produit physique au catalogue.
+                                    {t('Aucun produit physique au catalogue.')}
                                 </td>
                             </tr>
                         )}
@@ -225,7 +227,7 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                                         {quantiteNum}
                                         {quantiteNum < 0 ? (
                                             <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs font-normal text-red-700">
-                                                rupture
+                                                {t('rupture')}
                                             </span>
                                         ) : (
                                             niveau.sous_seuil && (
@@ -233,7 +235,7 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                                                     className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-700"
                                                     title={niveau.stock_min ? `Seuil : ${parseFloat(niveau.stock_min)}` : undefined}
                                                 >
-                                                    sous seuil
+                                                    {t('sous seuil')}
                                                 </span>
                                             )
                                         )}
@@ -267,14 +269,14 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                                 onClick={() => setPage((p) => p - 1)}
                                 className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40"
                             >
-                                Précédent
+                                {t('Précédent')}
                             </button>
                             <button
                                 disabled={page >= data.meta.last_page}
                                 onClick={() => setPage((p) => p + 1)}
                                 className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40"
                             >
-                                Suivant
+                                {t('Suivant')}
                             </button>
                         </div>
                     </div>

@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { AuthProvider, RequireAuth } from '@/lib/auth';
+import { LangueProvider } from '@/lib/langue';
 import Layout from '@/components/Layout';
 import Landing from '@/pages/Landing';
 import { PortailAuthProvider, RequirePortailAuth } from '@/lib/portail-auth';
@@ -58,6 +59,9 @@ const queryClient = new QueryClient({
 function App() {
     return (
         <QueryClientProvider client={queryClient}>
+            {/* La langue est au-dessus de tout : elle vaut pour l'ERP comme
+                pour le portail, et pose `dir` sur <html>. */}
+            <LangueProvider>
             <BrowserRouter>
                 <AuthProvider>
                     <Routes>
@@ -148,6 +152,7 @@ function App() {
                     </Routes>
                 </AuthProvider>
             </BrowserRouter>
+            </LangueProvider>
         </QueryClientProvider>
     );
 }

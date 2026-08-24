@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useT } from '@/lib/langue';
 
 interface InvitationInfo {
     email: string;
@@ -10,6 +11,7 @@ interface InvitationInfo {
 }
 
 export default function Rejoindre() {
+    const t = useT();
     const { token = '' } = useParams();
     const { acceptInvitation } = useAuth();
     const navigate = useNavigate();
@@ -49,7 +51,7 @@ export default function Rejoindre() {
             <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
                 <div className="w-full max-w-md rounded-xl bg-white p-6 text-center shadow-sm">
                     <div className="text-3xl">🔒</div>
-                    <h1 className="mt-3 text-lg font-semibold text-slate-900">Invitation invalide</h1>
+                    <h1 className="mt-3 text-lg font-semibold text-slate-900">{t('Invitation invalide')}</h1>
                     <p className="mt-1 text-sm text-slate-500">
                         Ce lien d'invitation est expiré ou a déjà été utilisé. Demandez à votre administrateur
                         de vous en générer un nouveau.
@@ -63,7 +65,7 @@ export default function Rejoindre() {
         <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
             <div className="w-full max-w-md">
                 <div className="mb-6 text-center">
-                    <h1 className="text-2xl font-semibold text-slate-900">Rejoindre l'équipe</h1>
+                    <h1 className="text-2xl font-semibold text-slate-900">{t("Rejoindre l'équipe")}</h1>
                     {info && (
                         <p className="mt-1 text-sm text-slate-500">
                             Vous êtes invité(e) à rejoindre <span className="font-medium">{info.company_name}</span>
@@ -76,7 +78,7 @@ export default function Rejoindre() {
                         <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
                     )}
                     <div>
-                        <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">{t('Email')}</label>
                         <input
                             readOnly
                             value={info?.email ?? ''}
@@ -84,7 +86,7 @@ export default function Rejoindre() {
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-sm font-medium text-slate-700">Votre nom</label>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">{t('Votre nom')}</label>
                         <input
                             required
                             value={name}
@@ -94,7 +96,7 @@ export default function Rejoindre() {
                     </div>
                     <div>
                         <label className="mb-1 block text-sm font-medium text-slate-700">
-                            Mot de passe <span className="font-normal text-slate-400">(8 caractères min.)</span>
+                            Mot de passe <span className="font-normal text-slate-400">{t('(8 caractères min.)')}</span>
                         </label>
                         <input
                             type="password"

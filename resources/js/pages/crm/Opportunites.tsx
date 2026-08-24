@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import type { Opportunite, OpportuniteEtape, Paginated, PipelineBoard, Tiers } from '@/types';
+import { useT } from '@/lib/langue';
 
 const ETAPES: { key: OpportuniteEtape; label: string; accent: string }[] = [
     { key: 'nouveau', label: 'Nouveau', accent: 'border-t-slate-400' },
@@ -15,6 +16,7 @@ const ETAPES: { key: OpportuniteEtape; label: string; accent: string }[] = [
 const ETAPE_INDEX = ETAPES.reduce((acc, e, i) => ({ ...acc, [e.key]: i }), {} as Record<string, number>);
 
 export default function Opportunites() {
+    const t = useT();
     const queryClient = useQueryClient();
     const navigate = useNavigate();
     const [showForm, setShowForm] = useState(false);
@@ -98,20 +100,20 @@ export default function Opportunites() {
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-slate-500">
-                    Faites glisser les opportunités d'une étape à l'autre, du prospect à l'affaire gagnée
+                    {t("Faites glisser les opportunités d'une étape à l'autre, du prospect à l'affaire gagnée")}
                 </p>
                 <div className="flex items-center gap-4">
                     {board && (
                         <div className="hidden gap-4 sm:flex">
                             <Stat label="Pipeline" value={formatMAD(board.stats.total_pipeline)} />
-                            <Stat label="Prévision pondérée" value={formatMAD(board.stats.forecast_pondere)} accent />
+                            <Stat label={t('Prévision pondérée')} value={formatMAD(board.stats.forecast_pondere)} accent />
                         </div>
                     )}
                     <button
                         onClick={() => setShowForm((v) => !v)}
                         className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
                     >
-                        + Opportunité
+                        {t('+ Opportunité')}
                     </button>
                 </div>
             </div>
@@ -121,33 +123,33 @@ export default function Opportunites() {
             {showForm && (
                 <form onSubmit={submit} className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-5 shadow-sm">
                     <div className="flex-1" style={{ minWidth: 200 }}>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">Intitulé</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t('Intitulé')}</label>
                         <input required value={form.titre} onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))} className={`${input} w-full`} placeholder="Ex. Refonte site web" />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">Client / prospect</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t('Client / prospect')}</label>
                         <select required value={form.tiers_id} onChange={(e) => setForm((f) => ({ ...f, tiers_id: e.target.value }))} className={input}>
-                            <option value="">— Choisir —</option>
+                            <option value="">{t('— Choisir —')}</option>
                             {tiers?.map((t) => (
                                 <option key={t.id} value={t.id}>{t.name}</option>
                             ))}
                         </select>
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">Montant estimé</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t('Montant estimé')}</label>
                         <input type="number" step="0.01" min="0" value={form.montant_estime} onChange={(e) => setForm((f) => ({ ...f, montant_estime: e.target.value }))} className={`${input} w-32`} />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">Probabilité %</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t('Probabilité %')}</label>
                         <input type="number" min="0" max="100" value={form.probabilite} onChange={(e) => setForm((f) => ({ ...f, probabilite: e.target.value }))} className={`${input} w-24`} />
                     </div>
                     <button type="submit" disabled={creer.isPending} className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60">
-                        Créer
+                        {t('Créer')}
                     </button>
                 </form>
             )}
 
-            {isLoading && <div className="py-10 text-center text-slate-400">Chargement…</div>}
+            {isLoading && <div className="py-10 text-center text-slate-400">{t('Chargement…')}</div>}
 
             {board && (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -164,7 +166,7 @@ export default function Opportunites() {
                                 className={`flex flex-col rounded-xl border-t-4 bg-slate-50 ${etape.accent}`}
                             >
                                 <div className="flex items-center justify-between px-3 py-2.5">
-                                    <span className="text-sm font-semibold text-slate-700">{etape.label}</span>
+                                    <span className="text-sm font-semibold text-slate-700">{t(etape.label)}</span>
                                     <span className="text-xs text-slate-400">
                                         {opps.length} · {formatMAD(colTotal(opps))}
                                     </span>
@@ -189,7 +191,7 @@ export default function Opportunites() {
                                     ))}
                                     {opps.length === 0 && (
                                         <div className="rounded-lg border border-dashed border-slate-200 py-6 text-center text-xs text-slate-400">
-                                            Glissez ici
+                                            {t('Glissez ici')}
                                         </div>
                                     )}
                                 </div>
@@ -228,6 +230,7 @@ function Carte({
     onCloturer: (statut: 'gagnee' | 'perdue') => void;
     onDevis: () => void;
 }) {
+    const t = useT();
     return (
         <div
             draggable
@@ -238,7 +241,7 @@ function Carte({
                 <Link
                     to={`/crm/opportunites/${opp.id}`}
                     className="text-sm font-medium text-slate-900 hover:text-emerald-600 hover:underline"
-                    title="Ouvrir la fiche"
+                    title={t('Ouvrir la fiche')}
                 >
                     {opp.titre}
                 </Link>
@@ -252,9 +255,9 @@ function Carte({
                 <button
                     onClick={onDevis}
                     className="rounded px-1.5 py-0.5 text-[11px] font-medium text-emerald-600 transition hover:bg-emerald-50"
-                    title="Générer un devis depuis cette opportunité"
+                    title={t('Générer un devis depuis cette opportunité')}
                 >
-                    → Devis
+                    {t('→ Devis')}
                 </button>
             </div>
 
@@ -264,7 +267,7 @@ function Carte({
                         disabled={!canLeft}
                         onClick={() => onMove(-1)}
                         className="rounded px-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
-                        title="Étape précédente"
+                        title={t('Étape précédente')}
                     >
                         ‹
                     </button>
@@ -272,7 +275,7 @@ function Carte({
                         disabled={!canRight}
                         onClick={() => onMove(1)}
                         className="rounded px-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
-                        title="Étape suivante"
+                        title={t('Étape suivante')}
                     >
                         ›
                     </button>
@@ -281,14 +284,14 @@ function Carte({
                     <button
                         onClick={() => onCloturer('gagnee')}
                         className="rounded px-1.5 py-0.5 text-[11px] font-medium text-emerald-600 transition hover:bg-emerald-50"
-                        title="Marquer gagnée"
+                        title={t('Marquer gagnée')}
                     >
-                        ✓ Gagné
+                        {t('✓ Gagné')}
                     </button>
                     <button
                         onClick={() => onCloturer('perdue')}
                         className="rounded px-1.5 py-0.5 text-[11px] font-medium text-red-500 transition hover:bg-red-50"
-                        title="Marquer perdue"
+                        title={t('Marquer perdue')}
                     >
                         ✕
                     </button>

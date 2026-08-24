@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { EquipeData, EquipeInvitation, RoleOption } from '@/types';
+import { useT } from '@/lib/langue';
 
 function lienInvitation(token: string): string {
     return `${window.location.origin}/rejoindre/${token}`;
@@ -27,6 +28,7 @@ function BoutonCopier({ token }: { token: string }) {
 }
 
 export default function Equipe() {
+    const t = useT();
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const [email, setEmail] = useState('');
@@ -85,7 +87,7 @@ export default function Equipe() {
     });
 
     if (isLoading || !data) {
-        return <div className="text-sm text-slate-400">Chargement…</div>;
+        return <div className="text-sm text-slate-400">{t('Chargement…')}</div>;
     }
 
     const s = data.subscription;
@@ -95,9 +97,9 @@ export default function Equipe() {
     return (
         <div className="max-w-4xl space-y-6">
             <div>
-                <h1 className="text-xl font-semibold text-slate-900">Équipe</h1>
+                <h1 className="text-xl font-semibold text-slate-900">{t('Équipe')}</h1>
                 <p className="mt-1 text-sm text-slate-500">
-                    Invitez vos collaborateurs et gérez leurs droits d'accès.
+                    {t("Invitez vos collaborateurs et gérez leurs droits d'accès.")}
                 </p>
             </div>
 
@@ -106,16 +108,16 @@ export default function Equipe() {
                 <div className="flex items-end justify-between">
                     <div>
                         <div className="text-sm font-medium text-slate-900">
-                            Plan {s.plan_label}
+                            {t('Plan {plan}', { plan: s.plan_label })}
                         </div>
                         <div className="mt-0.5 text-sm text-slate-500">
-                            {s.seats_used} utilisateur(s) actif(s) sur {s.seat_limit} sièges
-                            {s.pending_invitations > 0 && ` · ${s.pending_invitations} invitation(s) en attente`}
+                            {t('{utilises} utilisateur(s) actif(s) sur {total} sièges', { utilises: s.seats_used, total: s.seat_limit })}
+                            {s.pending_invitations > 0 && ' · ' + t('{n} invitation(s) en attente', { n: s.pending_invitations })}
                         </div>
                     </div>
                     <div className="text-right text-sm text-slate-500">
-                        {s.included_seats} inclus
-                        {s.extra_seats > 0 && ` + ${s.extra_seats} extra`}
+                        {t('{n} inclus', { n: s.included_seats })}
+                        {s.extra_seats > 0 && ' + ' + t('{n} en supplément', { n: s.extra_seats })}
                     </div>
                 </div>
                 <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
@@ -126,16 +128,14 @@ export default function Equipe() {
                 </div>
                 {plein && (
                     <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                        Tous vos sièges sont occupés. Ajoutez des sièges supplémentaires
-                        ({s.extra_seat_price} DH HT / mois chacun) ou passez à un plan supérieur pour inviter
-                        davantage de collaborateurs.
+                        {t('Tous vos sièges sont occupés. Ajoutez des sièges supplémentaires ({prix} DH HT / mois chacun) ou passez à un plan supérieur pour inviter davantage de collaborateurs.', { prix: s.extra_seat_price })}
                     </p>
                 )}
 
                 {/* Réservé au superadmin plateforme : ajuste plan + sièges extra (facturation). */}
                 {user?.is_superadmin && (
                     <div className="mt-4 flex flex-wrap items-end gap-3 rounded-md border border-dashed border-slate-300 p-3">
-                        <div className="text-xs font-medium text-slate-500">Superadmin :</div>
+                        <div className="text-xs font-medium text-slate-500">{t('Superadmin :')}</div>
                         <label className="text-xs text-slate-500">
                             Plan
                             <select
@@ -149,7 +149,7 @@ export default function Equipe() {
                             </select>
                         </label>
                         <label className="text-xs text-slate-500">
-                            Sièges extra
+                            {t('Sièges extra')}
                             <input
                                 type="number"
                                 min={0}
@@ -164,33 +164,33 @@ export default function Equipe() {
 
             {/* Inviter */}
             <section className="rounded-xl bg-white p-6 shadow-sm">
-                <h2 className="font-medium text-slate-900">Inviter un collaborateur</h2>
+                <h2 className="font-medium text-slate-900">{t('Inviter un collaborateur')}</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                    Un lien d'invitation est généré : partagez-le à votre collègue, il choisira son mot de passe.
+                    {t("Un lien d'invitation est généré : partagez-le à votre collègue, il choisira son mot de passe.")}
                 </p>
                 {erreur && (
                     <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erreur}</div>
                 )}
                 <div className="mt-4 flex flex-wrap items-end gap-3">
                     <div className="flex-1 min-w-[220px]">
-                        <label className="mb-1 block text-xs font-medium text-slate-600">Email</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t('Email')}</label>
                         <input
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="collaborateur@entreprise.ma"
+                            placeholder={t('collaborateur@entreprise.ma')}
                             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">Rôle</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t('Rôle')}</label>
                         <select
                             value={role}
                             onChange={(e) => setRole(e.target.value)}
                             className="rounded-md border border-slate-300 px-3 py-2 text-sm"
                         >
                             {data.roles.map((r: RoleOption) => (
-                                <option key={r.value} value={r.value}>{r.label}</option>
+                                <option key={r.value} value={r.value}>{t(r.label)}</option>
                             ))}
                         </select>
                     </div>
@@ -199,7 +199,7 @@ export default function Equipe() {
                         onClick={() => inviter.mutate()}
                         className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
                     >
-                        Générer l'invitation
+                        {t("Générer l'invitation")}
                     </button>
                 </div>
 
@@ -222,16 +222,16 @@ export default function Equipe() {
 
             {/* Membres */}
             <section className="rounded-xl bg-white p-6 shadow-sm">
-                <h2 className="font-medium text-slate-900">Membres ({data.users.length})</h2>
+                <h2 className="font-medium text-slate-900">{t('Membres ({n})', { n: data.users.length })}</h2>
                 <div className="mt-4 overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400">
-                                <th className="pb-2">Nom</th>
-                                <th className="pb-2">Email</th>
-                                <th className="pb-2">Rôle</th>
-                                <th className="pb-2">Statut</th>
-                                <th className="pb-2 text-right">Actions</th>
+                                <th className="pb-2">{t('Nom')}</th>
+                                <th className="pb-2">{t('Email')}</th>
+                                <th className="pb-2">{t('Rôle')}</th>
+                                <th className="pb-2">{t('Statut')}</th>
+                                <th className="pb-2 text-right">{t('Actions')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -241,7 +241,7 @@ export default function Equipe() {
                                     <tr key={u.id} className={u.is_active ? '' : 'opacity-50'}>
                                         <td className="py-3 font-medium text-slate-800">
                                             {u.name}
-                                            {moi && <span className="ml-1 text-xs text-slate-400">(vous)</span>}
+                                            {moi && <span className="ml-1 text-xs text-slate-400">{t('(vous)')}</span>}
                                         </td>
                                         <td className="py-3 text-slate-600">{u.email}</td>
                                         <td className="py-3">
@@ -252,7 +252,7 @@ export default function Equipe() {
                                                 className="rounded border border-slate-200 px-2 py-1 text-xs"
                                             >
                                                 {data.roles.map((r) => (
-                                                    <option key={r.value} value={r.value}>{r.label}</option>
+                                                    <option key={r.value} value={r.value}>{t(r.label)}</option>
                                                 ))}
                                             </select>
                                         </td>
@@ -266,7 +266,7 @@ export default function Equipe() {
                                                         : 'bg-slate-200 text-slate-600'
                                                 }`}
                                             >
-                                                {u.is_active ? 'Actif' : 'Désactivé'}
+                                                {u.is_active ? t('Actif') : t('Désactivé')}
                                             </button>
                                         </td>
                                         <td className="py-3 text-right">
@@ -277,7 +277,7 @@ export default function Equipe() {
                                                 disabled={moi}
                                                 className="text-xs text-red-600 hover:underline disabled:opacity-40"
                                             >
-                                                Supprimer
+                                                {t('Supprimer')}
                                             </button>
                                         </td>
                                     </tr>
@@ -292,7 +292,7 @@ export default function Equipe() {
             {data.invitations.length > 0 && (
                 <section className="rounded-xl bg-white p-6 shadow-sm">
                     <h2 className="font-medium text-slate-900">
-                        Invitations en attente ({data.invitations.length})
+                        {t('Invitations en attente ({n})', { n: data.invitations.length })}
                     </h2>
                     <ul className="mt-4 divide-y divide-slate-50">
                         {data.invitations.map((i) => (
@@ -300,7 +300,7 @@ export default function Equipe() {
                                 <div>
                                     <div className="text-sm font-medium text-slate-800">{i.email}</div>
                                     <div className="text-xs text-slate-400">
-                                        {i.role_label} · expire le {new Date(i.expires_at).toLocaleDateString('fr-MA')}
+                                        {t(i.role_label)} · {t('expire le {date}', { date: new Date(i.expires_at).toLocaleDateString('fr-MA') })}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -309,7 +309,7 @@ export default function Equipe() {
                                         onClick={() => revoquer.mutate(i.id)}
                                         className="text-xs text-red-600 hover:underline"
                                     >
-                                        Révoquer
+                                        {t('Révoquer')}
                                     </button>
                                 </div>
                             </li>

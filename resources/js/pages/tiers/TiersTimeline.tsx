@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import type { TimelineItem } from '@/types';
+import { useT } from '@/lib/langue';
 
 const KIND = {
     activite: { icon: '💬', color: 'bg-sky-100 text-sky-700', label: 'Activité' },
@@ -11,6 +12,7 @@ const KIND = {
 
 /** Timeline 360° d'un client : activités, opportunités et documents réunis. */
 export default function TiersTimeline({ tiersId }: { tiersId: string }) {
+    const t = useT();
     const { data, isLoading } = useQuery({
         queryKey: ['tiers-timeline', tiersId],
         queryFn: async () => {
@@ -21,12 +23,12 @@ export default function TiersTimeline({ tiersId }: { tiersId: string }) {
 
     return (
         <div className="rounded-xl bg-white p-5 shadow-sm">
-            <h2 className="mb-4 font-medium text-slate-900">Historique client (360°)</h2>
+            <h2 className="mb-4 font-medium text-slate-900">{t('Historique client (360°)')}</h2>
 
-            {isLoading && <div className="py-4 text-sm text-slate-400">Chargement…</div>}
+            {isLoading && <div className="py-4 text-sm text-slate-400">{t('Chargement…')}</div>}
             {!isLoading && data?.length === 0 && (
                 <p className="text-sm text-slate-400">
-                    Aucune activité, opportunité ni document pour ce client pour l'instant.
+                    {t("Aucune activité, opportunité ni document pour ce client pour l'instant.")}
                 </p>
             )}
 
@@ -42,7 +44,7 @@ export default function TiersTimeline({ tiersId }: { tiersId: string }) {
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm font-medium text-slate-900">{item.titre}</span>
                                     <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${meta.color}`}>
-                                        {meta.label}
+                                        {t(meta.label)}
                                     </span>
                                 </div>
                                 {item.detail && <div className="text-xs text-slate-500">{item.detail}</div>}

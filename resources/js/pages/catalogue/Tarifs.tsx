@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import type { Paginated, Produit, Tiers } from '@/types';
+import { useT } from '@/lib/langue';
 
 interface CategorieTarifaire {
     id: number;
@@ -37,6 +38,7 @@ const errMsg = (err: any, fallback: string): string => {
 };
 
 export default function Tarifs() {
+    const t = useT();
     const queryClient = useQueryClient();
     const [error, setError] = useState<string | null>(null);
     const [produitId, setProduitId] = useState<string>('');
@@ -160,17 +162,17 @@ export default function Tarifs() {
 
             {/* Catégories tarifaires */}
             <section className="rounded-xl bg-white p-5 shadow-sm">
-                <h2 className="font-medium text-slate-900">Niveaux de tarif</h2>
+                <h2 className="font-medium text-slate-900">{t('Niveaux de tarif')}</h2>
                 <p className="mt-1 text-sm text-slate-500">
                     Créez vos niveaux — par exemple <strong>Gros</strong>, <strong>Demi-gros</strong> et{' '}
-                    <strong>Détail</strong>. Le niveau par défaut s'applique aux clients qui n'en ont pas.
+                    <strong>{t('Détail')}</strong>. Le niveau par défaut s'applique aux clients qui n'en ont pas.
                 </p>
 
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                     <input
                         value={nom}
                         onChange={(e) => setNom(e.target.value)}
-                        placeholder="Nom du niveau"
+                        placeholder={t('Nom du niveau')}
                         className={champ}
                     />
                     <label className="flex items-center gap-2 text-sm text-slate-600">
@@ -180,14 +182,14 @@ export default function Tarifs() {
                             onChange={(e) => setParDefaut(e.target.checked)}
                             className="rounded border-slate-300"
                         />
-                        Par défaut
+                        {t('Par défaut')}
                     </label>
                     <button
                         onClick={() => creerCategorie.mutate()}
                         disabled={!nom || creerCategorie.isPending}
                         className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
                     >
-                        Ajouter
+                        {t('Ajouter')}
                     </button>
                 </div>
 
@@ -202,7 +204,7 @@ export default function Tarifs() {
                             }`}
                         >
                             {c.name}
-                            {c.is_default && <span className="text-xs text-emerald-600">défaut</span>}
+                            {c.is_default && <span className="text-xs text-emerald-600">{t('défaut')}</span>}
                             <span className="text-xs text-slate-400">{c.tarifs_count} prix</span>
                             <button
                                 onClick={() => confirm(`Supprimer « ${c.name} » et ses prix ?`) && supprimerCategorie.mutate(c.id)}
@@ -213,17 +215,17 @@ export default function Tarifs() {
                         </span>
                     ))}
                     {(categories ?? []).length === 0 && (
-                        <span className="text-sm text-slate-400">Aucun niveau. Commencez par en créer un.</span>
+                        <span className="text-sm text-slate-400">{t('Aucun niveau. Commencez par en créer un.')}</span>
                     )}
                 </div>
             </section>
 
             {/* Grille par article */}
             <section className="rounded-xl bg-white p-5 shadow-sm">
-                <h2 className="font-medium text-slate-900">Prix par article</h2>
+                <h2 className="font-medium text-slate-900">{t('Prix par article')}</h2>
                 <p className="mt-1 text-sm text-slate-500">
                     Choisissez un article, puis fixez son prix par niveau ou pour un client précis. La{' '}
-                    <strong>quantité minimum</strong> crée un palier dégressif.
+                    <strong>{t('quantité minimum')}</strong> crée un palier dégressif.
                 </p>
 
                 <select
@@ -231,7 +233,7 @@ export default function Tarifs() {
                     onChange={(e) => setProduitId(e.target.value)}
                     className={`mt-4 w-full max-w-md ${champ}`}
                 >
-                    <option value="">Choisir un article…</option>
+                    <option value="">{t('Choisir un article…')}</option>
                     {(produits ?? []).map((p) => (
                         <option key={p.id} value={p.id}>
                             {p.code} — {p.name}
@@ -248,15 +250,15 @@ export default function Tarifs() {
 
                         <div className="mt-3 flex flex-wrap items-end gap-3">
                             <div>
-                                <label className="mb-1 block text-xs text-slate-500">Pour</label>
+                                <label className="mb-1 block text-xs text-slate-500">{t('Pour')}</label>
                                 <select value={cible} onChange={(e) => setCible(e.target.value)} className={champ}>
-                                    <option value="">Choisir…</option>
-                                    <optgroup label="Niveau de tarif">
+                                    <option value="">{t('Choisir…')}</option>
+                                    <optgroup label={t('Niveau de tarif')}>
                                         {(categories ?? []).map((c) => (
                                             <option key={`cat-${c.id}`} value={`cat:${c.id}`}>{c.name}</option>
                                         ))}
                                     </optgroup>
-                                    <optgroup label="Client précis">
+                                    <optgroup label={t('Client précis')}>
                                         {(clients ?? []).map((c) => (
                                             <option key={`cli-${c.id}`} value={`cli:${c.id}`}>{c.name}</option>
                                         ))}
@@ -264,7 +266,7 @@ export default function Tarifs() {
                                 </select>
                             </div>
                             <div>
-                                <label className="mb-1 block text-xs text-slate-500">À partir de (qté)</label>
+                                <label className="mb-1 block text-xs text-slate-500">{t('À partir de (qté)')}</label>
                                 <input
                                     type="number"
                                     min="0.001"
@@ -275,7 +277,7 @@ export default function Tarifs() {
                                 />
                             </div>
                             <div>
-                                <label className="mb-1 block text-xs text-slate-500">Prix unitaire HT</label>
+                                <label className="mb-1 block text-xs text-slate-500">{t('Prix unitaire HT')}</label>
                                 <input
                                     type="number"
                                     step="0.01"
@@ -289,7 +291,7 @@ export default function Tarifs() {
                                 disabled={!cible || !prix || ajouterTarif.isPending}
                                 className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
                             >
-                                Enregistrer le prix
+                                {t('Enregistrer le prix')}
                             </button>
                         </div>
 
@@ -297,9 +299,9 @@ export default function Tarifs() {
                             <table className="w-full text-left text-sm">
                                 <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                     <tr>
-                                        <th className="px-4 py-2">Pour</th>
-                                        <th className="px-4 py-2 text-right">À partir de</th>
-                                        <th className="px-4 py-2 text-right">Prix HT</th>
+                                        <th className="px-4 py-2">{t('Pour')}</th>
+                                        <th className="px-4 py-2 text-right">{t('À partir de')}</th>
+                                        <th className="px-4 py-2 text-right">{t('Prix HT')}</th>
                                         <th className="px-4 py-2" />
                                     </tr>
                                 </thead>
@@ -307,35 +309,35 @@ export default function Tarifs() {
                                     {grille.data.length === 0 && (
                                         <tr>
                                             <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
-                                                Aucun tarif : cet article se vend au prix catalogue.
+                                                {t('Aucun tarif : cet article se vend au prix catalogue.')}
                                             </td>
                                         </tr>
                                     )}
-                                    {grille.data.map((t) => (
-                                        <tr key={t.id} className="hover:bg-slate-50">
+                                    {grille.data.map((ligne) => (
+                                        <tr key={ligne.id} className="hover:bg-slate-50">
                                             <td className="px-4 py-2">
-                                                {t.client ? (
+                                                {ligne.client ? (
                                                     <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-xs text-indigo-700">
-                                                        {t.client}
+                                                        {ligne.client}
                                                     </span>
                                                 ) : (
                                                     <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">
-                                                        {t.categorie}
+                                                        {ligne.categorie}
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="px-4 py-2 text-right tabular-nums text-slate-600">
-                                                {t.quantite_min}
+                                                {ligne.quantite_min}
                                             </td>
                                             <td className="px-4 py-2 text-right font-medium tabular-nums text-slate-800">
-                                                {formatMAD(t.prix)}
+                                                {formatMAD(ligne.prix)}
                                             </td>
                                             <td className="px-4 py-2 text-right">
                                                 <button
-                                                    onClick={() => supprimerTarif.mutate(t.id)}
+                                                    onClick={() => supprimerTarif.mutate(ligne.id)}
                                                     className="text-xs text-slate-400 hover:text-red-600"
                                                 >
-                                                    Supprimer
+                                                    {t('Supprimer')}
                                                 </button>
                                             </td>
                                         </tr>
@@ -350,7 +352,7 @@ export default function Tarifs() {
             {/* Conditionnements de l'article sélectionné */}
             {produitId !== '' && (
                 <section className="rounded-xl bg-white p-5 shadow-sm">
-                    <h2 className="font-medium text-slate-900">Conditionnements</h2>
+                    <h2 className="font-medium text-slate-900">{t('Conditionnements')}</h2>
                     <p className="mt-1 text-sm text-slate-500">
                         Vendez au carton ou à la palette : le stock reste tenu à l'unité. Un code-barres par colis
                         permet de le scanner en caisse.
@@ -358,16 +360,16 @@ export default function Tarifs() {
 
                     <div className="mt-4 flex flex-wrap items-end gap-3">
                         <div>
-                            <label className="mb-1 block text-xs text-slate-500">Nom</label>
+                            <label className="mb-1 block text-xs text-slate-500">{t('Nom')}</label>
                             <input
                                 value={condNom}
                                 onChange={(e) => setCondNom(e.target.value)}
-                                placeholder="Carton de 12"
+                                placeholder={t('Carton de 12')}
                                 className={champ}
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs text-slate-500">Contient (unités)</label>
+                            <label className="mb-1 block text-xs text-slate-500">{t('Contient (unités)')}</label>
                             <input
                                 type="number"
                                 step="any"
@@ -378,7 +380,7 @@ export default function Tarifs() {
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs text-slate-500">Code-barres (optionnel)</label>
+                            <label className="mb-1 block text-xs text-slate-500">{t('Code-barres (optionnel)')}</label>
                             <input
                                 value={condBarcode}
                                 onChange={(e) => setCondBarcode(e.target.value)}
@@ -390,7 +392,7 @@ export default function Tarifs() {
                             disabled={!condNom || !condQte || ajouterConditionnement.isPending}
                             className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
                         >
-                            Ajouter
+                            {t('Ajouter')}
                         </button>
                     </div>
 
@@ -413,7 +415,7 @@ export default function Tarifs() {
                         ))}
                         {(conditionnements ?? []).length === 0 && (
                             <span className="text-sm text-slate-400">
-                                Aucun colis : cet article se vend à l'unité.
+                                {t("Aucun colis : cet article se vend à l'unité.")}
                             </span>
                         )}
                     </div>

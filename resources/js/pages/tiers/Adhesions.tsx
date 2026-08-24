@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { AdhesionStatut, Paginated, PortailAdhesion, Tiers } from '@/types';
+import { useT } from '@/lib/langue';
 
 const ETAT: Record<AdhesionStatut, { libelle: string; classe: string }> = {
     en_attente: { libelle: 'En attente', classe: 'bg-amber-100 text-amber-700' },
@@ -25,6 +26,7 @@ function messageErreur(err: unknown, defaut: string): string {
 
 /** Adresse du portail à communiquer aux clients, avec retour visuel à la copie. */
 function AdressePortail({ grossiste }: { grossiste: string }) {
+    const t = useT();
     const [copie, setCopie] = useState(false);
     const url = `${window.location.origin}/portail/connexion`;
 
@@ -36,7 +38,7 @@ function AdressePortail({ grossiste }: { grossiste: string }) {
 
     return (
         <section className="rounded-xl bg-white p-5 shadow-sm">
-            <h2 className="font-medium text-slate-900">L'adresse à donner à vos clients</h2>
+            <h2 className="font-medium text-slate-900">{t("L'adresse à donner à vos clients")}</h2>
             <p className="mt-1 text-sm text-slate-500">
                 Ils créent leur compte, puis demandent l'accès en choisissant « {grossiste} » dans la liste des
                 grossistes. Leur demande arrive ici.
@@ -59,6 +61,7 @@ function AdressePortail({ grossiste }: { grossiste: string }) {
 }
 
 export default function Adhesions() {
+    const t = useT();
     const queryClient = useQueryClient();
     const { tenant, can } = useAuth();
     const peutAgir = can('tiers', 'write');
@@ -115,7 +118,7 @@ export default function Adhesions() {
     };
 
     if (isLoading) {
-        return <div className="text-sm text-slate-400">Chargement…</div>;
+        return <div className="text-sm text-slate-400">{t('Chargement…')}</div>;
     }
 
     const toutes = adhesions ?? [];
@@ -135,14 +138,14 @@ export default function Adhesions() {
 
     const panneau = (a: PortailAdhesion) => (
         <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-            <label className="block text-xs font-medium text-emerald-900">Compte client à relier</label>
+            <label className="block text-xs font-medium text-emerald-900">{t('Compte client à relier')}</label>
             <div className="mt-2 flex flex-wrap items-center gap-2">
                 <select
                     value={clientChoisi}
                     onChange={(e) => setClientChoisi(e.target.value)}
                     className="min-w-64 flex-1 rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm"
                 >
-                    <option value="">➕ Créer une fiche client à son nom</option>
+                    <option value="">{t('➕ Créer une fiche client à son nom')}</option>
                     {(clients ?? []).map((c) => (
                         <option key={c.id} value={c.id}>
                             {c.code} — {c.name}
@@ -160,13 +163,13 @@ export default function Adhesions() {
                     }
                     className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
                 >
-                    Confirmer l'accès
+                    {t("Confirmer l'accès")}
                 </button>
                 <button
                     onClick={() => setOuverte(null)}
                     className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
                 >
-                    Annuler
+                    {t('Annuler')}
                 </button>
             </div>
             <p className="mt-2 text-xs text-emerald-800">
@@ -179,7 +182,7 @@ export default function Adhesions() {
     return (
         <div className="max-w-4xl space-y-6">
             <div>
-                <h1 className="text-xl font-semibold text-slate-900">Adhésions portail</h1>
+                <h1 className="text-xl font-semibold text-slate-900">{t('Adhésions portail')}</h1>
                 <p className="mt-1 text-sm text-slate-500">
                     Les acheteurs qui demandent l'accès à votre catalogue en ligne. En approuvant, vous les reliez à
                     une fiche client — celle qui porte leurs tarifs.
@@ -192,7 +195,7 @@ export default function Adhesions() {
             {/* Demandes en attente : la seule partie sur laquelle il y a à décider. */}
             <section className="rounded-xl bg-white p-6 shadow-sm">
                 <h2 className="font-medium text-slate-900">
-                    Demandes en attente
+                    {t('Demandes en attente')}
                     {enAttente.length > 0 && (
                         <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
                             {enAttente.length}
@@ -201,7 +204,7 @@ export default function Adhesions() {
                 </h2>
 
                 {enAttente.length === 0 ? (
-                    <p className="mt-3 text-sm text-slate-400">Aucune demande en attente.</p>
+                    <p className="mt-3 text-sm text-slate-400">{t('Aucune demande en attente.')}</p>
                 ) : (
                     <ul className="mt-4 divide-y divide-slate-100">
                         {enAttente.map((a) => (
@@ -218,7 +221,7 @@ export default function Adhesions() {
                                                     onClick={() => ouvrirPanneau(a)}
                                                     className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700"
                                                 >
-                                                    Approuver
+                                                    {t('Approuver')}
                                                 </button>
                                                 <button
                                                     onClick={() => {
@@ -228,7 +231,7 @@ export default function Adhesions() {
                                                     }}
                                                     className="text-xs text-red-600 hover:underline"
                                                 >
-                                                    Refuser
+                                                    {t('Refuser')}
                                                 </button>
                                             </>
                                         )}
@@ -246,16 +249,16 @@ export default function Adhesions() {
                 <h2 className="font-medium text-slate-900">Accès actifs ({actifs.length})</h2>
 
                 {actifs.length === 0 ? (
-                    <p className="mt-3 text-sm text-slate-400">Aucun acheteur ne commande encore en ligne.</p>
+                    <p className="mt-3 text-sm text-slate-400">{t('Aucun acheteur ne commande encore en ligne.')}</p>
                 ) : (
                     <div className="mt-4 overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400">
-                                    <th className="pb-2">Acheteur</th>
-                                    <th className="pb-2">Compte client</th>
-                                    <th className="pb-2">Depuis le</th>
-                                    <th className="pb-2 text-right">Actions</th>
+                                    <th className="pb-2">{t('Acheteur')}</th>
+                                    <th className="pb-2">{t('Compte client')}</th>
+                                    <th className="pb-2">{t('Depuis le')}</th>
+                                    <th className="pb-2 text-right">{t('Actions')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -285,7 +288,7 @@ export default function Adhesions() {
                                                     }}
                                                     className="text-xs text-red-600 hover:underline"
                                                 >
-                                                    Révoquer
+                                                    {t('Révoquer')}
                                                 </button>
                                             )}
                                         </td>
@@ -302,7 +305,7 @@ export default function Adhesions() {
                 <section className="rounded-xl bg-white p-6 shadow-sm">
                     <h2 className="font-medium text-slate-900">Demandes closes ({clos.length})</h2>
                     <p className="mt-1 text-sm text-slate-500">
-                        Un acheteur refusé ne peut pas redéposer de demande : la réouverture se fait d'ici.
+                        {t("Un acheteur refusé ne peut pas redéposer de demande : la réouverture se fait d'ici.")}
                     </p>
                     <ul className="mt-4 divide-y divide-slate-100">
                         {clos.map((a) => (
@@ -320,7 +323,7 @@ export default function Adhesions() {
                                                 onClick={() => ouvrirPanneau(a)}
                                                 className="text-xs text-emerald-600 hover:underline"
                                             >
-                                                Rouvrir l'accès
+                                                {t("Rouvrir l'accès")}
                                             </button>
                                         )}
                                     </div>

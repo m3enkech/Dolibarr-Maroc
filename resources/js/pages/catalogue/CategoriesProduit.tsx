@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import type { CategorieProduit, Compte, Paginated } from '@/types';
+import { useT } from '@/lib/langue';
 
 interface FormState {
     id: number | null;
@@ -25,6 +26,7 @@ const emptyForm: FormState = {
 };
 
 export default function CategoriesProduit() {
+    const t = useT();
     const [form, setForm] = useState<FormState>(emptyForm);
     const [error, setError] = useState<string | null>(null);
     const queryClient = useQueryClient();
@@ -108,7 +110,7 @@ export default function CategoriesProduit() {
             <option value="">{placeholder}</option>
             {comptes?.map((c) => (
                 <option key={c.id} value={c.id}>
-                    {c.code} — {c.label}
+                    {c.code} — {t(c.label)}
                 </option>
             ))}
         </>
@@ -118,9 +120,9 @@ export default function CategoriesProduit() {
         <div className="max-w-5xl space-y-4">
             <div>
                 <Link to="/catalogue" className="text-sm text-emerald-600 hover:underline">
-                    ← Retour au catalogue
+                    {t('← Retour au catalogue')}
                 </Link>
-                <h1 className="mt-2 text-xl font-semibold text-slate-900">Catégories comptables</h1>
+                <h1 className="mt-2 text-xl font-semibold text-slate-900">{t('Catégories comptables')}</h1>
                 <p className="mt-1 text-sm text-slate-500">
                     Rattachez des comptes GL de vente et d'achat à une catégorie ; les produits en
                     héritent. Une catégorie « immobilisation » crée automatiquement le bien à l'achat.
@@ -132,7 +134,7 @@ export default function CategoriesProduit() {
             <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-5 shadow-sm">
                 <div className="grid gap-4 sm:grid-cols-3">
                     <div>
-                        <label className={label}>Nom de la catégorie *</label>
+                        <label className={label}>{t('Nom de la catégorie *')}</label>
                         <input
                             required
                             value={form.name}
@@ -141,7 +143,7 @@ export default function CategoriesProduit() {
                         />
                     </div>
                     <div>
-                        <label className={label}>Compte de vente</label>
+                        <label className={label}>{t('Compte de vente')}</label>
                         <select
                             value={form.compte_vente_id}
                             onChange={(e) => setForm((f) => ({ ...f, compte_vente_id: e.target.value }))}
@@ -177,7 +179,7 @@ export default function CategoriesProduit() {
                 {form.is_immobilisation && (
                     <div className="grid gap-4 rounded-md bg-slate-50 p-4 sm:grid-cols-2">
                         <div>
-                            <label className={label}>Compte d'amortissement (28xx) *</label>
+                            <label className={label}>{t("Compte d'amortissement (28xx) *")}</label>
                             <select
                                 value={form.compte_amortissement_id}
                                 onChange={(e) => setForm((f) => ({ ...f, compte_amortissement_id: e.target.value }))}
@@ -187,7 +189,7 @@ export default function CategoriesProduit() {
                             </select>
                         </div>
                         <div>
-                            <label className={label}>Durée d'amortissement (années) *</label>
+                            <label className={label}>{t("Durée d'amortissement (années) *")}</label>
                             <input
                                 type="number"
                                 min="1"
@@ -214,7 +216,7 @@ export default function CategoriesProduit() {
                             onClick={() => setForm(emptyForm)}
                             className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
                         >
-                            Annuler
+                            {t('Annuler')}
                         </button>
                     )}
                 </div>
@@ -224,19 +226,19 @@ export default function CategoriesProduit() {
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th className="px-4 py-3">Catégorie</th>
-                            <th className="px-4 py-3">Compte vente</th>
-                            <th className="px-4 py-3">Compte achat</th>
-                            <th className="px-4 py-3">Immo.</th>
-                            <th className="px-4 py-3 text-right">Produits</th>
-                            <th className="px-4 py-3 text-right">Actions</th>
+                            <th className="px-4 py-3">{t('Catégorie')}</th>
+                            <th className="px-4 py-3">{t('Compte vente')}</th>
+                            <th className="px-4 py-3">{t('Compte achat')}</th>
+                            <th className="px-4 py-3">{t('Immo.')}</th>
+                            <th className="px-4 py-3 text-right">{t('Produits')}</th>
+                            <th className="px-4 py-3 text-right">{t('Actions')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {categories?.length === 0 && (
                             <tr>
                                 <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                                    Aucune catégorie. Les produits utilisent alors les comptes par défaut.
+                                    {t('Aucune catégorie. Les produits utilisent alors les comptes par défaut.')}
                                 </td>
                             </tr>
                         )}
@@ -259,7 +261,7 @@ export default function CategoriesProduit() {
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                     <button onClick={() => edit(cat)} className="mr-3 text-emerald-600 hover:underline">
-                                        Modifier
+                                        {t('Modifier')}
                                     </button>
                                     <button
                                         onClick={() =>
@@ -267,7 +269,7 @@ export default function CategoriesProduit() {
                                         }
                                         className="text-red-500 hover:underline"
                                     >
-                                        Supprimer
+                                        {t('Supprimer')}
                                     </button>
                                 </td>
                             </tr>

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { langueCourante } from '@/lib/langue';
 
 /**
  * Client HTTP du portail acheteur — volontairement séparé de celui de l'ERP.
@@ -23,6 +24,7 @@ portailApi.interceptors.request.use((config) => {
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
+    config.headers['Accept-Language'] = langueCourante();
     return config;
 });
 

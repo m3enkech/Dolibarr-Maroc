@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Features, Parametres as ParametresData, Societe } from '@/types';
+import { useT } from '@/lib/langue';
 
 interface FeatureMeta {
     key: keyof Features;
@@ -46,6 +47,7 @@ const CHAMPS_SOCIETE: { key: keyof Societe; label: string; placeholder?: string;
 ];
 
 function SocieteSection({ societe }: { societe: Societe }) {
+    const t = useT();
     const queryClient = useQueryClient();
     const [form, setForm] = useState<Societe>(societe);
     const [enregistre, setEnregistre] = useState(false);
@@ -66,7 +68,7 @@ function SocieteSection({ societe }: { societe: Societe }) {
 
     return (
         <section className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="font-medium text-slate-900">Identité de l'entreprise</h2>
+            <h2 className="font-medium text-slate-900">{t("Identité de l'entreprise")}</h2>
             <p className="mt-1 text-sm text-slate-500">
                 Ces informations apparaissent sur vos factures PDF, la facture électronique (UBL) et l'export
                 SIMPL-TVA. Renseignez-les pour être en conformité.
@@ -75,7 +77,7 @@ function SocieteSection({ societe }: { societe: Societe }) {
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {CHAMPS_SOCIETE.map((c) => (
                     <div key={c.key} className={c.span ? 'sm:col-span-2' : ''}>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">{c.label}</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">{t(c.label)}</label>
                         <input
                             value={(form[c.key] as string) ?? ''}
                             onChange={set(c.key)}
@@ -94,13 +96,14 @@ function SocieteSection({ societe }: { societe: Societe }) {
                 >
                     {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
-                {enregistre && <span className="text-sm text-emerald-600">✓ Enregistré</span>}
+                {enregistre && <span className="text-sm text-emerald-600">{t('✓ Enregistré')}</span>}
             </div>
         </section>
     );
 }
 
 export default function Parametres() {
+    const t = useT();
     const queryClient = useQueryClient();
 
     const { data, isLoading } = useQuery({
@@ -119,16 +122,16 @@ export default function Parametres() {
     return (
         <div className="max-w-3xl space-y-6">
             <div>
-                <h1 className="text-xl font-semibold text-slate-900">Paramètres</h1>
+                <h1 className="text-xl font-semibold text-slate-900">{t('Paramètres')}</h1>
                 <p className="mt-1 text-sm text-slate-500">{data?.name}</p>
             </div>
 
-            {isLoading && <div className="text-sm text-slate-400">Chargement…</div>}
+            {isLoading && <div className="text-sm text-slate-400">{t('Chargement…')}</div>}
 
             {data && <SocieteSection societe={data.societe} />}
 
             <section className="rounded-xl bg-white p-6 shadow-sm">
-                <h2 className="font-medium text-slate-900">Modules</h2>
+                <h2 className="font-medium text-slate-900">{t('Modules')}</h2>
                 <p className="mt-1 text-sm text-slate-500">
                     Activez uniquement ce dont votre entreprise a besoin. Les modules désactivés sont masqués
                     de l'interface.
@@ -141,7 +144,7 @@ export default function Parametres() {
                             return (
                                 <div key={module.key} className="flex items-start justify-between gap-6 py-4">
                                     <div>
-                                        <div className="text-sm font-medium text-slate-900">{module.label}</div>
+                                        <div className="text-sm font-medium text-slate-900">{t(module.label)}</div>
                                         <p className="mt-1 text-sm text-slate-500">{module.description}</p>
                                     </div>
                                     <button
@@ -165,7 +168,7 @@ export default function Parametres() {
                 </div>
 
                 <p className="mt-4 text-xs text-slate-400">
-                    Relances et effets sont indépendants : vous pouvez activer les deux, l'un, ou aucun.
+                    {t("Relances et effets sont indépendants : vous pouvez activer les deux, l'un, ou aucun.")}
                 </p>
             </section>
         </div>

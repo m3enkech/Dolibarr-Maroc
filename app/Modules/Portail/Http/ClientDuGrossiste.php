@@ -23,7 +23,7 @@ trait ClientDuGrossiste
 
         $client = Tiers::find($rattachement->tiers_id);
 
-        abort_if($client === null, 403, 'Votre compte client n\'est plus disponible chez ce grossiste.');
+        abort_if($client === null, 403, __('Votre compte client n\'est plus disponible chez ce grossiste.'));
 
         return $client;
     }

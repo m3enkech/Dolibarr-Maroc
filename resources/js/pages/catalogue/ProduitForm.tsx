@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import type { CategorieProduit, Paginated, Produit } from '@/types';
+import { useT } from '@/lib/langue';
 
 const TVA_RATES = [20, 14, 10, 7, 0] as const;
 
@@ -64,6 +65,7 @@ function toPayload(form: ProduitFormData, isEdit: boolean) {
 }
 
 export default function ProduitForm() {
+    const t = useT();
     const { id } = useParams();
     const isEdit = id !== undefined;
     const navigate = useNavigate();
@@ -171,7 +173,7 @@ export default function ProduitForm() {
         <div className="max-w-3xl space-y-4">
             <div>
                 <Link to="/catalogue" className="text-sm text-emerald-600 hover:underline">
-                    ← Retour au catalogue
+                    {t('← Retour au catalogue')}
                 </Link>
                 <h1 className="mt-2 text-xl font-semibold text-slate-900">
                     {isEdit ? `Modifier ${existing?.name ?? ''}` : 'Nouveau produit ou service'}
@@ -185,11 +187,11 @@ export default function ProduitForm() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <fieldset className="rounded-xl bg-white p-5 shadow-sm">
-                    <legend className="sr-only">Identité</legend>
-                    <h2 className="mb-4 font-medium text-slate-900">Identité</h2>
+                    <legend className="sr-only">{t('Identité')}</legend>
+                    <h2 className="mb-4 font-medium text-slate-900">{t('Identité')}</h2>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="sm:col-span-2">
-                            <label className={label}>Désignation *</label>
+                            <label className={label}>{t('Désignation *')}</label>
                             <input required value={form.name} onChange={text('name')} className={input} />
                         </div>
                         <div>
@@ -204,7 +206,7 @@ export default function ProduitForm() {
                                         onChange={text('type')}
                                         disabled={isEdit}
                                     />
-                                    Produit
+                                    {t('Produit')}
                                 </label>
                                 <label className="flex items-center gap-2 text-sm text-slate-700">
                                     <input
@@ -215,7 +217,7 @@ export default function ProduitForm() {
                                         onChange={text('type')}
                                         disabled={isEdit}
                                     />
-                                    Service
+                                    {t('Service')}
                                 </label>
                                 <label className="flex items-center gap-2 text-sm text-slate-700">
                                     <input
@@ -226,21 +228,21 @@ export default function ProduitForm() {
                                         onChange={text('type')}
                                         disabled={isEdit}
                                     />
-                                    Kit
+                                    {t('Kit')}
                                 </label>
                             </div>
                         </div>
                         <div>
                             <label className={label}>
                                 Catégorie comptable{' '}
-                                <span className="font-normal text-slate-400">(comptes GL)</span>
+                                <span className="font-normal text-slate-400">{t('(comptes GL)')}</span>
                             </label>
                             <select
                                 value={form.categorie_produit_id}
                                 onChange={text('categorie_produit_id')}
                                 className={input}
                             >
-                                <option value="">— Aucune (comptes par défaut) —</option>
+                                <option value="">{t('— Aucune (comptes par défaut) —')}</option>
                                 {categories?.map((cat) => (
                                     <option key={cat.id} value={cat.id}>
                                         {cat.name}
@@ -251,12 +253,12 @@ export default function ProduitForm() {
                         </div>
                         <div>
                             <label className={label}>
-                                Unité <span className="font-normal text-slate-400">(kg, m³, heure…)</span>
+                                Unité <span className="font-normal text-slate-400">{t('(kg, m³, heure…)')}</span>
                             </label>
                             <input value={form.unit} onChange={text('unit')} className={input} />
                         </div>
                         <div>
-                            <label className={label}>Code-barres</label>
+                            <label className={label}>{t('Code-barres')}</label>
                             <input value={form.barcode} onChange={text('barcode')} className={input} />
                         </div>
                         <div className="flex items-end pb-2">
@@ -267,11 +269,11 @@ export default function ProduitForm() {
                                     onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
                                     className="rounded border-slate-300"
                                 />
-                                Actif
+                                {t('Actif')}
                             </label>
                         </div>
                         <div className="sm:col-span-2">
-                            <label className={label}>Description</label>
+                            <label className={label}>{t('Description')}</label>
                             <textarea
                                 value={form.description}
                                 onChange={text('description')}
@@ -283,11 +285,11 @@ export default function ProduitForm() {
                 </fieldset>
 
                 <fieldset className="rounded-xl bg-white p-5 shadow-sm">
-                    <legend className="sr-only">Prix et TVA</legend>
-                    <h2 className="mb-4 font-medium text-slate-900">Prix & TVA</h2>
+                    <legend className="sr-only">{t('Prix et TVA')}</legend>
+                    <h2 className="mb-4 font-medium text-slate-900">{t('Prix & TVA')}</h2>
                     <div className="grid gap-4 sm:grid-cols-3">
                         <div>
-                            <label className={label}>Prix de vente HT (MAD) *</label>
+                            <label className={label}>{t('Prix de vente HT (MAD) *')}</label>
                             <input
                                 type="number"
                                 step="0.01"
@@ -299,7 +301,7 @@ export default function ProduitForm() {
                             />
                         </div>
                         <div>
-                            <label className={label}>Prix d'achat HT (MAD)</label>
+                            <label className={label}>{t("Prix d'achat HT (MAD)")}</label>
                             <input
                                 type="number"
                                 step="0.01"
@@ -310,7 +312,7 @@ export default function ProduitForm() {
                             />
                         </div>
                         <div>
-                            <label className={label}>Taux de TVA</label>
+                            <label className={label}>{t('Taux de TVA')}</label>
                             <select value={form.tva_rate} onChange={text('tva_rate')} className={input}>
                                 {TVA_RATES.map((rate) => (
                                     <option key={rate} value={rate}>
@@ -328,8 +330,8 @@ export default function ProduitForm() {
 
                 {form.type === 'kit' && (
                     <fieldset className="rounded-xl bg-white p-5 shadow-sm">
-                        <legend className="sr-only">Composition du kit</legend>
-                        <h2 className="mb-1 font-medium text-slate-900">Composition du kit</h2>
+                        <legend className="sr-only">{t('Composition du kit')}</legend>
+                        <h2 className="mb-1 font-medium text-slate-900">{t('Composition du kit')}</h2>
                         <p className="mb-4 text-xs text-slate-500">
                             La vente du kit sort du stock chaque composant physique (quantité vendue ×
                             quantité du composant). Les services inclus ne bougent pas le stock.
@@ -347,7 +349,7 @@ export default function ProduitForm() {
                                         }
                                         className={`${input} flex-1`}
                                     >
-                                        <option value="">— Choisir un produit ou service —</option>
+                                        <option value="">{t('— Choisir un produit ou service —')}</option>
                                         {produitsOptions?.map((p) => (
                                             <option key={p.id} value={p.id}>
                                                 {p.name} ({p.code})
@@ -366,14 +368,14 @@ export default function ProduitForm() {
                                             )
                                         }
                                         className={`${input} w-28`}
-                                        placeholder="Qté"
+                                        placeholder={t('Qté')}
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setComposants((list) => list.filter((_, i) => i !== index))}
                                         className="text-red-500 hover:underline"
                                     >
-                                        Retirer
+                                        {t('Retirer')}
                                     </button>
                                 </div>
                             ))}
@@ -389,15 +391,15 @@ export default function ProduitForm() {
                             onClick={() => setComposants((list) => [...list, { produit_id: '', quantite: '1' }])}
                             className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"
                         >
-                            + Ajouter un composant
+                            {t('+ Ajouter un composant')}
                         </button>
                     </fieldset>
                 )}
 
                 {form.type === 'product' && (
                     <fieldset className="rounded-xl bg-white p-5 shadow-sm">
-                        <legend className="sr-only">Réapprovisionnement</legend>
-                        <h2 className="mb-1 font-medium text-slate-900">Réapprovisionnement</h2>
+                        <legend className="sr-only">{t('Réapprovisionnement')}</legend>
+                        <h2 className="mb-1 font-medium text-slate-900">{t('Réapprovisionnement')}</h2>
                         <p className="mb-4 text-xs text-slate-500">
                             Le seuil déclenche une alerte quand le stock passe en dessous. La quantité
                             cible sert à suggérer la quantité à commander. Laissez vide pour ne pas suivre.
@@ -406,7 +408,7 @@ export default function ProduitForm() {
                             <div>
                                 <label className={label}>
                                     Seuil d'alerte{' '}
-                                    <span className="font-normal text-slate-400">(stock minimum)</span>
+                                    <span className="font-normal text-slate-400">{t('(stock minimum)')}</span>
                                 </label>
                                 <input
                                     type="number"
@@ -420,7 +422,7 @@ export default function ProduitForm() {
                             <div>
                                 <label className={label}>
                                     Quantité cible{' '}
-                                    <span className="font-normal text-slate-400">(à réapprovisionner)</span>
+                                    <span className="font-normal text-slate-400">{t('(à réapprovisionner)')}</span>
                                 </label>
                                 <input
                                     type="number"
@@ -447,7 +449,7 @@ export default function ProduitForm() {
                         to="/catalogue"
                         className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
                     >
-                        Annuler
+                        {t('Annuler')}
                     </Link>
                 </div>
             </form>

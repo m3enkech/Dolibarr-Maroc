@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import type { OpportuniteDetail as Detail } from '@/types';
+import { useT } from '@/lib/langue';
 
 const ETAPES = ['nouveau', 'qualifie', 'proposition', 'negociation'] as const;
 
@@ -24,6 +25,7 @@ const STATUT_BADGE: Record<string, string> = {
 };
 
 export default function OpportuniteDetail() {
+    const t = useT();
     const { id } = useParams();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
@@ -59,7 +61,7 @@ export default function OpportuniteDetail() {
         onSuccess: ({ data }) => navigate(`/ventes/${data.devis_id}/modifier`),
     });
 
-    if (isLoading || !data) return <div className="text-sm text-slate-400">Chargement…</div>;
+    if (isLoading || !data) return <div className="text-sm text-slate-400">{t('Chargement…')}</div>;
 
     const o = data.opportunite;
     const ouverte = o.statut === 'ouverte';
@@ -69,7 +71,7 @@ export default function OpportuniteDetail() {
             {/* En-tête */}
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <Link to="/crm" className="text-xs text-slate-500 hover:text-emerald-600">← Retour au pipeline</Link>
+                    <Link to="/crm" className="text-xs text-slate-500 hover:text-emerald-600">{t('← Retour au pipeline')}</Link>
                     <h1 className="mt-1 text-xl font-semibold text-slate-900">{o.titre}</h1>
                     <p className="mt-0.5 font-mono text-xs text-slate-400">{o.code}</p>
                 </div>
@@ -83,7 +85,7 @@ export default function OpportuniteDetail() {
                 <div className="space-y-4 lg:col-span-2">
                     {/* Étapes du pipeline */}
                     <section className="rounded-xl bg-white p-5 shadow-sm">
-                        <h2 className="text-sm font-semibold text-slate-900">Étape</h2>
+                        <h2 className="text-sm font-semibold text-slate-900">{t('Étape')}</h2>
                         <div className="mt-3 flex flex-wrap gap-2">
                             {ETAPES.map((etape) => (
                                 <button
@@ -108,20 +110,20 @@ export default function OpportuniteDetail() {
                                         onClick={() => cloturer.mutate('gagnee')}
                                         className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                                     >
-                                        ✓ Marquer gagnée
+                                        {t('✓ Marquer gagnée')}
                                     </button>
                                     <button
                                         onClick={() => cloturer.mutate('perdue')}
                                         className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
                                     >
-                                        ✕ Marquer perdue
+                                        {t('✕ Marquer perdue')}
                                     </button>
                                     <button
                                         onClick={() => genererDevis.mutate()}
                                         disabled={genererDevis.isPending}
                                         className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                                     >
-                                        → Générer un devis
+                                        {t('→ Générer un devis')}
                                     </button>
                                 </>
                             ) : (
@@ -129,7 +131,7 @@ export default function OpportuniteDetail() {
                                     onClick={() => rouvrir.mutate()}
                                     className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
                                 >
-                                    ↺ Rouvrir
+                                    {t('↺ Rouvrir')}
                                 </button>
                             )}
                         </div>
@@ -142,7 +144,7 @@ export default function OpportuniteDetail() {
                         </div>
                         {data.documents.length === 0 ? (
                             <div className="px-5 py-6 text-center text-sm text-slate-400">
-                                Aucun devis généré depuis cette opportunité.
+                                {t('Aucun devis généré depuis cette opportunité.')}
                             </div>
                         ) : (
                             <table className="w-full text-left text-sm">
@@ -173,7 +175,7 @@ export default function OpportuniteDetail() {
                         </div>
                         {data.activites.length === 0 ? (
                             <div className="px-5 py-6 text-center text-sm text-slate-400">
-                                Aucune activité rattachée. Créez-en depuis l'onglet Activités du CRM.
+                                {t("Aucune activité rattachée. Créez-en depuis l'onglet Activités du CRM.")}
                             </div>
                         ) : (
                             <ul className="divide-y divide-slate-100">
@@ -199,22 +201,22 @@ export default function OpportuniteDetail() {
                 {/* Colonne latérale */}
                 <div className="space-y-4">
                     <section className="rounded-xl bg-white p-5 shadow-sm">
-                        <h2 className="text-sm font-semibold text-slate-900">Informations</h2>
+                        <h2 className="text-sm font-semibold text-slate-900">{t('Informations')}</h2>
                         <dl className="mt-3 space-y-2.5 text-sm">
                             <Info label="Client">
                                 <Link to={`/tiers/${o.tiers_id}`} className="text-emerald-600 hover:underline">
                                     {o.tiers ?? '—'}
                                 </Link>
                             </Info>
-                            <Info label="Montant estimé">
+                            <Info label={t('Montant estimé')}>
                                 <span className="font-semibold tabular-nums">{formatMAD(o.montant_estime)}</span>
                             </Info>
-                            <Info label="Probabilité">{o.probabilite} %</Info>
+                            <Info label={t('Probabilité')}>{o.probabilite} %</Info>
                             <Info label="Commercial">{data.vendeur ?? '—'}</Info>
-                            <Info label="Créée le">{data.dates.creee_le ?? '—'}</Info>
-                            <Info label="Clôture prévue">{data.dates.cloture_prevue ?? '—'}</Info>
-                            {data.dates.close_le && <Info label="Clôturée le">{data.dates.close_le}</Info>}
-                            <Info label="Ancienneté">
+                            <Info label={t('Créée le')}>{data.dates.creee_le ?? '—'}</Info>
+                            <Info label={t('Clôture prévue')}>{data.dates.cloture_prevue ?? '—'}</Info>
+                            {data.dates.close_le && <Info label={t('Clôturée le')}>{data.dates.close_le}</Info>}
+                            <Info label={t('Ancienneté')}>
                                 {data.dates.jours_ouverts === null ? '—' : `${data.dates.jours_ouverts} jour(s)`}
                             </Info>
                         </dl>
@@ -222,7 +224,7 @@ export default function OpportuniteDetail() {
 
                     {o.note && (
                         <section className="rounded-xl bg-white p-5 shadow-sm">
-                            <h2 className="text-sm font-semibold text-slate-900">Note</h2>
+                            <h2 className="text-sm font-semibold text-slate-900">{t('Note')}</h2>
                             <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{o.note}</p>
                         </section>
                     )}

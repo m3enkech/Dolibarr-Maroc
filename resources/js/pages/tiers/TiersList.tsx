@@ -3,8 +3,10 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import type { Paginated, Tiers } from '@/types';
+import { useT } from '@/lib/langue';
 
 export default function TiersList() {
+    const t = useT();
     const [search, setSearch] = useState('');
     const [type, setType] = useState('');
     const [page, setPage] = useState(1);
@@ -39,14 +41,14 @@ export default function TiersList() {
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-xl font-semibold text-slate-900">Tiers</h1>
-                    <p className="mt-1 text-sm text-slate-500">Clients et fournisseurs</p>
+                    <h1 className="text-xl font-semibold text-slate-900">{t('Tiers')}</h1>
+                    <p className="mt-1 text-sm text-slate-500">{t('Clients et fournisseurs')}</p>
                 </div>
                 <Link
                     to="/tiers/nouveau"
                     className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
                 >
-                    + Nouveau tiers
+                    {t('+ Nouveau tiers')}
                 </Link>
             </div>
 
@@ -57,7 +59,7 @@ export default function TiersList() {
                         setSearch(e.target.value);
                         setPage(1);
                     }}
-                    placeholder="Rechercher par nom, code ou ICE…"
+                    placeholder={t('Rechercher par nom, code ou ICE…')}
                     className="w-72 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
                 <select
@@ -68,10 +70,10 @@ export default function TiersList() {
                     }}
                     className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                 >
-                    <option value="">Tous</option>
-                    <option value="client">Clients</option>
-                    <option value="prospect">Prospects</option>
-                    <option value="fournisseur">Fournisseurs</option>
+                    <option value="">{t('Tous')}</option>
+                    <option value="client">{t('Clients')}</option>
+                    <option value="prospect">{t('Prospects')}</option>
+                    <option value="fournisseur">{t('Fournisseurs')}</option>
                 </select>
             </div>
 
@@ -79,27 +81,27 @@ export default function TiersList() {
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th className="px-4 py-3">Code</th>
-                            <th className="px-4 py-3">Nom</th>
-                            <th className="px-4 py-3">Type</th>
+                            <th className="px-4 py-3">{t('Code')}</th>
+                            <th className="px-4 py-3">{t('Nom')}</th>
+                            <th className="px-4 py-3">{t('Type')}</th>
                             <th className="px-4 py-3">ICE</th>
-                            <th className="px-4 py-3">Ville</th>
-                            <th className="px-4 py-3">Téléphone</th>
-                            <th className="px-4 py-3 text-right">Actions</th>
+                            <th className="px-4 py-3">{t('Ville')}</th>
+                            <th className="px-4 py-3">{t('Téléphone')}</th>
+                            <th className="px-4 py-3 text-right">{t('Actions')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {isLoading && (
                             <tr>
                                 <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                                    Chargement…
+                                    {t('Chargement…')}
                                 </td>
                             </tr>
                         )}
                         {!isLoading && data?.data.length === 0 && (
                             <tr>
                                 <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                                    Aucun tiers. Créez le premier !
+                                    {t('Aucun tiers. Créez le premier !')}
                                 </td>
                             </tr>
                         )}
@@ -110,24 +112,24 @@ export default function TiersList() {
                                     {tiers.name}
                                     {!tiers.is_active && (
                                         <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
-                                            inactif
+                                            {t('inactif')}
                                         </span>
                                     )}
                                 </td>
                                 <td className="px-4 py-3">
                                     {tiers.is_prospect && (
                                         <span className="mr-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
-                                            Prospect
+                                            {t('Prospect')}
                                         </span>
                                     )}
                                     {tiers.is_client && !tiers.is_prospect && (
                                         <span className="mr-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">
-                                            Client
+                                            {t('Client')}
                                         </span>
                                     )}
                                     {tiers.is_supplier && (
                                         <span className="rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700">
-                                            Fournisseur
+                                            {t('Fournisseur')}
                                         </span>
                                     )}
                                 </td>
@@ -141,13 +143,13 @@ export default function TiersList() {
                                         to={`/tiers/${tiers.id}`}
                                         className="mr-3 text-emerald-600 hover:underline"
                                     >
-                                        Modifier
+                                        {t('Modifier')}
                                     </Link>
                                     <button
                                         onClick={() => handleDelete(tiers)}
                                         className="text-red-500 hover:underline"
                                     >
-                                        Supprimer
+                                        {t('Supprimer')}
                                     </button>
                                 </td>
                             </tr>
@@ -166,14 +168,14 @@ export default function TiersList() {
                                 onClick={() => setPage((p) => p - 1)}
                                 className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40"
                             >
-                                Précédent
+                                {t('Précédent')}
                             </button>
                             <button
                                 disabled={page >= data.meta.last_page}
                                 onClick={() => setPage((p) => p + 1)}
                                 className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40"
                             >
-                                Suivant
+                                {t('Suivant')}
                             </button>
                         </div>
                     </div>

@@ -8,6 +8,7 @@ import StockMouvements from '@/pages/stock/StockMouvements';
 import StockNiveaux from '@/pages/stock/StockNiveaux';
 import Transferts from '@/pages/stock/Transferts';
 import type { Entrepot } from '@/types';
+import { useT } from '@/lib/langue';
 
 const TABS = [
     { key: 'niveaux', label: 'Niveaux' },
@@ -21,6 +22,7 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key'];
 
 export default function StockPage() {
+    const t = useT();
     const [tab, setTab] = useState<TabKey>('niveaux');
 
     const { data: entrepots } = useQuery({
@@ -34,7 +36,7 @@ export default function StockPage() {
     return (
         <div className="space-y-4">
             <div>
-                <h1 className="text-xl font-semibold text-slate-900">Stock</h1>
+                <h1 className="text-xl font-semibold text-slate-900">{t('Stock')}</h1>
                 <p className="mt-1 text-sm text-slate-500">
                     Niveaux, mouvements, transferts, réapprovisionnement et inventaire — les factures validées
                     sortent le stock automatiquement

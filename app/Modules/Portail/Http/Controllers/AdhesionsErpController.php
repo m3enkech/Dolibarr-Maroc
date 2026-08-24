@@ -54,21 +54,21 @@ class AdhesionsErpController extends Controller
         $r = $this->rattachementDuTenant($request, $rattachement);
         $this->service->approuver($r, $data['tiers_id'] ?? null, $request->user()->id);
 
-        return response()->json(['message' => 'Accès accordé.']);
+        return response()->json(['message' => __('Accès accordé.')]);
     }
 
     public function refuser(Request $request, int $rattachement): JsonResponse
     {
         $this->service->refuser($this->rattachementDuTenant($request, $rattachement));
 
-        return response()->json(['message' => 'Demande refusée.']);
+        return response()->json(['message' => __('Demande refusée.')]);
     }
 
     public function revoquer(Request $request, int $rattachement): JsonResponse
     {
         $this->service->revoquer($this->rattachementDuTenant($request, $rattachement));
 
-        return response()->json(['message' => 'Accès révoqué.']);
+        return response()->json(['message' => __('Accès révoqué.')]);
     }
 
     /**

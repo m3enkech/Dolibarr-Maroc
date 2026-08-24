@@ -22,7 +22,7 @@ class EnsurePermission
             : Roles::WRITE;
 
         if (! $request->user()?->hasPermission($domaine, $action)) {
-            abort(403, "Vous n'avez pas les droits nécessaires sur ce module.");
+            abort(403, __("Vous n'avez pas les droits nécessaires sur ce module."));
         }
 
         return $next($request);

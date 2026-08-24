@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Entrepot, MouvementStock, Paginated } from '@/types';
+import { useT } from '@/lib/langue';
 
 const TYPE_BADGES: Record<MouvementStock['type'], { label: string; classes: string }> = {
     entree: { label: 'Entrée', classes: 'bg-emerald-100 text-emerald-700' },
@@ -13,6 +14,7 @@ const TYPE_BADGES: Record<MouvementStock['type'], { label: string; classes: stri
 };
 
 export default function StockMouvements({ entrepots }: { entrepots: Entrepot[] }) {
+    const t = useT();
     const [entrepotId, setEntrepotId] = useState('');
     const [page, setPage] = useState(1);
 
@@ -37,7 +39,7 @@ export default function StockMouvements({ entrepots }: { entrepots: Entrepot[] }
                 }}
                 className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
             >
-                <option value="">Tous les entrepôts</option>
+                <option value="">{t('Tous les entrepôts')}</option>
                 {entrepots.map((entrepot) => (
                     <option key={entrepot.id} value={entrepot.id}>
                         {entrepot.name}
@@ -49,25 +51,25 @@ export default function StockMouvements({ entrepots }: { entrepots: Entrepot[] }
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th className="px-4 py-3">Date</th>
-                            <th className="px-4 py-3">Type</th>
-                            <th className="px-4 py-3">Produit</th>
-                            <th className="px-4 py-3">Entrepôt</th>
-                            <th className="px-4 py-3 text-right">Quantité</th>
-                            <th className="px-4 py-3 text-right">Stock après</th>
-                            <th className="px-4 py-3">Référence / Note</th>
+                            <th className="px-4 py-3">{t('Date')}</th>
+                            <th className="px-4 py-3">{t('Type')}</th>
+                            <th className="px-4 py-3">{t('Produit')}</th>
+                            <th className="px-4 py-3">{t('Entrepôt')}</th>
+                            <th className="px-4 py-3 text-right">{t('Quantité')}</th>
+                            <th className="px-4 py-3 text-right">{t('Stock après')}</th>
+                            <th className="px-4 py-3">{t('Référence / Note')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {isLoading && (
                             <tr>
-                                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">Chargement…</td>
+                                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">{t('Chargement…')}</td>
                             </tr>
                         )}
                         {!isLoading && data?.data.length === 0 && (
                             <tr>
                                 <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                                    Aucun mouvement de stock.
+                                    {t('Aucun mouvement de stock.')}
                                 </td>
                             </tr>
                         )}
@@ -84,7 +86,7 @@ export default function StockMouvements({ entrepots }: { entrepots: Entrepot[] }
                                     </td>
                                     <td className="px-4 py-3">
                                         <span className={`rounded px-1.5 py-0.5 text-xs ${badge.classes}`}>
-                                            {badge.label}
+                                            {t(badge.label)}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 font-medium text-slate-900">
@@ -122,14 +124,14 @@ export default function StockMouvements({ entrepots }: { entrepots: Entrepot[] }
                                 onClick={() => setPage((p) => p - 1)}
                                 className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40"
                             >
-                                Précédent
+                                {t('Précédent')}
                             </button>
                             <button
                                 disabled={page >= data.meta.last_page}
                                 onClick={() => setPage((p) => p + 1)}
                                 className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40"
                             >
-                                Suivant
+                                {t('Suivant')}
                             </button>
                         </div>
                     </div>
