@@ -26,7 +26,10 @@ class AdhesionsErpController extends Controller
 
         $demandes = AcheteurTiers::where('tenant_id', $tenantId)
             ->with(['acheteur:id,name,email,phone', 'tiers:id,code,name'])
+            // `id` en second critère : deux demandes déposées dans la même
+            // seconde auraient sinon un ordre indéterminé.
             ->latest('demande_at')
+            ->latest('id')
             ->get()
             ->map(fn (AcheteurTiers $r) => [
                 'id' => $r->id,
