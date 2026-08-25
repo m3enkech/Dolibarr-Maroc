@@ -195,7 +195,7 @@ export default function AchatDetail() {
 
             {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
@@ -245,7 +245,7 @@ export default function AchatDetail() {
                     </tbody>
                 </table>
                 <div className="flex justify-end border-t border-slate-200 px-4 py-4">
-                    <div className="w-64 space-y-1 text-sm">
+                    <div className="w-full space-y-1 text-sm sm:w-64">
                         <div className="flex justify-between text-slate-600">
                             <span>Total HT</span>
                             <span className="tabular-nums">{formatMAD(doc.total_ht)}</span>

@@ -30,9 +30,9 @@ export function OuvrirCaisse({ pending, error, entrepots, onOuvrir }: OuvrirCais
     const [entrepotId, setEntrepotId] = useState<number | null>(defaut?.id ?? null);
 
     return (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur">
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-950/90 p-4 backdrop-blur">
             <div
-                className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/90 p-8 text-center shadow-2xl shadow-emerald-500/10"
+                className="my-auto w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/90 p-6 text-center shadow-2xl shadow-emerald-500/10 sm:p-8"
                 style={{ animation: 'pos-pop 0.3s ease-out' }}
             >
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400/10 text-3xl shadow-[0_0_40px_rgba(52,211,153,0.2)]">
@@ -119,9 +119,9 @@ export function FermerCaisse({ session, rapport, pending, error, onFermer, onCan
     const ecart = compteNum === null ? null : Math.round((compteNum - theorique) * 100) / 100;
 
     return (
-        <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/90 p-4 backdrop-blur">
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-950/90 p-4 backdrop-blur">
             <div
-                className="w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-900/90 p-6 shadow-2xl shadow-emerald-500/10"
+                className="my-auto w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-900/90 p-4 shadow-2xl shadow-emerald-500/10 sm:p-6"
                 style={{ animation: 'pos-pop 0.25s ease-out' }}
             >
                 <div className="flex items-start justify-between">
@@ -254,9 +254,9 @@ export function SessionFermee({ session, rapport, onNouvelleSession }: SessionFe
     const ecart = session.ecart === null ? 0 : parseFloat(session.ecart);
 
     return (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/95 p-4 backdrop-blur">
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-950/95 p-4 backdrop-blur">
             <div
-                className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/90 p-8 text-center shadow-2xl"
+                className="my-auto w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/90 p-6 text-center shadow-2xl sm:p-8"
                 style={{ animation: 'pos-pop 0.3s ease-out' }}
             >
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400/10 text-3xl">

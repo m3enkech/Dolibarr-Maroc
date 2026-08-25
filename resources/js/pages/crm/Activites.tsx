@@ -87,12 +87,12 @@ export default function Activites() {
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <div className="flex rounded-lg border border-slate-200 bg-white p-1">
+                <div className="flex max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 w-fit">
                     {([['a_faire', 'À faire'], ['tout', 'Tout l\'historique']] as const).map(([key, label]) => (
                         <button
                             key={key}
                             onClick={() => setVue(key)}
-                            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                            className={`shrink-0 whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium transition ${
                                 vue === key ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
                             }`}
                         >

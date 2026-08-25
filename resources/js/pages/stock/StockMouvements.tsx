@@ -47,7 +47,7 @@ export default function StockMouvements({ entrepots }: { entrepots: Entrepot[] }
                 ))}
             </select>
 
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>

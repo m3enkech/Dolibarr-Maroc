@@ -76,12 +76,12 @@ export default function CrmStats() {
 
     return (
         <div className="space-y-4">
-            <div className="flex rounded-lg border border-slate-200 bg-white p-1" style={{ width: 'fit-content' }}>
+            <div className="flex max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 w-fit">
                 {PERIODES.map((p) => (
                     <button
                         key={p.key}
                         onClick={() => setPeriode(p.key)}
-                        className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                        className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium transition ${
                             periode === p.key ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
                         }`}
                     >
@@ -173,7 +173,7 @@ export default function CrmStats() {
             </div>
 
             {/* Performance par commercial */}
-            <section className="overflow-hidden rounded-xl bg-white shadow-sm">
+            <section className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <div className="border-b border-slate-200 px-5 py-3">
                     <h2 className="text-sm font-semibold text-slate-900">{t('Performance par commercial')}</h2>
                     <p className="mt-0.5 text-xs text-slate-500">

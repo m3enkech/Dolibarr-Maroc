@@ -70,7 +70,7 @@ export default function PortailCommandeDetail() {
                 </div>
             )}
 
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <table className="w-full text-start text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>

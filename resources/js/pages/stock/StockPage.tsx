@@ -43,12 +43,12 @@ export default function StockPage() {
                 </p>
             </div>
 
-            <div className="flex rounded-lg border border-slate-200 bg-white p-1" style={{ width: 'fit-content' }}>
+            <div className="flex max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 w-fit">
                 {TABS.map(({ key, label }) => (
                     <button
                         key={key}
                         onClick={() => setTab(key)}
-                        className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                        className={`shrink-0 whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium transition ${
                             tab === key ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
                         }`}
                     >

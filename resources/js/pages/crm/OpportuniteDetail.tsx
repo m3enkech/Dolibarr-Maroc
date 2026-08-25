@@ -138,7 +138,7 @@ export default function OpportuniteDetail() {
                     </section>
 
                     {/* Documents liés */}
-                    <section className="overflow-hidden rounded-xl bg-white shadow-sm">
+                    <section className="overflow-x-auto rounded-xl bg-white shadow-sm">
                         <div className="border-b border-slate-200 px-5 py-3 text-sm font-semibold text-slate-900">
                             Documents générés ({data.documents.length})
                         </div>

@@ -180,7 +180,7 @@ export default function TiersForm() {
             {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-                <fieldset className="rounded-xl bg-white p-5 shadow-sm">
+                <fieldset className="min-w-0 rounded-xl bg-white p-5 shadow-sm">
                     <legend className="sr-only">{t('Identité')}</legend>
                     <h2 className="mb-4 font-medium text-slate-900">{t('Identité')}</h2>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -192,7 +192,10 @@ export default function TiersForm() {
                             <label className={label}>{t('Contact principal')}</label>
                             <input value={form.contact_name} onChange={text('contact_name')} className={input} />
                         </div>
-                        <div className="flex items-end gap-6 pb-2">
+                        {/* Quatre cases sur une ligne : sans `flex-wrap`, leur
+                            largeur cumulée s'impose à la colonne de grille et
+                            c'est le formulaire entier qui déborde. */}
+                        <div className="flex flex-wrap items-end gap-x-6 gap-y-2 pb-2">
                             <label className="flex items-center gap-2 text-sm text-slate-700">
                                 <input
                                     type="checkbox"
@@ -307,7 +310,7 @@ export default function TiersForm() {
                     )}
                 </fieldset>
 
-                <fieldset className="rounded-xl bg-white p-5 shadow-sm">
+                <fieldset className="min-w-0 rounded-xl bg-white p-5 shadow-sm">
                     <legend className="sr-only">{t('Identifiants légaux')}</legend>
                     <h2 className="mb-4 font-medium text-slate-900">{t('Identifiants légaux (Maroc)')}</h2>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -343,7 +346,7 @@ export default function TiersForm() {
                     </div>
                 </fieldset>
 
-                <fieldset className="rounded-xl bg-white p-5 shadow-sm">
+                <fieldset className="min-w-0 rounded-xl bg-white p-5 shadow-sm">
                     <legend className="sr-only">{t('Coordonnées')}</legend>
                     <h2 className="mb-4 font-medium text-slate-900">{t('Coordonnées')}</h2>
                     <div className="grid gap-4 sm:grid-cols-2">

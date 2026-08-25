@@ -295,7 +295,7 @@ export default function Tarifs() {
                             </button>
                         </div>
 
-                        <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
+                        <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
                             <table className="w-full text-left text-sm">
                                 <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                     <tr>

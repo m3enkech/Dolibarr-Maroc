@@ -7,3 +7,28 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/*
+ * Cibles tactiles.
+ *
+ * L'interface est dessinée pour la souris : la plupart des actions de ligne
+ * font 24 à 32 px de haut, ce qui se vise très bien au curseur et très mal au
+ * doigt (40 px est le minimum admis). Plutôt que de grossir 166 boutons — ce
+ * qui alourdirait l'écran de bureau où ils sont justes — on ne pose ce
+ * plancher que sur les appareils SANS pointage fin : téléphones et tablettes.
+ * Sur un poste à la souris, rien ne bouge.
+ */
+@media (pointer: coarse) {
+    button,
+    [role='button'] {
+        min-height: 40px;
+    }
+
+    /* Une case à cocher se vise dans les deux sens : sans largeur minimale,
+       elle reste une cible de 16 px au milieu d'une ligne de 40. */
+    input[type='checkbox'],
+    input[type='radio'] {
+        min-height: 24px;
+        min-width: 24px;
+    }
+}

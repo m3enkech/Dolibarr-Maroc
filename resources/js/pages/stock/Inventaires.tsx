@@ -111,7 +111,7 @@ export default function Inventaires({ entrepots }: { entrepots: Entrepot[] }) {
                 </form>
             )}
 
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
@@ -330,7 +330,7 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
 
             {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>

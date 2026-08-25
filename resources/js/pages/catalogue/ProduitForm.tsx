@@ -186,7 +186,7 @@ export default function ProduitForm() {
             {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-                <fieldset className="rounded-xl bg-white p-5 shadow-sm">
+                <fieldset className="min-w-0 rounded-xl bg-white p-5 shadow-sm">
                     <legend className="sr-only">{t('Identité')}</legend>
                     <h2 className="mb-4 font-medium text-slate-900">{t('Identité')}</h2>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -284,7 +284,7 @@ export default function ProduitForm() {
                     </div>
                 </fieldset>
 
-                <fieldset className="rounded-xl bg-white p-5 shadow-sm">
+                <fieldset className="min-w-0 rounded-xl bg-white p-5 shadow-sm">
                     <legend className="sr-only">{t('Prix et TVA')}</legend>
                     <h2 className="mb-4 font-medium text-slate-900">{t('Prix & TVA')}</h2>
                     <div className="grid gap-4 sm:grid-cols-3">
@@ -329,7 +329,7 @@ export default function ProduitForm() {
                 </fieldset>
 
                 {form.type === 'kit' && (
-                    <fieldset className="rounded-xl bg-white p-5 shadow-sm">
+                    <fieldset className="min-w-0 rounded-xl bg-white p-5 shadow-sm">
                         <legend className="sr-only">{t('Composition du kit')}</legend>
                         <h2 className="mb-1 font-medium text-slate-900">{t('Composition du kit')}</h2>
                         <p className="mb-4 text-xs text-slate-500">
@@ -397,7 +397,7 @@ export default function ProduitForm() {
                 )}
 
                 {form.type === 'product' && (
-                    <fieldset className="rounded-xl bg-white p-5 shadow-sm">
+                    <fieldset className="min-w-0 rounded-xl bg-white p-5 shadow-sm">
                         <legend className="sr-only">{t('Réapprovisionnement')}</legend>
                         <h2 className="mb-1 font-medium text-slate-900">{t('Réapprovisionnement')}</h2>
                         <p className="mb-4 text-xs text-slate-500">

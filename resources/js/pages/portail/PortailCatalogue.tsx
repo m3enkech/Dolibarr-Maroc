@@ -192,7 +192,7 @@ export default function PortailCatalogue() {
             </section>
 
             {/* Panier */}
-            <aside className="lg:sticky lg:top-32 lg:self-start">
+            <aside id="ma-commande" className="scroll-mt-28 pb-20 lg:sticky lg:top-32 lg:self-start lg:pb-0">
                 <div className="rounded-xl bg-white p-5 shadow-sm">
                     <h2 className="font-medium text-slate-900">{t('Ma commande')}</h2>
 
@@ -284,6 +284,29 @@ export default function PortailCatalogue() {
                     )}
                 </div>
             </aside>
+
+            {/*
+             * Sur téléphone, le panier passe SOUS le catalogue : après avoir
+             * ajouté un article, l'épicier ne voit plus ni son total ni le
+             * bouton d'envoi sans faire défiler toute la liste. Ce rappel
+             * collé en bas d'écran affiche le total et y ramène d'un geste.
+             */}
+            {panier.length > 0 && (
+                <a
+                    href="#ma-commande"
+                    className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] lg:hidden"
+                >
+                    <span className="text-sm text-slate-600">
+                        {t(panier.length > 1 ? '{n} articles' : '{n} article', { n: panier.length })}
+                    </span>
+                    <span className="flex items-center gap-2">
+                        <span className="font-semibold tabular-nums text-slate-900">{formatMAD(totaux.ttc)}</span>
+                        <span className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white">
+                            {t('Ma commande')}
+                        </span>
+                    </span>
+                </a>
+            )}
         </div>
     );
 }

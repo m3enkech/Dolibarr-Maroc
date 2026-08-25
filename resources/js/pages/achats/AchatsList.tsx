@@ -55,12 +55,12 @@ export default function AchatsList() {
             </div>
 
             <div className="flex items-center gap-3">
-                <div className="flex rounded-lg border border-slate-200 bg-white p-1">
+                <div className="flex max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 w-fit">
                     {TABS.map((tab) => (
                         <button
                             key={tab}
                             onClick={() => switchTab(tab)}
-                            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                            className={`shrink-0 whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium transition ${
                                 type === tab ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
                             }`}
                         >
@@ -75,11 +75,11 @@ export default function AchatsList() {
                         setPage(1);
                     }}
                     placeholder="Code, réf. fournisseur ou nom…"
-                    className="w-64 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="w-full min-w-0 sm:w-64 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
             </div>
 
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>

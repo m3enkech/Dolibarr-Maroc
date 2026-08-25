@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useFeatures } from '@/lib/features';
@@ -124,6 +124,13 @@ export default function Layout() {
     const navigate = useNavigate();
     const location = useLocation();
     const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+    const [menuMobile, setMenuMobile] = useState(false);
+
+    // Sur téléphone, la barre latérale recouvre l'écran : elle doit se refermer
+    // dès qu'on a navigué, sinon on reste devant le menu au lieu de la page.
+    useEffect(() => {
+        setMenuMobile(false);
+    }, [location.pathname, location.search]);
 
     // Un item/leaf est-il visible pour cet utilisateur ?
     const isVisible = (m: MenuLeaf | MenuNode): boolean => {
@@ -188,10 +195,39 @@ export default function Layout() {
 
     return (
         <div className="flex min-h-screen bg-slate-100">
-            <aside className="flex w-64 flex-col bg-slate-900 text-slate-200">
-                <div className="border-b border-slate-800 px-5 py-4">
-                    <div className="text-lg font-semibold text-white">Dolibarr Maroc</div>
-                    <div className="mt-0.5 truncate text-xs text-slate-400">{tenant?.name}</div>
+            {/* Voile : ferme le menu d'un geste, et empêche de cliquer « au
+                travers » pendant qu'il recouvre la page. */}
+            {menuMobile && (
+                <div
+                    onClick={() => setMenuMobile(false)}
+                    className="fixed inset-0 z-30 bg-slate-900/50 lg:hidden"
+                    aria-hidden
+                />
+            )}
+
+            {/*
+             * Sous 1024 px, la barre latérale sort du flux et coulisse par-dessus
+             * la page : à 390 px elle laisserait sinon 130 px au contenu.
+             * `shrink-0` la protège de l'écrasement quand elle est dans le flux —
+             * en flex, `w-64` seul se laisse comprimer.
+             */}
+            <aside
+                className={`fixed inset-y-0 start-0 z-40 w-64 shrink-0 flex-col bg-slate-900 text-slate-200 lg:static lg:flex ${
+                    menuMobile ? 'flex' : 'hidden'
+                }`}
+            >
+                <div className="flex items-center justify-between gap-2 border-b border-slate-800 px-5 py-4">
+                    <div className="min-w-0">
+                        <div className="text-lg font-semibold text-white">Dolibarr Maroc</div>
+                        <div className="mt-0.5 truncate text-xs text-slate-400">{tenant?.name}</div>
+                    </div>
+                    <button
+                        onClick={() => setMenuMobile(false)}
+                        className="-me-2 rounded-md p-2 text-slate-400 hover:text-white lg:hidden"
+                        aria-label={t('Fermer')}
+                    >
+                        ✕
+                    </button>
                 </div>
 
                 <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
@@ -281,27 +317,43 @@ export default function Layout() {
                 </div>
             </aside>
 
-            <div className="flex flex-1 flex-col">
-                <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-                    <div className="text-sm text-slate-500">
-                        {t('Connecté en tant que')}{' '}
+            {/* `min-w-0` : sans lui, un tableau large pousse cette colonne
+                au-delà de l'écran et c'est la PAGE entière qui défile. */}
+            <div className="flex min-w-0 flex-1 flex-col">
+                <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+                    <button
+                        onClick={() => setMenuMobile(true)}
+                        className="-ms-1 rounded-md p-2 text-slate-600 transition hover:bg-slate-100 lg:hidden"
+                        aria-label={t('Ouvrir le menu')}
+                    >
+                        <span className="block h-0.5 w-5 bg-current" />
+                        <span className="mt-1 block h-0.5 w-5 bg-current" />
+                        <span className="mt-1 block h-0.5 w-5 bg-current" />
+                    </button>
+
+                    <div className="min-w-0 flex-1 truncate text-sm text-slate-500">
+                        {/* La formule complète ne tient pas sur un téléphone :
+                            le nom seul suffit, il est cliquable de toute façon. */}
+                        <span className="hidden sm:inline">{t('Connecté en tant que')} </span>
                         <NavLink to="/profil" className="font-medium text-slate-800 hover:text-emerald-600 hover:underline">
                             {user?.name}
                         </NavLink>
                         {user?.role && (
-                            <span className="ms-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">
+                            <span className="ms-2 hidden rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700 sm:inline">
                                 {t(user.role)}
                             </span>
                         )}
                     </div>
+
                     <button
                         onClick={handleLogout}
-                        className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"
+                        className="shrink-0 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"
                     >
-                        {t('Se déconnecter')}
+                        <span className="hidden sm:inline">{t('Se déconnecter')}</span>
+                        <span className="sm:hidden" aria-label={t('Se déconnecter')}>⏻</span>
                     </button>
                 </header>
-                <main className="flex-1 p-6">
+                <main className="min-w-0 flex-1 p-4 sm:p-6">
                     <Outlet />
                 </main>
             </div>

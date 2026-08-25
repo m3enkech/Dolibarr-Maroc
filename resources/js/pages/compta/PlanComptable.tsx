@@ -126,7 +126,7 @@ export default function PlanComptable({
 
             {parClasse.map(({ classe, classeLabel, comptes: comptesClasse }) =>
                 comptesClasse.length === 0 ? null : (
-                    <div key={classe} className="overflow-hidden rounded-xl bg-white shadow-sm">
+                    <div key={classe} className="overflow-x-auto rounded-xl bg-white shadow-sm">
                         <div className="border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700">
                             Classe {classe} — {classeLabel}
                         </div>

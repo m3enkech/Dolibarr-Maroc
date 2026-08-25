@@ -237,7 +237,7 @@ export default function Rapprochement() {
 
             {/* Relevés existants */}
             {(index?.releves.length ?? 0) > 0 && (
-                <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+                <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                     <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium text-slate-900">Relevés</div>
                     <table className="w-full text-left text-sm">
                         <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -314,7 +314,7 @@ export default function Rapprochement() {
                     </div>
 
                     {/* Lignes du relevé */}
-                    <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+                    <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                         <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium text-slate-900">
                             Lignes du relevé — {etat.statement.compte.code} {etat.statement.compte.label}
                         </div>
@@ -370,7 +370,7 @@ export default function Rapprochement() {
                     </div>
 
                     {/* Écritures comptables non pointées */}
-                    <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+                    <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                         <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium text-slate-900">
                             Écritures du compte non pointées ({etat.ecritures_non_pointees.length})
                         </div>

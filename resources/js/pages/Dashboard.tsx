@@ -298,7 +298,11 @@ export default function Dashboard() {
             {/* Graphe CA + répartition */}
             {data.capabilities.ventes && (
                 <div className="grid gap-4 lg:grid-cols-3">
-                    <div className="rounded-xl bg-white p-5 shadow-sm lg:col-span-2">
+                    {/* `min-w-0` : un élément de grille refuse par défaut de
+                        descendre sous la largeur de son contenu. Sans lui, le
+                        graphique (560 px minimum) élargissait la carte, donc la
+                        page entière, malgré son conteneur défilant. */}
+                    <div className="min-w-0 rounded-xl bg-white p-5 shadow-sm lg:col-span-2">
                         <h2 className="font-medium text-slate-900">{t("Chiffre d'affaires — 12 derniers mois")}</h2>
                         <div className="mt-4">
                             <BarChart12 data={data.ventes_12_mois} withAchats={data.capabilities.achats} />

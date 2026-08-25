@@ -318,7 +318,7 @@ export default function VenteForm() {
                     </button>
 
                     <div className="mt-4 flex justify-end">
-                        <div className="w-64 space-y-1 rounded-md bg-slate-50 p-4 text-sm">
+                        <div className="w-full space-y-1 rounded-md bg-slate-50 p-4 text-sm sm:w-64">
                             <div className="flex justify-between text-slate-600">
                                 <span>Total HT</span>
                                 <span className="tabular-nums">{formatMAD(totalHt)}</span>

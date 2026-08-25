@@ -43,12 +43,12 @@ export default function BalanceAgee() {
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
-                <div className="flex rounded-lg border border-slate-200 bg-white p-1">
+                <div className="flex max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 w-fit">
                     {(['clients', 'fournisseurs'] as Type[]).map((t) => (
                         <button
                             key={t}
                             onClick={() => setType(t)}
-                            className={`rounded-md px-4 py-1.5 text-sm font-medium capitalize transition ${
+                            className={`shrink-0 whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium capitalize transition ${
                                 type === t ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
                             }`}
                         >

@@ -121,6 +121,9 @@ export default function PortailFactureDetail() {
             )}
 
             <section className="overflow-hidden rounded-xl bg-white shadow-sm">
+                {/* Seul le TABLEAU défile : englober les totaux les enverrait
+                    hors écran avec lui, alors qu'ils tiennent en largeur. */}
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400">
@@ -147,6 +150,7 @@ export default function PortailFactureDetail() {
                         ))}
                     </tbody>
                 </table>
+                </div>
 
                 <div className="space-y-1 border-t border-slate-100 bg-slate-50 px-4 py-3 text-sm">
                     <div className="flex justify-between text-slate-600">

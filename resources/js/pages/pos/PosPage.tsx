@@ -447,7 +447,7 @@ export default function PosPage() {
             {/* ---------------------------------------------------------- */}
             {/* Barre supérieure                                            */}
             {/* ---------------------------------------------------------- */}
-            <header className="relative z-10 flex items-center justify-between gap-4 border-b border-white/[0.06] bg-white/[0.02] px-5 py-3 backdrop-blur">
+            <header className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] bg-white/[0.02] px-3 py-3 backdrop-blur sm:px-5">
                 <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-lg font-black text-slate-950 shadow-[0_0_24px_rgba(16,185,129,0.45)]">
                         ⌁
@@ -520,9 +520,15 @@ export default function PosPage() {
             {/* ---------------------------------------------------------- */}
             {/* Corps : produits + panier                                   */}
             {/* ---------------------------------------------------------- */}
-            <main className="relative z-10 flex h-[calc(100vh-65px)] gap-4 p-4">
+            {/*
+             * Deux panneaux côte à côte à partir de la tablette. En dessous ils
+             * s'empilent : le ticket fait 360 px et refuse de rétrécir
+             * (`shrink-0`), ce qui écrasait la grille des produits à ZÉRO — la
+             * caisse n'affichait plus un seul article sur un téléphone.
+             */}
+            <main className="relative z-10 flex h-[calc(100vh-65px)] flex-col gap-3 p-3 lg:flex-row lg:gap-4 lg:p-4">
                 {/* Produits */}
-                <section className="flex min-w-0 flex-1 flex-col">
+                <section className="flex min-h-0 min-w-0 flex-1 flex-col">
                     <input
                         autoFocus
                         value={search}
@@ -587,7 +593,10 @@ export default function PosPage() {
                 </section>
 
                 {/* Panier */}
-                <aside className="flex w-[360px] shrink-0 flex-col rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl">
+                {/* Empilé, le ticket est plafonné pour laisser voir les produits ;
+                    son total et le bouton d'encaissement restent au bas du
+                    panneau, seule la liste des lignes défile. */}
+                <aside className="flex max-h-[45vh] w-full shrink-0 flex-col rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl lg:max-h-none lg:w-[360px]">
                     <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-5 py-4">
                         {/* Compte client : applique automatiquement son tarif. */}
                         <div className="relative min-w-0">

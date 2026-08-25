@@ -66,12 +66,12 @@ export default function Effets() {
                 )}
             </div>
 
-            <div className="flex rounded-lg border border-slate-200 bg-white p-1" style={{ width: 'fit-content' }}>
+            <div className="flex max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 w-fit">
                 {(['recevoir', 'payer'] as EffetType[]).map((t) => (
                     <button
                         key={t}
                         onClick={() => setType(t)}
-                        className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                        className={`shrink-0 whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium transition ${
                             type === t ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
                         }`}
                     >
