@@ -179,16 +179,35 @@ export interface StockNiveau {
     valeur_achat: string | null;
 }
 
+/** D'où sort la quantité conseillée — le chiffre porte toujours son étiquette. */
+export type ReapproOrigine = 'ventes' | 'ventes_court' | 'seuil' | 'sans_historique';
+
 export interface StockAlerte {
     produit_id: number;
     code: string;
     name: string;
     unit: string | null;
     quantite: string;
-    stock_min: string;
+    stock_min: string | null;
     stock_reappro: string | null;
     en_commande: string;
-    suggestion: string;
+    suggestion: string | null;
+    origine: ReapproOrigine;
+    /** Consommation moyenne par jour VENDABLE (jours de rupture exclus). */
+    conso_jour: string;
+    /** Jours de vente que le stock actuel permet encore de tenir. */
+    couverture_restante: number | null;
+    demande_periode: string;
+    jours_rupture: number;
+    fenetre_jours: number;
+    horizon_jours: number;
+}
+
+export interface ReapproHypotheses {
+    fenetre_jours: number;
+    couverture_jours: number;
+    delai_appro_jours: number;
+    securite_jours: number;
 }
 
 export type InventaireStatut = 'brouillon' | 'valide';
