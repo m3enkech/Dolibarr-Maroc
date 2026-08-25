@@ -41,7 +41,11 @@ class PortailServiceProvider extends ServiceProvider
         // permanence, sans la moindre trace dans les journaux.
         // Les contrôleurs lisent le paramètre par son NOM et chargent la
         // ressource eux-mêmes, une fois le contexte posé.
-        Route::middleware(['api', 'auth:acheteur', SetTenantPortail::class])
+        // Le limiteur vient APRÈS le garde, pour compter par compte acheteur et
+        // non par adresse. C'est ici que se trouvent les routes les plus lourdes
+        // du portail — le rendu d'un PDF de facture — et c'est ici qu'un
+        // concurrent muni d'un compte approuvé aspirerait catalogue et tarifs.
+        Route::middleware(['api', 'auth:acheteur', 'throttle:portail-grossiste', SetTenantPortail::class])
             ->prefix('api/portail/v1/grossistes/{grossiste}')
             ->group(__DIR__.'/routes-grossiste.php');
 

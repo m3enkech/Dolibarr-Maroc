@@ -19,8 +19,14 @@ export default function Login() {
         try {
             await login(email, password);
             navigate('/dashboard');
-        } catch {
-            setError(t('Identifiants invalides.'));
+        } catch (err) {
+            // Le serveur dit POURQUOI : identifiants faux, compte désactivé,
+            // entreprise suspendue, ou trop de tentatives. Tout écraser par
+            // « Identifiants invalides » ferait réessayer quelqu'un qui vient
+            // d'être temporairement bloqué, et chaque essai réarmerait le
+            // compteur. Ses messages sont déjà dans la langue de l'appelant.
+            const reponse = (err as { response?: { data?: { message?: string } } })?.response;
+            setError(reponse?.data?.message ?? t('Identifiants invalides.'));
         } finally {
             setLoading(false);
         }

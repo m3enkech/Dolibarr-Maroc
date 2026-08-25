@@ -7,4 +7,7 @@ Route::get('auth/moi', [AuthPortailController::class, 'moi']);
 Route::post('auth/deconnexion', [AuthPortailController::class, 'deconnexion']);
 
 Route::get('mes-grossistes', [AuthPortailController::class, 'mesGrossistes']);
-Route::post('demander-acces', [AuthPortailController::class, 'demanderAcces']);
+// Compté par COMPTE acheteur, pas par adresse : le garde s'est déjà exécuté, et
+// plusieurs commerçants peuvent partager une même sortie NAT.
+Route::post('demander-acces', [AuthPortailController::class, 'demanderAcces'])
+    ->middleware('throttle:demande-acces');

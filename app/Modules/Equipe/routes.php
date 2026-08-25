@@ -19,5 +19,11 @@ Route::middleware(['auth:sanctum', 'tenant', 'superadmin'])->group(function () {
 });
 
 // --- Acceptation d'invitation : public (retrouvée par token). ---
-Route::get('invitations/{token}', [InvitationController::class, 'show']);
-Route::post('invitations/{token}/accepter', [InvitationController::class, 'accepter']);
+//
+// Le jeton fait 48 caractères, donc indevinable ; mais une réponse 200 révèle
+// l'adresse invitée, le rôle attribué et le nom de la société. Rien ne bornait
+// les tentatives.
+Route::middleware('throttle:jeton-invitation')->group(function () {
+    Route::get('invitations/{token}', [InvitationController::class, 'show']);
+    Route::post('invitations/{token}/accepter', [InvitationController::class, 'accepter']);
+});
