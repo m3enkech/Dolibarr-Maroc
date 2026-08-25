@@ -29,7 +29,7 @@ export default function Balance() {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
                 <label className="text-sm text-slate-600">Du</label>
                 <input type="date" value={du} onChange={(e) => setDu(e.target.value)} className={input} />
                 <label className="text-sm text-slate-600">au</label>

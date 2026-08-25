@@ -189,9 +189,12 @@ export default function Opportunites() {
                                             onDevis={() => genererDevis.mutate(opp.id)}
                                         />
                                     ))}
+                                    {/* Pas « Glissez ici » : au doigt, on ne glisse
+                                        rien — les cartes se déplacent avec les
+                                        flèches. */}
                                     {opps.length === 0 && (
                                         <div className="rounded-lg border border-dashed border-slate-200 py-6 text-center text-xs text-slate-400">
-                                            {t('Glissez ici')}
+                                            {t('Aucune opportunité à cette étape.')}
                                         </div>
                                     )}
                                 </div>
@@ -262,22 +265,33 @@ function Carte({
             </div>
 
             <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
+                {/*
+                 * Ces deux boutons SONT le seul moyen de déplacer une carte au
+                 * doigt : le glisser-déposer HTML5 ne répond pas au toucher, et
+                 * sous 768 px les étapes s'empilent de toute façon en une seule
+                 * colonne. Ils sont donc dimensionnés comme des cibles à part
+                 * entière, et non comme des chevrons décoratifs.
+                 */}
                 <div className="flex gap-1">
                     <button
                         disabled={!canLeft}
                         onClick={() => onMove(-1)}
-                        className="rounded px-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+                        className="flex h-9 min-w-9 items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
                         title={t('Étape précédente')}
+                        aria-label={t('Étape précédente')}
                     >
-                        ‹
+                        {/* Le chevron se retourne en arabe : « précédent » y va
+                            vers la droite. */}
+                        <span className="rtl:rotate-180" aria-hidden>‹</span>
                     </button>
                     <button
                         disabled={!canRight}
                         onClick={() => onMove(1)}
-                        className="rounded px-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+                        className="flex h-9 min-w-9 items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
                         title={t('Étape suivante')}
+                        aria-label={t('Étape suivante')}
                     >
-                        ›
+                        <span className="rtl:rotate-180" aria-hidden>›</span>
                     </button>
                 </div>
                 <div className="flex gap-1">

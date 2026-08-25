@@ -20,7 +20,10 @@
  */
 @media (pointer: coarse) {
     button,
-    [role='button'] {
+    [role='button'],
+    input,
+    select,
+    textarea {
         min-height: 40px;
     }
 

@@ -338,7 +338,7 @@ export default function ProduitForm() {
                         </p>
                         <div className="space-y-2">
                             {composants.map((composant, index) => (
-                                <div key={index} className="flex items-center gap-3">
+                                <div key={index} className="flex flex-wrap items-center gap-3">
                                     <select
                                         required
                                         value={composant.produit_id}
@@ -347,7 +347,7 @@ export default function ProduitForm() {
                                                 list.map((c, i) => (i === index ? { ...c, produit_id: e.target.value } : c)),
                                             )
                                         }
-                                        className={`${input} flex-1`}
+                                        className={`${input} w-full min-w-0 flex-1`}
                                     >
                                         <option value="">{t('— Choisir un produit ou service —')}</option>
                                         {produitsOptions?.map((p) => (

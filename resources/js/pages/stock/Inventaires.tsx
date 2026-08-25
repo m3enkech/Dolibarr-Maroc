@@ -397,12 +397,12 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
             </div>
 
             {!readonly && produitsDisponibles.length > 0 && (
-                <div className="flex items-end gap-3 rounded-xl bg-white p-4 shadow-sm">
-                    <div>
+                <div className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 shadow-sm">
+                    <div className="min-w-0 flex-1">
                         <label className="mb-1 block text-xs font-medium text-slate-600">
                             {t('Ajouter un produit trouvé')}
                         </label>
-                        <select value={addProduitId} onChange={(e) => setAddProduitId(e.target.value)} className={input}>
+                        <select value={addProduitId} onChange={(e) => setAddProduitId(e.target.value)} className={`${input} w-full min-w-0`}>
                             <option value="">{t('— Choisir —')}</option>
                             {produitsDisponibles.map((p) => (
                                 <option key={p.id} value={p.id}>
