@@ -144,6 +144,40 @@ class StockService
         // Entrepôt du document (caisse rattachée à un entrepôt) ; défaut sinon.
         $entrepot = $document->entrepot ?? $this->entrepotParDefaut();
 
+        // Sur une SORTIE seulement : ce que d'autres documents de la même famille
+        // ont déjà fait partir. Un retour d'avoir, lui, rend toujours ce que la
+        // pièce porte — le nettage ne le concerne pas.
+        $reste = $sens < 0 ? $this->dejaSortiParLaFamille($document) : [];
+
+        /**
+         * Écrit la sortie d'un produit en absorbant d'abord ce qui est déjà
+         * parti. Le solde est consommé au fil des lignes : deux lignes du même
+         * article sur une même pièce se partagent le crédit au lieu que la
+         * seconde croie, à tort, que la première l'a déjà couverte.
+         */
+        $bouger = function (Produit $produit, float $quantite, ?string $note) use (&$reste, $document, $entrepot, $sens, $type): void {
+            if ($sens < 0 && ($reste[$produit->id] ?? 0.0) > 0.0) {
+                $absorbe = min($quantite, $reste[$produit->id]);
+                $reste[$produit->id] = round($reste[$produit->id] - $absorbe, 3);
+                $quantite = round($quantite - $absorbe, 3);
+            }
+
+            // Entièrement couverte par un document frère : rien à écrire.
+            if ($quantite < 0.0005) {
+                return;
+            }
+
+            $this->mouvement(
+                $produit,
+                $entrepot,
+                $sens * $quantite,
+                $type,
+                reference: $document->code,
+                documentVenteId: $document->id,
+                note: $note,
+            );
+        };
+
         foreach ($document->lignes as $ligne) {
             if ($ligne->produit_id === null) {
                 continue;
@@ -162,14 +196,10 @@ class StockService
                         continue;
                     }
 
-                    $this->mouvement(
+                    $bouger(
                         $composant->composant,
-                        $entrepot,
-                        $sens * (float) $ligne->quantite * (float) $composant->quantite,
-                        $type,
-                        reference: $document->code,
-                        documentVenteId: $document->id,
-                        note: 'Kit '.$produit->name,
+                        (float) $ligne->quantite * (float) $composant->quantite,
+                        'Kit '.$produit->name,
                     );
                 }
 
@@ -180,15 +210,104 @@ class StockService
                 continue;
             }
 
-            $this->mouvement(
-                $produit,
-                $entrepot,
-                $sens * (float) $ligne->quantite,
-                $type,
-                reference: $document->code,
-                documentVenteId: $document->id,
-            );
+            $bouger($produit, (float) $ligne->quantite, null);
         }
+    }
+
+    /**
+     * Marchandise déjà sortie par les AUTRES documents de la même famille, par
+     * produit.
+     *
+     * Une commande, ses bons de livraison et sa facture décrivent la MÊME
+     * marchandise : elle ne doit quitter le stock qu'une fois, quel que soit
+     * l'ordre des validations. Le garde-fou historique ne regardait que la
+     * source DIRECTE de la facture, et ratait donc le cas — le plus courant —
+     * où le bon de livraison et la facture sont deux FRÈRES issus de la même
+     * commande.
+     *
+     * @return array<int, float>  quantité déjà sortie, indexée par produit_id
+     */
+    private function dejaSortiParLaFamille(DocumentVente $document): array
+    {
+        // Un document sans source n'a pas de famille : une transformation exige
+        // une source DÉJÀ VALIDÉE, donc un brouillon n'a jamais de descendant.
+        // Chemin rapide — un ticket de caisse ne paie pas une seule requête.
+        if ($document->source_document_id === null) {
+            return [];
+        }
+
+        $racine = $this->racineDeLaFamille($document);
+
+        // Verrou sur la racine : il sérialise les validations d'une même famille,
+        // sans quoi deux validations concurrentes liraient le même « déjà sorti »
+        // avant d'écrire. (Sans effet sous SQLite, qui ignore FOR UPDATE : la
+        // course n'est donc pas couverte par la suite de tests.)
+        DocumentVente::whereKey($racine)->lockForUpdate()->first();
+
+        $famille = array_diff($this->descendance($racine), [$document->id]);
+
+        if ($famille === []) {
+            return [];
+        }
+
+        return MouvementStock::query()
+            // Uniquement les sorties : compter aussi les retours d'avoir
+            // laisserait croire que la marchandise est encore à sortir.
+            ->where('type', MouvementStock::TYPE_VENTE)
+            ->whereIn('document_vente_id', $famille)
+            ->selectRaw('produit_id, SUM(quantite) as total')
+            ->groupBy('produit_id')
+            ->pluck('total', 'produit_id')
+            ->map(fn ($total) => abs(round((float) $total, 3)))
+            ->all();
+    }
+
+    /** Document le plus haut de la chaîne des sources (devis, commande ou pièce directe). */
+    private function racineDeLaFamille(DocumentVente $document): int
+    {
+        $courant = $document;
+
+        // Borne de sûreté : une chaîne réelle fait deux ou trois maillons ;
+        // au-delà, la donnée est corrompue et boucler serait pire.
+        for ($i = 0; $i < 10 && $courant->source_document_id !== null; $i++) {
+            $parent = DocumentVente::find($courant->source_document_id);
+
+            if ($parent === null) {
+                break;
+            }
+
+            $courant = $parent;
+        }
+
+        return $courant->id;
+    }
+
+    /**
+     * Tous les documents issus de cette racine, elle comprise.
+     *
+     * @return array<int, int>
+     */
+    private function descendance(int $racine): array
+    {
+        $ids = [$racine];
+        $frontiere = [$racine];
+
+        for ($i = 0; $i < 10 && $frontiere !== []; $i++) {
+            $enfants = DocumentVente::whereIn('source_document_id', $frontiere)
+                ->pluck('id')
+                ->all();
+
+            $enfants = array_values(array_diff($enfants, $ids));
+
+            if ($enfants === []) {
+                break;
+            }
+
+            $ids = array_merge($ids, $enfants);
+            $frontiere = $enfants;
+        }
+
+        return $ids;
     }
 
     /**
