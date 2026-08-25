@@ -32,6 +32,15 @@ class PortailServiceProvider extends ServiceProvider
             ->group(__DIR__.'/routes-acheteur.php');
 
         // 3. Acheteur authentifié, dans le périmètre d'un grossiste
+        //
+        // ⚠️ AUCUNE route de ce groupe ne doit s'appuyer sur la résolution
+        // automatique du modèle (`show(Produit $produit)`). SubstituteBindings
+        // vient du groupe `api` et passe donc AVANT SetTenantPortail : le modèle
+        // serait cherché sans entreprise courante — un acheteur n'en porte
+        // aucune — et le scope étant fail-closed, la route répondrait 404 en
+        // permanence, sans la moindre trace dans les journaux.
+        // Les contrôleurs lisent le paramètre par son NOM et chargent la
+        // ressource eux-mêmes, une fois le contexte posé.
         Route::middleware(['api', 'auth:acheteur', SetTenantPortail::class])
             ->prefix('api/portail/v1/grossistes/{grossiste}')
             ->group(__DIR__.'/routes-grossiste.php');

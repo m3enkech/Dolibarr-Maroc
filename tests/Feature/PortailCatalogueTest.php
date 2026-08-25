@@ -223,4 +223,39 @@ class PortailCatalogueTest extends TestCase
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.name', 'Bouteille eau');
     }
+
+    /**
+     * Régression : la fiche article est la SEULE route du portail qui repose
+     * sur la résolution automatique du modèle. Tant que SubstituteBindings
+     * passait avant SetTenantPortail, le produit était cherché sans entreprise
+     * courante et le scope fail-closed le faisait disparaître — 404 permanent,
+     * silencieux, pour tout le monde.
+     */
+    public function test_la_fiche_article_est_servie_et_reste_cloisonnee(): void
+    {
+        $a = $this->grossiste('Grossiste A', 'a@gros.ma');
+        $b = $this->grossiste('Grossiste B', 'b@gros.ma');
+        $token = $this->acheteur('e@test.ma');
+        $this->rattacher($token, $a, 'e@test.ma');
+
+        $chezA = $this->withToken($a['token'])->postJson('/api/v1/produits', [
+            'name' => 'Bouteille 1,5L', 'type' => 'product', 'sell_price' => 6, 'tva_rate' => 20,
+        ])->assertCreated()->json('data');
+
+        $chezB = $this->withToken($b['token'])->postJson('/api/v1/produits', [
+            'name' => 'Article de B', 'type' => 'product', 'sell_price' => 9, 'tva_rate' => 20,
+        ])->assertCreated()->json('data');
+
+        $this->withToken($token)
+            ->getJson("/api/portail/v1/grossistes/{$a['slug']}/catalogue/{$chezA['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Bouteille 1,5L')
+            ->assertJsonPath('data.prix_ht', '6.00');
+
+        // L'article d'un AUTRE grossiste reste introuvable, même en connaissant
+        // son identifiant : le cloisonnement ne doit rien perdre au passage.
+        $this->withToken($token)
+            ->getJson("/api/portail/v1/grossistes/{$a['slug']}/catalogue/{$chezB['id']}")
+            ->assertNotFound();
+    }
 }
