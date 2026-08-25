@@ -201,6 +201,26 @@ export interface StockAlerte {
     jours_rupture: number;
     fenetre_jours: number;
     horizon_jours: number;
+    /** Déduit du dernier achat validé : rien en base ne relie un produit à un fournisseur. */
+    fournisseur_id: number | null;
+    fournisseur_nom: string | null;
+    dernier_prix_achat: string | null;
+}
+
+/**
+ * Ce que l'écran Réappro passe au formulaire d'achat, par l'état de
+ * navigation : rien n'est écrit en base tant que l'acheteur n'a pas
+ * enregistré.
+ */
+export interface PreRemplissageAchat {
+    fournisseur_id: number | null;
+    entrepot_id: number | null;
+    lignes: {
+        produit_id: number;
+        designation: string;
+        quantite: number;
+        prix_unitaire: string | null;
+    }[];
 }
 
 export interface ReapproHypotheses {

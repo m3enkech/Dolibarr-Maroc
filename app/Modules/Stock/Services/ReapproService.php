@@ -2,6 +2,7 @@
 
 namespace App\Modules\Stock\Services;
 
+use App\Modules\Achats\Models\DocumentAchatLigne;
 use App\Modules\Stock\Models\MouvementStock;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -63,8 +64,10 @@ class ReapproService
             return [];
         }
 
+        $ids = $produits->pluck('id')->all();
         $depuis = now()->subDays(self::FENETRE_JOURS);
-        $mouvements = $this->mouvementsParProduit($produits->pluck('id')->all(), $depuis, $entrepotId);
+        $mouvements = $this->mouvementsParProduit($ids, $depuis, $entrepotId);
+        $achats = $this->dernierAchatParProduit($ids);
 
         $resultats = [];
 
@@ -73,10 +76,52 @@ class ReapproService
                 $produit,
                 $mouvements->get($produit->id, collect()),
                 $depuis,
-            );
+            ) + ($achats[$produit->id] ?? [
+                'fournisseur_id' => null,
+                'fournisseur_nom' => null,
+                'dernier_prix_achat' => null,
+            ]);
         }
 
         return $resultats;
+    }
+
+    /**
+     * Fournisseur habituel et dernier prix payé, par produit.
+     *
+     * Rien en base ne désigne le fournisseur d'un article : il n'existe aucune
+     * table qui relie les deux. On le DÉDUIT donc du dernier achat réel — la
+     * seule trace disponible. C'est une suggestion, pas une vérité : elle
+     * remplit le formulaire, l'acheteur garde la main.
+     *
+     * @param  array<int, int>  $produitIds
+     * @return array<int, array<string, mixed>>
+     */
+    private function dernierAchatParProduit(array $produitIds): array
+    {
+        return DocumentAchatLigne::query()
+            ->whereIn('produit_id', $produitIds)
+            ->whereHas('document', fn ($q) => $q->whereNotNull('validated_at'))
+            ->with(['document:id,tiers_id,validated_at', 'document.tiers:id,name'])
+            ->orderByDesc('id')
+            ->get(['id', 'document_achat_id', 'produit_id', 'prix_unitaire'])
+            // Le plus récent l'emporte : un fournisseur qu'on a quitté il y a
+            // deux ans ne doit pas ressortir parce qu'on lui a beaucoup acheté.
+            ->groupBy('produit_id')
+            ->map(function (Collection $lignes) {
+                $recente = $lignes
+                    ->sortByDesc(fn (DocumentAchatLigne $l) => $l->document?->validated_at)
+                    ->first();
+
+                return [
+                    'fournisseur_id' => $recente->document?->tiers_id,
+                    'fournisseur_nom' => $recente->document?->tiers?->name,
+                    'dernier_prix_achat' => $recente->prix_unitaire !== null
+                        ? (float) $recente->prix_unitaire
+                        : null,
+                ];
+            })
+            ->all();
     }
 
     /**

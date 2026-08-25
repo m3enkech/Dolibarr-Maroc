@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import { ACHAT_TYPE_LABELS } from '@/pages/achats/common';
-import type { AchatType, DocumentAchat, Entrepot, Paginated, Produit, Tiers } from '@/types';
+import type { AchatType, DocumentAchat, Entrepot, Paginated, PreRemplissageAchat, Produit, Tiers } from '@/types';
 
 const TVA_RATES = ['20', '14', '10', '7', '0'];
 
@@ -54,6 +54,16 @@ export default function AchatForm() {
     const { id } = useParams();
     const isEdit = id !== undefined;
     const [searchParams] = useSearchParams();
+
+    /*
+     * Pré-remplissage venu de l'écran Réappro : le fournisseur déduit de
+     * l'historique et les lignes à commander. Il passe par l'état de
+     * NAVIGATION et non par l'URL — une commande de trente références ne tient
+     * pas dans une adresse, et ces quantités n'ont rien à faire dans un
+     * historique de navigateur. Rien n'est écrit tant que l'acheteur n'a pas
+     * enregistré : c'est un brouillon de saisie, pas une commande.
+     */
+    const preRemplissage = (useLocation().state ?? null) as PreRemplissageAchat | null;
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
@@ -62,13 +72,29 @@ export default function AchatForm() {
             ? searchParams.get('type')
             : 'commande') as AchatType,
     );
-    const [tiersId, setTiersId] = useState('');
-    const [entrepotId, setEntrepotId] = useState('');
+    const [tiersId, setTiersId] = useState(
+        preRemplissage?.fournisseur_id ? String(preRemplissage.fournisseur_id) : '',
+    );
+    const [entrepotId, setEntrepotId] = useState(
+        preRemplissage?.entrepot_id ? String(preRemplissage.entrepot_id) : '',
+    );
     const [refFournisseur, setRefFournisseur] = useState('');
     const [dateDocument, setDateDocument] = useState(() => new Date().toISOString().slice(0, 10));
     const [dateEcheance, setDateEcheance] = useState('');
     const [notes, setNotes] = useState('');
-    const [lignes, setLignes] = useState<LigneForm[]>(() => [nouvelleLigne()]);
+    const [lignes, setLignes] = useState<LigneForm[]>(() =>
+        preRemplissage?.lignes.length
+            ? preRemplissage.lignes.map((l) => ({
+                  ...nouvelleLigne(),
+                  produit_id: String(l.produit_id),
+                  designation: l.designation,
+                  quantite: String(l.quantite),
+                  // Dernier prix payé à ce fournisseur, à confirmer : un prix
+                  // d'achat se renégocie, il ne se recopie pas les yeux fermés.
+                  prix_unitaire: l.prix_unitaire ?? '0',
+              }))
+            : [nouvelleLigne()],
+    );
     const [error, setError] = useState<string | null>(null);
 
     const { data: fournisseurs } = useQuery({

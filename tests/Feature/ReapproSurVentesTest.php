@@ -84,6 +84,29 @@ class ReapproSurVentesTest extends TestCase
         $this->travelBack();
     }
 
+    /** @return array<string, mixed> */
+    private function fournisseur(string $nom): array
+    {
+        return $this->withToken($this->token)->postJson('/api/v1/tiers', [
+            'name' => $nom, 'is_client' => false, 'is_supplier' => true,
+        ])->assertCreated()->json('data');
+    }
+
+    /** Commande fournisseur validée, datée. */
+    private function acheter(int $fournisseurId, int $produitId, float $quantite, float $prix, int $joursAvant): void
+    {
+        $this->travelTo(now()->subDays($joursAvant));
+
+        $commande = $this->withToken($this->token)->postJson('/api/v1/achats/documents', [
+            'type' => 'commande', 'tiers_id' => $fournisseurId, 'entrepot_id' => $this->entrepot['id'],
+            'lignes' => [['produit_id' => $produitId, 'quantite' => $quantite, 'prix_unitaire' => $prix]],
+        ])->assertCreated()->json('data');
+
+        $this->withToken($this->token)->postJson("/api/v1/achats/documents/{$commande['id']}/valider")->assertOk();
+
+        $this->travelBack();
+    }
+
     /** @return array<string, mixed>|null */
     private function ligneReappro(int $produitId): ?array
     {
@@ -226,6 +249,50 @@ class ReapproSurVentesTest extends TestCase
         $this->vendre($produit['id'], 90, 110);
 
         $this->assertNull($this->ligneReappro($produit['id']));
+    }
+
+    /**
+     * Rien en base ne relie un produit à un fournisseur : on le déduit du
+     * dernier achat réel, pour pré-remplir la commande. Le plus RÉCENT
+     * l'emporte — un fournisseur quitté l'an dernier ne doit pas ressortir
+     * parce qu'on lui achetait beaucoup.
+     */
+    public function test_le_fournisseur_habituel_vient_du_dernier_achat(): void
+    {
+        $produit = $this->produit();
+        $this->entrer($produit['id'], 100, 95);
+        foreach (range(85, 5, 10) as $joursAvant) {
+            $this->vendre($produit['id'], 10, $joursAvant);
+        }
+
+        $ancien = $this->fournisseur('Ciments Anciens');
+        $recent = $this->fournisseur('Ciments du Maroc');
+
+        // Petites quantités : une grosse commande en cours éteindrait la
+        // suggestion, et la ligne disparaîtrait de l'écran.
+        $this->acheter($ancien['id'], $produit['id'], 5, 55, joursAvant: 80);
+        $this->acheter($recent['id'], $produit['id'], 3, 62, joursAvant: 20);
+
+        $ligne = $this->ligneReappro($produit['id']);
+
+        $this->assertSame($recent['id'], $ligne['fournisseur_id']);
+        $this->assertSame('Ciments du Maroc', $ligne['fournisseur_nom']);
+        $this->assertSame('62.00', $ligne['dernier_prix_achat'], 'Le dernier prix payé, à confirmer.');
+    }
+
+    /** Un article jamais acheté n'invente pas de fournisseur. */
+    public function test_sans_achat_passe_aucun_fournisseur_n_est_propose(): void
+    {
+        $produit = $this->produit();
+        $this->entrer($produit['id'], 100, 95);
+        foreach (range(85, 5, 10) as $joursAvant) {
+            $this->vendre($produit['id'], 10, $joursAvant);
+        }
+
+        $ligne = $this->ligneReappro($produit['id']);
+
+        $this->assertNull($ligne['fournisseur_id']);
+        $this->assertNull($ligne['dernier_prix_achat']);
     }
 
     /** Les hypothèses du calcul sont publiées avec le résultat. */

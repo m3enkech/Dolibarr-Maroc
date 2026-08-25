@@ -174,6 +174,13 @@ class StockController extends Controller
                     'jours_rupture' => $calcul['jours_rupture'],
                     'fenetre_jours' => $calcul['fenetre_jours'],
                     'horizon_jours' => $calcul['horizon_jours'],
+                    // Déduit du dernier achat : rien en base ne désigne le
+                    // fournisseur d'un article.
+                    'fournisseur_id' => $calcul['fournisseur_id'],
+                    'fournisseur_nom' => $calcul['fournisseur_nom'],
+                    'dernier_prix_achat' => $calcul['dernier_prix_achat'] !== null
+                        ? number_format($calcul['dernier_prix_achat'], 2, '.', '')
+                        : null,
                 ];
             })
             // Un produit suivi par seuil garde son critère d'affichage
