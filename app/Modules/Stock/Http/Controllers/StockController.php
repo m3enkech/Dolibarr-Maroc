@@ -30,10 +30,12 @@ class StockController extends Controller
         $produits = Produit::query()
             ->where('type', 'product')
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
+                // whereLike : `LIKE` est sensible à la casse sur PostgreSQL et
+                // insensible sur SQLite — voir ProduitsController pour le détail.
                 $search = '%'.$request->string('search').'%';
                 $query->where(fn ($q) => $q
-                    ->where('name', 'like', $search)
-                    ->orWhere('code', 'like', $search));
+                    ->whereLike('name', $search)
+                    ->orWhereLike('code', $search));
             })
             ->addSelect(['stock_quantite' => Stock::query()
                 ->selectRaw('COALESCE(SUM(quantite), 0)')
@@ -42,7 +44,12 @@ class StockController extends Controller
             ])
             // Quantités attendues : lignes de commandes fournisseur validées
             // non soldées (reste à recevoir).
-            ->addSelect(['en_commande' => $this->enCommandeSubquery()])
+            //
+            // L'entrepôt est passé, comme le fait `alertes()`. Il ne l'était pas :
+            // en vue mono-dépôt, la quantité EN STOCK était filtrée mais pas la
+            // quantité ATTENDUE — l'écran affichait donc le stock de Casablanca
+            // à côté des commandes attendues à Agadir, sur la même ligne.
+            ->addSelect(['en_commande' => $this->enCommandeSubquery($entrepotId)])
             ->orderBy('name')
             ->paginate($request->integer('per_page', 15));
 

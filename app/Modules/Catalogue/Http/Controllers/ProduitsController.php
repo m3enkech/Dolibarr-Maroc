@@ -20,11 +20,18 @@ class ProduitsController extends Controller
     {
         $produits = Produit::query()
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
+                // whereLike, et non where(..., 'like', ...) : `LIKE` est SENSIBLE
+                // à la casse sur PostgreSQL — ce que fait tourner la production —
+                // et insensible sur SQLite, où tournent les tests. Chercher
+                // « bouteille » ne trouvait donc pas « Bouteille » en ligne, et
+                // aucun test ne pouvait l'attraper. whereLike compile en `ilike`
+                // sur PostgreSQL et en `like` sur SQLite : une seule écriture,
+                // juste sur les deux moteurs.
                 $search = '%'.$request->string('search').'%';
                 $query->where(fn ($q) => $q
-                    ->where('name', 'like', $search)
-                    ->orWhere('code', 'like', $search)
-                    ->orWhere('barcode', 'like', $search));
+                    ->whereLike('name', $search)
+                    ->orWhereLike('code', $search)
+                    ->orWhereLike('barcode', $search));
             })
             ->when(
                 in_array($request->string('type')->toString(), Produit::TYPES, true),

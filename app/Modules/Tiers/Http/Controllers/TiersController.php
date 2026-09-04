@@ -19,11 +19,13 @@ class TiersController extends Controller
     {
         $tiers = Tiers::query()
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
+                // whereLike : `LIKE` est sensible à la casse sur PostgreSQL et
+                // insensible sur SQLite — voir ProduitsController pour le détail.
                 $search = '%'.$request->string('search').'%';
                 $query->where(fn ($q) => $q
-                    ->where('name', 'like', $search)
-                    ->orWhere('code', 'like', $search)
-                    ->orWhere('ice', 'like', $search));
+                    ->whereLike('name', $search)
+                    ->orWhereLike('code', $search)
+                    ->orWhereLike('ice', $search));
             })
             // Un prospect reste un client potentiel (is_client=true) : le filtre
             // « client » ne montre que les clients déjà convertis.
