@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import { useDebounce } from '@/lib/useDebounce';
 import { useT } from '@/lib/langue';
-import type { Paginated, ProduitDepots, StockNiveau } from '@/types';
+import type { Paginated, StockNiveau } from '@/types';
 
 const CHAMP =
     'w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500';
@@ -19,7 +19,6 @@ export default function ProduitsTable({
     onOuvrir: (produitId: number) => void;
 }) {
     const t = useT();
-    const queryClient = useQueryClient();
     const [saisie, setSaisie] = useState('');
     const [page, setPage] = useState(1);
 
@@ -42,22 +41,18 @@ export default function ProduitsTable({
         refetchOnWindowFocus: true,
     });
 
-    /**
-     * Le détail se charge au clic — le précharger pour toutes les lignes
-     * multiplierait les requêtes par quinze. Le survol comble la latence sans
-     * rien coûter au doigt : sur téléphone il ne se déclenche pas, et s'il se
-     * déclenche avec le tap, le cache déduplique.
+    /*
+     * Pas de préchargement au survol.
+     *
+     * Il avait été posé pour combler la latence du clic. Mesuré dans le
+     * navigateur, il échouait à chaque fois : en balayant les lignes, la souris
+     * déclenche une rafale de requêtes que le navigateur annule aussitôt. Le
+     * détail n'était donc jamais en cache quand on cliquait, et chaque
+     * annulation laissait une erreur dans la console.
+     *
+     * Une optimisation qui ne se déclenche jamais et fait du bruit n'a pas sa
+     * place. Le détail se charge au clic — une requête, quand elle sert.
      */
-    const prechargerDetail = (produitId: number) => {
-        queryClient.prefetchQuery({
-            queryKey: ['pilotage', 'depots', produitId],
-            queryFn: async () => {
-                const { data } = await api.get<{ data: ProduitDepots }>(`/stock/produits/${produitId}/depots`);
-                return data.data;
-            },
-            staleTime: 30_000,
-        });
-    };
 
     return (
         <section className="min-w-0">
@@ -119,7 +114,6 @@ export default function ProduitsTable({
                                 <tr
                                     key={niveau.produit_id}
                                     onClick={() => onOuvrir(niveau.produit_id)}
-                                    onMouseEnter={() => prechargerDetail(niveau.produit_id)}
                                     className={`cursor-pointer transition ${
                                         ouvert ? 'bg-emerald-50' : 'hover:bg-slate-50'
                                     }`}

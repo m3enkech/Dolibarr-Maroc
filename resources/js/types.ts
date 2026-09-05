@@ -179,6 +179,24 @@ export interface StockNiveau {
     valeur_achat: string | null;
 }
 
+/** Pourquoi un article n'a pas pu être commandé — lisible par la machine. */
+export type RaisonIgnore = 'fournisseur_inconnu' | 'rien_a_commander';
+
+export interface CommandeReapproResultat {
+    commandes: {
+        id: number;
+        code: string;
+        statut: string;
+        fournisseur: { id: number | null; name: string | null };
+        entrepot: { id: number; name: string } | null;
+        nb_lignes: number;
+        total_ht: string;
+        total_ttc: string;
+    }[];
+    /** Les articles écartés reviennent avec leur raison : jamais ignorés en silence. */
+    ignores: { produit_id: number; code: string; name: string; raison: RaisonIgnore }[];
+}
+
 export interface FluxCompteur {
     count: number;
     montant_ttc?: string;

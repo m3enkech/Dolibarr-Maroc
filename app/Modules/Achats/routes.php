@@ -4,6 +4,12 @@ use App\Modules\Achats\Http\Controllers\AchatsController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('achats')->group(function () {
+    // Passage de commande depuis l'écran de suivi. Limiteur NOMMÉ : la clé par
+    // défaut de Laravel ne contient pas le chemin de la route, un `throttle:10,1`
+    // générique partagerait donc son seau avec les autres routes limitées.
+    Route::post('commandes-reappro', [AchatsController::class, 'commanderReappro'])
+        ->middleware('throttle:commande-reappro');
+
     Route::get('documents', [AchatsController::class, 'index']);
     Route::post('documents', [AchatsController::class, 'store']);
     Route::get('documents/{document}', [AchatsController::class, 'show']);

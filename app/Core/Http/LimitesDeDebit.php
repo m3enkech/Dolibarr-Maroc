@@ -140,6 +140,14 @@ class LimitesDeDebit
         RateLimiter::for('demande-acces', fn (Request $r) => Limit::perHour(10)
             ->by(self::acheteurOuSource($r))->response(self::refus()));
 
+        // --- Passage de commande depuis l'écran de suivi. ---
+        //
+        // Route authentifiée qui ÉCRIT : chaque appel peut créer plusieurs
+        // commandes fournisseur et déclenche un calcul de réappro. Compté par
+        // compte, pas par adresse — c'est l'utilisateur qui commande.
+        RateLimiter::for('commande-reappro', fn (Request $r) => Limit::perMinute(10)
+            ->by('utilisateur:'.$r->user()?->getAuthIdentifier())->response(self::refus()));
+
         // --- Tout le périmètre d'un grossiste, côté acheteur. ---
         //
         // C'est ici que se trouve la route la plus lourde du portail : le rendu

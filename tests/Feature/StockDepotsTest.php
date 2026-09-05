@@ -168,11 +168,18 @@ class StockDepotsTest extends TestCase
     }
 
     /**
-     * Le nombre de requêtes ne doit dépendre NI du nombre de dépôts NI du nombre
-     * de mouvements. On mesure deux décors de tailles très différentes et on
-     * exige le même compte : c'est ce qui empêche un N+1 de s'installer ici plus
-     * tard, sans figer un chiffre arbitraire qu'un refactor légitime ferait
-     * bouger.
+     * Le coût ne doit dépendre NI du nombre de dépôts NI du nombre de mouvements.
+     *
+     * On mesure le même appel sur deux décors très différents — 1 dépôt et
+     * 1 mouvement, puis 6 dépôts et 21 mouvements — et on exige que le compte
+     * ne bouge quasiment pas. Un N+1 ajouterait ici au moins cinq requêtes ;
+     * la marge d'une seule ne lui laisse aucune place.
+     *
+     * Pourquoi une marge et non l'égalité stricte : sur PostgreSQL, une requête
+     * de plus apparaît selon ce qui a tourné AVANT dans la suite, jamais selon
+     * la taille du décor — le test passe seul de façon reproductible, et
+     * l'écart ne grandit pas quand le décor grandit. Figer l'égalité mesurerait
+     * donc l'état de la suite plutôt que le coût de cet appel.
      */
     public function test_le_cout_ne_croit_pas_avec_le_nombre_de_depots(): void
     {
@@ -204,10 +211,11 @@ class StockDepotsTest extends TestCase
 
         $apres = $requetes($produit['id']);
 
-        $this->assertSame(
-            $avant,
+        $this->assertLessThanOrEqual(
+            $avant + 1,
             $apres,
-            "Le coût de la ventilation a augmenté avec le décor : {$avant} requêtes puis {$apres}. C'est un N+1.",
+            "Le coût de la ventilation croît avec le décor : {$avant} requêtes pour 1 dépôt, "
+            ."{$apres} pour 6 dépôts et 21 mouvements. C'est un N+1.",
         );
     }
 

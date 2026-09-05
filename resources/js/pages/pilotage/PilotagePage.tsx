@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/langue';
 import type { Entrepot } from '@/types';
+import AReapprovisionner from './AReapprovisionner';
 import DetailDepots from './DetailDepots';
 import FluxBandeau from './FluxBandeau';
 import ProduitsTable from './ProduitsTable';
@@ -122,6 +123,8 @@ export default function PilotagePage() {
                     <DetailDepots produitId={produitOuvert} onFermer={() => setProduitOuvert(null)} />
                 )}
             </div>
+
+            <AReapprovisionner entrepotId={entrepotId} />
         </div>
     );
 }
