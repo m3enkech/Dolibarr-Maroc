@@ -37,7 +37,15 @@ interface MenuGroup {
 const GROUPS: MenuGroup[] = [
     {
         title: 'Général',
-        items: [{ to: '/dashboard', label: 'Tableau de bord', icon: '▦' }],
+        items: [
+            { to: '/dashboard', label: 'Tableau de bord', icon: '▦' },
+            // Le domaine est `stock` : les deux requêtes structurantes de
+            // l'écran (produits, dépôts) en sont. Tous les rôles ont au moins
+            // `stock: read`, l'entrée est donc visible de tous — mais la garde
+            // reste explicite, pour qu'un futur rôle sans stock ne voie ni
+            // l'entrée ni un 403.
+            { to: '/pilotage', label: 'Suivi', icon: '🎯', domain: 'stock' },
+        ],
     },
     {
         title: 'Commercial',

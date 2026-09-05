@@ -16,6 +16,7 @@ import PortailFactures from '@/pages/portail/PortailFactures';
 import PortailFactureDetail from '@/pages/portail/PortailFactureDetail';
 import PortailCompte from '@/pages/portail/PortailCompte';
 import Dashboard from '@/pages/Dashboard';
+import PilotagePage from '@/pages/pilotage/PilotagePage';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Rejoindre from '@/pages/Rejoindre';
@@ -119,6 +120,7 @@ function App() {
                             }
                         >
                             <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/pilotage" element={<PilotagePage />} />
                             <Route path="/tiers" element={<TiersList />} />
                             <Route path="/tiers/nouveau" element={<TiersForm />} />
                             <Route path="/tiers/:id" element={<TiersForm />} />

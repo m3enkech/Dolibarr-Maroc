@@ -179,6 +179,47 @@ export interface StockNiveau {
     valeur_achat: string | null;
 }
 
+/** Ce qu'un dépôt détient et attend pour un article donné. */
+export interface DepotLigne {
+    entrepot_id: number;
+    code: string;
+    name: string;
+    is_default: boolean;
+    quantite: string;
+    en_commande: string;
+}
+
+export interface DepotMouvement {
+    id: number;
+    type: string;
+    quantite: string;
+    entrepot: string | null;
+    reference: string | null;
+    note: string | null;
+    created_at: string;
+}
+
+export interface ProduitDepots {
+    produit: {
+        id: number;
+        code: string;
+        name: string;
+        unit: string | null;
+        stock_min: string | null;
+        stock_reappro: string | null;
+        buy_price: string | null;
+    };
+    total: { quantite: string; en_commande: string };
+    depots: DepotLigne[];
+    /**
+     * Attendu sur une commande dont le dépôt de destination n'est pas désigné.
+     * Compté à part, jamais réparti : la vue agrégée le compte partout, ce qui
+     * ferait croire à chaque dépôt qu'il l'attend.
+     */
+    sans_entrepot: { en_commande: string };
+    derniers_mouvements: DepotMouvement[];
+}
+
 /** D'où sort la quantité conseillée — le chiffre porte toujours son étiquette. */
 export type ReapproOrigine = 'ventes' | 'ventes_court' | 'seuil' | 'sans_historique';
 
