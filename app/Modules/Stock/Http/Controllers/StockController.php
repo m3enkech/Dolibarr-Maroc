@@ -79,6 +79,110 @@ class StockController extends Controller
         ]);
     }
 
+    /**
+     * Ce qu'un article détient et attend, dépôt par dépôt.
+     *
+     * TOUS les dépôts actifs sont listés, y compris ceux où l'article est
+     * absent : « Agadir : 0 » est une information, un Agadir manquant est une
+     * question. C'est précisément ce qu'on vient chercher en dépliant une ligne.
+     *
+     * Tout passe par Eloquent, jamais par une jointure écrite à la main :
+     * `document_achat_lignes` ne porte ni `tenant_id` ni `deleted_at`, donc une
+     * jointure obligerait à réécrire le filtre d'entreprise et la corbeille du
+     * document parent — et c'est exactement là qu'une fuite entre entreprises se
+     * glisse. `whereHas` emprunte les scopes de `DocumentAchat`, qui les portent.
+     *
+     * Le nombre de requêtes ne dépend NI du nombre de dépôts NI du nombre de
+     * mouvements : un test en fait foi, pour qu'un N+1 ne s'installe pas ici
+     * plus tard.
+     */
+    public function depots(Produit $produit): JsonResponse
+    {
+        $entrepots = Entrepot::query()
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'is_default']);
+
+        $detenu = Stock::query()
+            ->where('produit_id', $produit->id)
+            ->pluck('quantite', 'entrepot_id');
+
+        // Reste à recevoir, groupé par dépôt DESTINATAIRE de la commande.
+        //
+        // La vue agrégée compte une commande sans dépôt désigné dans tous les
+        // dépôts, faute de mieux. Ce pis-aller est correct quand on somme, faux
+        // quand on ventile : on le sort donc dans son propre seau plutôt que de
+        // le dupliquer partout et de laisser croire que chaque dépôt l'attend.
+        $attendu = DocumentAchatLigne::query()
+            ->where('produit_id', $produit->id)
+            ->whereHas('document', fn ($q) => $q
+                ->where('type', DocumentAchat::TYPE_COMMANDE)
+                ->whereIn('statut', [
+                    DocumentAchat::STATUT_VALIDE,
+                    DocumentAchat::STATUT_RECUE_PARTIELLE,
+                ]))
+            ->with('document:id,entrepot_id')
+            ->get(['id', 'document_achat_id', 'produit_id', 'quantite', 'quantite_recue'])
+            ->groupBy(fn (DocumentAchatLigne $ligne) => $ligne->document?->entrepot_id ?? 0)
+            ->map(fn ($lignes) => round($lignes->sum(fn (DocumentAchatLigne $l) => $l->resteARecevoir()), 3));
+
+        $mouvements = MouvementStock::query()
+            ->with('entrepot:id,name')
+            ->where('produit_id', $produit->id)
+            ->latest('created_at')
+            ->latest('id')
+            ->limit(10)
+            ->get(['id', 'entrepot_id', 'type', 'quantite', 'reference', 'note', 'created_at']);
+
+        $depots = $entrepots->map(fn (Entrepot $e) => [
+            'entrepot_id' => $e->id,
+            'code' => $e->code,
+            'name' => $e->name,
+            'is_default' => (bool) $e->is_default,
+            'quantite' => number_format((float) ($detenu[$e->id] ?? 0), 3, '.', ''),
+            'en_commande' => number_format((float) ($attendu[$e->id] ?? 0), 3, '.', ''),
+        ]);
+
+        return response()->json([
+            'data' => [
+                'produit' => [
+                    'id' => $produit->id,
+                    'code' => $produit->code,
+                    'name' => $produit->name,
+                    'unit' => $produit->unit,
+                    'stock_min' => $produit->stock_min !== null
+                        ? number_format((float) $produit->stock_min, 3, '.', '')
+                        : null,
+                    'stock_reappro' => $produit->stock_reappro !== null
+                        ? number_format((float) $produit->stock_reappro, 3, '.', '')
+                        : null,
+                    'buy_price' => $produit->buy_price !== null
+                        ? number_format((float) $produit->buy_price, 2, '.', '')
+                        : null,
+                ],
+                'total' => [
+                    'quantite' => number_format((float) $detenu->sum(), 3, '.', ''),
+                    'en_commande' => number_format((float) $attendu->sum(), 3, '.', ''),
+                ],
+                'depots' => $depots,
+                // Attendu sans dépôt désigné : compté à part, jamais réparti.
+                'sans_entrepot' => [
+                    'en_commande' => number_format((float) ($attendu[0] ?? 0), 3, '.', ''),
+                ],
+                'derniers_mouvements' => $mouvements->map(fn (MouvementStock $m) => [
+                    'id' => $m->id,
+                    'type' => $m->type,
+                    'quantite' => number_format((float) $m->quantite, 3, '.', ''),
+                    'entrepot' => $m->entrepot?->name,
+                    'reference' => $m->reference,
+                    'note' => $m->note,
+                    'created_at' => $m->created_at,
+                ]),
+            ],
+        ]);
+    }
+
     public function mouvements(Request $request): AnonymousResourceCollection
     {
         $mouvements = MouvementStock::query()

@@ -8,6 +8,13 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('stock')->group(function () {
     Route::get('niveaux', [StockController::class, 'niveaux']);
     Route::get('alertes', [StockController::class, 'alertes']);
+
+    // Ventilation d'un article : ce que chaque dépôt détient et attend. Servie
+    // au clic sur une ligne, jamais en masse — la précharger pour quinze lignes
+    // ferait quatre-vingt-dix requêtes pour une information qu'on regarde un
+    // produit à la fois.
+    Route::get('produits/{produit}/depots', [StockController::class, 'depots']);
+
     Route::get('mouvements', [StockController::class, 'mouvements']);
     Route::post('mouvements', [StockController::class, 'creerMouvement']);
     Route::post('transferts', [StockController::class, 'transferer']);
