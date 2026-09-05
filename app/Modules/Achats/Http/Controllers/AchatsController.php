@@ -82,9 +82,9 @@ class AchatsController extends Controller
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
                 $search = '%'.$request->string('search').'%';
                 $query->where(fn ($q) => $q
-                    ->where('code', 'like', $search)
-                    ->orWhere('ref_fournisseur', 'like', $search)
-                    ->orWhereHas('tiers', fn ($t) => $t->where('name', 'like', $search)));
+                    ->whereLike('code', $search)
+                    ->orWhereLike('ref_fournisseur', $search)
+                    ->orWhereHas('tiers', fn ($t) => $t->whereLike('name', $search)));
             })
             ->latest('date_document')
             ->latest('id')

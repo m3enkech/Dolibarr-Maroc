@@ -23,7 +23,7 @@ class ComptesController extends Controller
             ->when($request->integer('classe'), fn ($q, $classe) => $q->where('classe', $classe))
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
                 $search = '%'.$request->string('search').'%';
-                $query->where(fn ($q) => $q->where('code', 'like', $search)->orWhere('label', 'like', $search));
+                $query->where(fn ($q) => $q->whereLike('code', $search)->orWhereLike('label', $search));
             })
             ->orderBy('code')
             ->get();

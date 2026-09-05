@@ -28,6 +28,10 @@ class RapprochementBancaireService
     public function comptesRapprochables(): array
     {
         return Compte::query()
+            // Seul `like` volontairement conservé de toute l'application : ce
+            // n'est pas une recherche d'utilisateur mais un préfixe de compte
+            // CGNC, uniquement composé de chiffres. La casse n'y a aucun sens,
+            // et le convertir en `whereLike` n'apporterait rien.
             ->where('code', 'like', '51%')
             ->whereHas('lignesViaEcriture')
             ->orderBy('code')

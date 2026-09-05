@@ -33,8 +33,8 @@ class PortailCatalogueService
             ->when($recherche !== null && $recherche !== '', function ($q) use ($recherche) {
                 $terme = '%'.$recherche.'%';
                 $q->where(fn ($sub) => $sub
-                    ->where('name', 'like', $terme)
-                    ->orWhere('code', 'like', $terme)
+                    ->whereLike('name', $terme)
+                    ->orWhereLike('code', $terme)
                     ->orWhere('barcode', $recherche));
             })
             ->orderBy('name');

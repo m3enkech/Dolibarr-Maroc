@@ -88,6 +88,47 @@ class RechercheInsensibleCasseTest extends TestCase
         $this->assertSame(['Épicerie Zahra'], $this->chercher($token, '/api/v1/tiers', 'ZAHRA'));
     }
 
+    public function test_les_documents_de_vente_se_cherchent_par_nom_de_client(): void
+    {
+        $token = $this->registerTenant();
+
+        $client = $this->withToken($token)->postJson('/api/v1/tiers', [
+            'name' => 'Épicerie Zahra', 'is_client' => true,
+        ])->assertCreated()->json('data');
+
+        $this->withToken($token)->postJson('/api/v1/ventes/documents', [
+            'type' => 'devis', 'tiers_id' => $client['id'],
+            'lignes' => [['designation' => 'Prestation', 'quantite' => 1, 'prix_unitaire' => 100, 'tva_rate' => 20]],
+        ])->assertCreated();
+
+        // La recherche passe par une relation : le correctif doit valoir aussi
+        // à l'intérieur d'un whereHas.
+        $this->assertCount(1, $this->withToken($token)
+            ->getJson('/api/v1/ventes/documents?search=zahra')->assertOk()->json('data'));
+    }
+
+    public function test_les_documents_d_achat_se_cherchent_sans_respecter_la_casse(): void
+    {
+        $token = $this->registerTenant();
+
+        $fournisseur = $this->withToken($token)->postJson('/api/v1/tiers', [
+            'name' => 'Sotrama Distribution', 'is_supplier' => true, 'is_client' => false,
+        ])->assertCreated()->json('data');
+
+        $this->withToken($token)->postJson('/api/v1/achats/documents', [
+            'type' => 'commande', 'tiers_id' => $fournisseur['id'],
+            'ref_fournisseur' => 'BC-2026-ALPHA',
+            'lignes' => [['designation' => 'Ciment', 'quantite' => 1, 'prix_unitaire' => 60, 'tva_rate' => 20]],
+        ])->assertCreated();
+
+        $this->assertCount(1, $this->withToken($token)
+            ->getJson('/api/v1/achats/documents?search=sotrama')->assertOk()->json('data'));
+
+        // Et sur la référence du fournisseur, saisie en majuscules.
+        $this->assertCount(1, $this->withToken($token)
+            ->getJson('/api/v1/achats/documents?search=alpha')->assertOk()->json('data'));
+    }
+
     /**
      * Non-objectif, épinglé pour qu'il ne surprenne pas : `ilike` replie la
      * casse, il ne dépouille PAS les accents. Chercher « epicerie » ne trouve

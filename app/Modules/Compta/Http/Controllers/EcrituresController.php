@@ -28,9 +28,9 @@ class EcrituresController extends Controller
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
                 $search = '%'.$request->string('search').'%';
                 $query->where(fn ($q) => $q
-                    ->where('numero', 'like', $search)
-                    ->orWhere('libelle', 'like', $search)
-                    ->orWhere('reference', 'like', $search));
+                    ->whereLike('numero', $search)
+                    ->orWhereLike('libelle', $search)
+                    ->orWhereLike('reference', $search));
             })
             ->latest('date_ecriture')
             ->latest('id')

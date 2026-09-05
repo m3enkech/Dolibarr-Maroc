@@ -24,7 +24,7 @@ class ImmobilisationsController extends Controller
             ->when($request->string('statut')->isNotEmpty(), fn ($q) => $q->where('statut', $request->string('statut')->toString()))
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
                 $search = '%'.$request->string('search').'%';
-                $query->where(fn ($q) => $q->where('label', 'like', $search)->orWhere('code', 'like', $search));
+                $query->where(fn ($q) => $q->whereLike('label', $search)->orWhereLike('code', $search));
             })
             ->orderByDesc('date_acquisition')
             ->orderByDesc('id')
