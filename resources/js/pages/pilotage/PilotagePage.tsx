@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { useT } from '@/lib/langue';
 import type { Entrepot } from '@/types';
 import DetailDepots from './DetailDepots';
+import FluxBandeau from './FluxBandeau';
 import ProduitsTable from './ProduitsTable';
 
 const CHAMP =
@@ -100,6 +101,8 @@ export default function PilotagePage() {
                     )}
                 </div>
             </header>
+
+            <FluxBandeau />
 
             {/*
              * Quand aucun article n'est ouvert, le tableau prend toute la

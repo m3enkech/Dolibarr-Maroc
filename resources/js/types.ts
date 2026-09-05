@@ -179,6 +179,51 @@ export interface StockNiveau {
     valeur_achat: string | null;
 }
 
+export interface FluxCompteur {
+    count: number;
+    montant_ttc?: string;
+    montant_ht?: string;
+    reste?: string;
+}
+
+/** Un indicateur qu'on refuse de publier, avec la raison — jamais un chiffre faux. */
+export interface FluxIndisponible {
+    cle: string;
+    libelle: string;
+    raison: string;
+}
+
+export interface PilotageFlux {
+    /**
+     * Les blocs interdits sont ABSENTS de la réponse, pas mis à zéro : afficher
+     * « 0 facture impayée » à qui n'a pas accès aux ventes serait un mensonge.
+     */
+    capabilities: { ventes: boolean; achats: boolean; stock: boolean };
+    genere_a: string;
+    indisponible: FluxIndisponible[];
+    ventes?: {
+        commandes_ouvertes: FluxCompteur;
+        commandes_reliquat: FluxCompteur;
+        devis_en_attente: FluxCompteur;
+        brouillons: FluxCompteur;
+        bl_a_preparer: FluxCompteur;
+        factures_impayees: FluxCompteur;
+        factures_echues: FluxCompteur;
+    };
+    achats?: {
+        commandes_ouvertes: FluxCompteur;
+        reception_partielle: FluxCompteur;
+        reste_a_recevoir: FluxCompteur;
+        factures_a_payer: FluxCompteur;
+    };
+    stock?: {
+        references_actives: number;
+        en_rupture: number;
+        sous_seuil: number;
+        valeur_achat: string;
+    };
+}
+
 /** Ce qu'un dépôt détient et attend pour un article donné. */
 export interface DepotLigne {
     entrepot_id: number;
