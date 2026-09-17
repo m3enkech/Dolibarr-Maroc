@@ -7,6 +7,7 @@ use App\Modules\Achats\AchatsServiceProvider;
 use App\Modules\Compta\ComptaServiceProvider;
 use App\Modules\Crm\CrmServiceProvider;
 use App\Modules\Dashboard\DashboardServiceProvider;
+use App\Modules\Integrations\IntegrationsServiceProvider;
 use App\Modules\Pilotage\PilotageServiceProvider;
 use App\Modules\Effets\EffetsServiceProvider;
 use App\Modules\Portail\PortailServiceProvider;
@@ -38,6 +39,7 @@ return [
     EquipeServiceProvider::class,
     DashboardServiceProvider::class,
     PilotageServiceProvider::class,
+    IntegrationsServiceProvider::class,
     SuperadminServiceProvider::class,
     PortailServiceProvider::class,
 ];
