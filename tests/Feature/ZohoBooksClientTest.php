@@ -99,12 +99,68 @@ class ZohoBooksClientTest extends TestCase
             $this->fail('Un refus de jeton doit lever une exception.');
         } catch (RuntimeException $e) {
             $this->assertStringContainsString('invalid_client', $e->getMessage());
-            $this->assertStringContainsString('centre de données', $e->getMessage());
+            $this->assertStringContainsString('CENTRE DE DONNÉES', $e->getMessage());
             $this->assertStringNotContainsString(
                 'secret-a-ne-jamais-journaliser',
                 $e->getMessage(),
                 'Le secret ne doit jamais apparaître dans un message d\'erreur.',
             );
+        }
+    }
+
+    /**
+     * Zoho répond **200** même pour un refus : c'est l'absence d'access_token
+     * qui fait foi. Un client qui se fierait au code HTTP croirait avoir réussi
+     * et partirait avec un jeton vide.
+     */
+    public function test_un_refus_rendu_en_200_est_bien_detecte(): void
+    {
+        Http::fake(['accounts.zoho.eu/*' => Http::response(['error' => 'invalid_code'], 200)]);
+
+        $this->expectException(RuntimeException::class);
+        iterator_to_array(app(ZohoBooksClient::class)->contacts('customer'));
+    }
+
+    /**
+     * Ces trois refus se ressemblent et n'ont rien à voir. Envoyer quelqu'un
+     * vérifier son centre de données alors que son jeton est simplement périmé
+     * lui fait perdre une heure : chaque cas doit porter sa propre piste.
+     */
+    public function test_chaque_refus_oriente_vers_sa_vraie_cause(): void
+    {
+        $attendus = [
+            'invalid_client' => 'CENTRE DE DONNÉES',
+            'invalid_code' => "CODE D'AUTORISATION",
+            'invalid_grant' => 'révoqué',
+        ];
+
+        // Un seul stub, piloté par la variable : rappeler Http::fake() dans la
+        // boucle ne remplacerait rien — les doublures s'accumulent et c'est la
+        // PREMIÈRE qui répond.
+        // `fn()` capturerait $courant par VALEUR, donc figé à null : il faut une
+        // fermeture classique et une référence.
+        $courant = null;
+        Http::fake([
+            'accounts.zoho.eu/*' => function () use (&$courant) {
+                return Http::response(['error' => $courant], 200);
+            },
+        ]);
+
+        foreach ($attendus as $erreur => $indice) {
+            Cache::flush();
+            $courant = $erreur;
+
+            try {
+                iterator_to_array(app(ZohoBooksClient::class)->contacts('customer'));
+                $this->fail("Le refus {$erreur} doit lever une exception.");
+            } catch (RuntimeException $e) {
+                $this->assertStringContainsString($erreur, $e->getMessage());
+                $this->assertStringContainsString(
+                    $indice,
+                    $e->getMessage(),
+                    "Le message de {$erreur} doit orienter vers sa vraie cause.",
+                );
+            }
         }
     }
 

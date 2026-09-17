@@ -140,18 +140,49 @@ class ZohoBooksClient
             $jeton = $reponse->json('access_token');
 
             if (! $reponse->successful() || blank($jeton)) {
-                // On remonte le code d'erreur de Zoho, jamais le corps envoyé :
-                // il contient le secret.
+                // ⚠️ Zoho répond 200 même pour un refus : c'est l'absence
+                // d'access_token qui fait foi, pas le code HTTP.
+                //
+                // On remonte le code d'erreur de Zoho et sa cause probable,
+                // jamais le corps envoyé : il contient le secret.
+                $erreur = (string) $reponse->json('error', 'réponse sans access_token');
+
                 throw new RuntimeException(sprintf(
-                    "Zoho a refusé le jeton (%s) : %s. Vérifiez le centre de données — un compte européen "
-                    ."ne répond pas sur accounts.zoho.com, l'erreur est alors trompeuse.",
+                    'Zoho a refusé le jeton (%s) : %s. %s',
                     $reponse->status(),
-                    (string) $reponse->json('error', 'réponse sans access_token'),
+                    $erreur,
+                    $this->causeProbable($erreur),
                 ));
             }
 
             return $jeton;
         });
+    }
+
+    /**
+     * Traduire le code d'erreur de Zoho en cause concrète.
+     *
+     * Ces trois refus se ressemblent et n'ont rien à voir : envoyer quelqu'un
+     * vérifier le centre de données alors que son jeton est simplement périmé
+     * lui fait perdre une heure. Chaque cas a sa piste.
+     */
+    private function causeProbable(string $erreur): string
+    {
+        return match ($erreur) {
+            'invalid_client' => 'Le plus souvent le CENTRE DE DONNÉES : un compte européen ne répond pas sur '
+                .'accounts.zoho.com. Vérifiez ZOHO_ACCOUNTS_URL, puis le client_id et le client_secret.',
+
+            'invalid_code' => 'ZOHO_REFRESH_TOKEN n\'est pas un jeton de rafraîchissement valide. Deux causes '
+                .'fréquentes : (1) c\'est le CODE D\'AUTORISATION qui a été collé — il a exactement la même forme, '
+                .'mais ne sert qu\'une fois et expire en quelques minutes ; (2) le client_secret a été régénéré '
+                .'APRÈS la création du jeton, ce qui l\'invalide. Dans les deux cas : régénérez un code, '
+                .'échangez-le, et collez le champ « refresh_token » de la réponse.',
+
+            'invalid_grant' => 'Le jeton a été révoqué côté Zoho, ou l\'application a été supprimée. Il faut en '
+                .'engendrer un nouveau.',
+
+            default => 'Vérifiez ZOHO_ACCOUNTS_URL, le client_id, le client_secret et le refresh_token.',
+        };
     }
 
     private function requete(): PendingRequest
