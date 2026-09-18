@@ -54,6 +54,14 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class LimitesDeDebit
 {
+    /**
+     * Les seuls codes qui valent « mauvais identifiants ».
+     *
+     * 401 mot de passe refusé · 403 compte suspendu · 422 formulaire invalide.
+     * Tout le reste — 5xx en tête — est une panne du service, pas une tentative.
+     */
+    private const REFUS_D_IDENTIFIANTS = [401, 403, 422];
+
     public static function definir(): void
     {
         // --- Connexion : ERP et portail, même politique. ---
@@ -198,10 +206,21 @@ class LimitesDeDebit
      *
      * C'est ce qui autorise des plafonds bas sans gêner personne : une connexion
      * réussie ne coûte aucun jeton.
+     *
+     * ⚠️ « Échec » veut dire IDENTIFIANTS REFUSÉS, et rien d'autre. Compter tout
+     * ce qui dépasse 400 paraissait plus sûr ; c'est l'inverse. Une panne — base
+     * verrouillée, déploiement en cours, dépendance absente — répond 500, et
+     * l'utilisateur qui réessaie pendant la panne remplit son propre seau. Au
+     * rétablissement il trouve porte close pour une heure, pour des erreurs dont
+     * il n'est pas l'auteur. La panne se prolonge alors d'un blocage qu'elle a
+     * elle-même fabriqué, et le journal accuse l'utilisateur.
+     *
+     * Observé en vrai : un import de reprise a gardé le fichier SQLite pendant
+     * une heure, la connexion répondait 500, et chaque essai comptait.
      */
     private static function seulementLesEchecs(): callable
     {
-        return fn (Response $reponse) => $reponse->getStatusCode() >= 400;
+        return fn (Response $reponse) => in_array($reponse->getStatusCode(), self::REFUS_D_IDENTIFIANTS, true);
     }
 
     /**

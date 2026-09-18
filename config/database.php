@@ -39,7 +39,25 @@ return [
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => null,
-            'journal_mode' => null,
+
+            // WAL — sans quoi un écrivain verrouille le fichier ENTIER et bloque
+            // même les lecteurs. Le mode « delete » par défaut de SQLite rend
+            // l'application inutilisable pendant toute commande un peu longue :
+            // une reprise Zoho d'un millier de factures a fait répondre 500 à la
+            // connexion pendant une heure, et le symptôme (« impossible de se
+            // connecter ») ne désignait en rien sa cause.
+            //
+            // Aggravé ici par deux réglages : `SESSION_DRIVER=database` et
+            // `CACHE_STORE=database` font toucher ce même fichier à CHAQUE
+            // requête HTTP, deux fois — la session, puis le compteur de débit.
+            //
+            // En WAL, lecteurs et écrivain coexistent ; seules les écritures
+            // s'attendent encore, mais chaque transaction de l'import dure
+            // quelques millisecondes et les requêtes web se glissent entre.
+            //
+            // Ne concerne que le développement : la production est sur
+            // PostgreSQL, qui n'a jamais eu ce défaut.
+            'journal_mode' => env('DB_JOURNAL_MODE', 'WAL'),
             'synchronous' => null,
             'transaction_mode' => 'DEFERRED',
         ],

@@ -57,6 +57,43 @@ class LimitationDebitTest extends TestCase
     }
 
     /**
+     * RÉGRESSION — une panne ne doit pas remplir le seau de sa victime.
+     *
+     * « Échec » veut dire IDENTIFIANTS REFUSÉS. Compter tout ce qui dépasse 400
+     * paraissait plus prudent ; c'est l'inverse. Quand le service tombe — base
+     * verrouillée, déploiement en cours, dépendance absente — il répond 500, et
+     * l'utilisateur qui réessaie pendant la panne remplit son PROPRE seau. Au
+     * rétablissement il trouve porte close pour une heure, pour des erreurs dont
+     * il n'est pas l'auteur : la panne se prolonge d'un blocage qu'elle a
+     * elle-même fabriqué.
+     *
+     * Observé en vrai le 2026-09-18 : une reprise Zoho a gardé le fichier SQLite
+     * pendant une heure, la connexion répondait 500, et chaque essai comptait.
+     */
+    public function test_une_panne_du_service_ne_consomme_aucun_jeton(): void
+    {
+        // Une route en panne, sous LE MÊME limiteur nommé et avec la même clé
+        // (l'empreinte de l'adresse présentée) que la vraie connexion.
+        \Illuminate\Support\Facades\Route::post('/panne-simulee', function () {
+            throw new \RuntimeException('base verrouillée');
+        })->middleware(['api', 'throttle:connexion-portail']);
+
+        // Dix fois le double du plafond, pendant la panne.
+        for ($i = 1; $i <= 10; $i++) {
+            $this->postJson('/panne-simulee', self::MAUVAIS)->assertStatus(500);
+        }
+
+        // Le service est réparé. L'utilisateur doit retrouver ses cinq essais
+        // intacts : si les 500 avaient compté, celui-ci serait déjà un 429.
+        for ($i = 1; $i <= 5; $i++) {
+            $this->tenter()->assertUnprocessable();
+        }
+
+        // Et le sixième referme, preuve que le seau fonctionne toujours.
+        $this->tenter()->assertStatus(429);
+    }
+
+    /**
      * RÉGRESSION — le piège qui rend une limitation naïve inutilisable.
      *
      * La clé par défaut de Laravel ne contient PAS le chemin de la route : quatre
