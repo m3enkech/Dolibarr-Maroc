@@ -159,11 +159,23 @@ class ImportTiersZoho
         ]];
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @return array<string, mixed>
+     *
+     * PAS D'ADRESSE ICI, et c'est délibéré : la liste de contacts de Zoho ne
+     * porte AUCUNE adresse — `billing_address` n'existe que sur le détail d'un
+     * contact, qu'il faudrait aller chercher un par un (566 appels de plus).
+     * Les remplir depuis la liste ne produirait que des valeurs vides.
+     *
+     * `country` n'est pas transmis non plus : la colonne est NOT NULL avec
+     * « MA » par défaut, et elle fait DEUX caractères. Books rend un nom complet
+     * (« Maroc ») : SQLite l'accepterait en silence, PostgreSQL le refuserait —
+     * le genre d'écart qui passe en développement et casse en production. Le
+     * jour où l'on voudra les adresses, il faudra une table de correspondance
+     * vers les codes ISO, pas une recopie.
+     */
     private function donneesDeCreation(array $contact, string $nom, ?string $ice, string $drapeau): array
     {
-        $adresse = $contact['billing_address'] ?? [];
-
         return [
             'name' => $nom,
             'is_client' => $drapeau === 'is_client',
@@ -173,10 +185,6 @@ class ImportTiersZoho
             'phone' => $contact['phone'] ?: ($contact['mobile'] ?: null),
             'website' => $contact['website'] ?: null,
             'contact_name' => trim(($contact['first_name'] ?? '').' '.($contact['last_name'] ?? '')) ?: null,
-            'address' => $adresse['address'] ?? null,
-            'city' => $adresse['city'] ?? null,
-            'postal_code' => $adresse['zip'] ?? null,
-            'country' => $adresse['country'] ?? null,
             'notes' => 'Importé de Zoho Books (contact '.($contact['contact_id'] ?? '?').').',
             'is_active' => ($contact['status'] ?? 'active') === 'active',
         ];
@@ -196,14 +204,13 @@ class ImportTiersZoho
             $changements[$drapeau] = true;
         }
 
-        $adresse = $contact['billing_address'] ?? [];
-
+        // Mêmes champs qu'à la création : pas d'adresse, la liste Zoho n'en
+        // porte pas.
         $candidats = [
             'ice' => $this->normaliserIce($contact['cf_ice'] ?? null),
             'email' => $contact['email'] ?: null,
             'phone' => $contact['phone'] ?: ($contact['mobile'] ?: null),
-            'address' => $adresse['address'] ?? null,
-            'city' => $adresse['city'] ?? null,
+            'contact_name' => trim(($contact['first_name'] ?? '').' '.($contact['last_name'] ?? '')) ?: null,
         ];
 
         foreach ($candidats as $champ => $valeur) {

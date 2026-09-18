@@ -27,7 +27,14 @@ class ImportTiersZohoTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** Un contact Books, réduit aux champs dont l'import se sert. */
+    /**
+     * Un contact tel que la LISTE de Zoho le rend.
+     *
+     * ⚠️ Pas de `billing_address` : la liste n'en porte aucune, l'adresse
+     * n'existe que sur le détail d'un contact. L'échantillon en contenait une
+     * au début — il mentait sur la forme de l'API, et l'import est parti en
+     * contrainte violée dès le premier contact réel.
+     */
     private function contact(array $valeurs = []): array
     {
         return array_merge([
@@ -42,7 +49,6 @@ class ImportTiersZohoTest extends TestCase
             'first_name' => '',
             'last_name' => '',
             'status' => 'active',
-            'billing_address' => ['address' => '', 'city' => '', 'zip' => '', 'country' => ''],
         ], $valeurs);
     }
 
