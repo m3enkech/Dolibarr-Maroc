@@ -59,6 +59,13 @@ class ImporterFacturesZohoCommand extends CommandeImportZoho
         return ['zoho_id', 'numero', 'date', 'client', 'total', 'action', 'raison'];
     }
 
+    protected function reserveDeSimulation(): ?string
+    {
+        return 'Une exception : le plan comptable, créé une fois pour que les mille trois cents '
+            .'transactions annulées n\'aient pas à le refaire chacune. Il ne contient aucune donnée '
+            .'d\'entreprise, et la première vraie facture l\'aurait créé de toute façon.';
+    }
+
     /* ------------------------------------------------------------------ */
 
     /**

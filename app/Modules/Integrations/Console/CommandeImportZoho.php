@@ -47,7 +47,7 @@ abstract class CommandeImportZoho extends Command
 
         $this->line(sprintf(
             '%s vers « %s ».',
-            $this->simulation() ? 'SIMULATION — aucune écriture' : 'Import',
+            $this->simulation() ? 'SIMULATION — rien ne sera conservé' : 'Import',
             $user->tenant->name,
         ));
 
@@ -57,6 +57,16 @@ abstract class CommandeImportZoho extends Command
     protected function simulation(): bool
     {
         return (bool) $this->option('simulation');
+    }
+
+    /**
+     * Ce qu'une simulation laisse quand même derrière elle, quand il y a
+     * quelque chose. Annoncer « rien » alors qu'on a écrit, fût-ce un plan de
+     * comptes vierge, c'est apprendre à l'utilisateur à se méfier du message.
+     */
+    protected function reserveDeSimulation(): ?string
+    {
+        return null;
     }
 
     /** Une ligne de progression toutes les cinquante pièces, pas une par pièce. */
@@ -98,7 +108,8 @@ abstract class CommandeImportZoho extends Command
 
         if ($this->simulation()) {
             $this->newLine();
-            $this->comment('Rien n\'a été écrit. Relancez sans --simulation pour appliquer.');
+            $this->comment(trim('Rien n\'a été écrit. '.($this->reserveDeSimulation() ?? ''))
+                .' Relancez sans --simulation pour appliquer.');
         }
 
         return self::SUCCESS;
