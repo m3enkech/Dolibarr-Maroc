@@ -20,9 +20,11 @@ class ProduitService
     public function create(array $data): Produit
     {
         return DB::transaction(function () use ($data) {
-            // PR produit physique, SV service, KT kit.
+            // PR produit physique, SV service, KT kit. Une reprise peut imposer
+            // la référence du logiciel d'origine (le SKU), que les équipes
+            // connaissent par cœur ; aucune requête HTTP ne valide de `code`.
             $type = $data['type'] ?? Produit::TYPE_PRODUCT;
-            $data['code'] = $this->sequences->next(self::PREFIXES[$type] ?? 'PR');
+            $data['code'] ??= $this->sequences->next(self::PREFIXES[$type] ?? 'PR');
 
             $composants = $data['composants'] ?? null;
             unset($data['composants']);

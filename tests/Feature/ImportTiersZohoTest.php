@@ -274,6 +274,64 @@ class ImportTiersZohoTest extends TestCase
         $this->assertSame(0, Tiers::count(), 'Mais rien n\'est écrit.');
     }
 
+    /**
+     * L'ICE et le nom sont des ressemblances ; l'identifiant Zoho est une
+     * certitude. Après un premier import, le tiers doit être retrouvé même si
+     * on l'a renommé ET que son ICE a été corrigé entre-temps — sans quoi le
+     * second import fabriquerait un doublon de tout ce qui a été retouché.
+     */
+    public function test_un_tiers_deja_importe_est_retrouve_par_son_identifiant_zoho(): void
+    {
+        $this->dansUneEntreprise();
+
+        $this->zohoRend(['customer' => [$this->contact()]])->executer();
+
+        $tiers = Tiers::first();
+        $this->assertSame('zoho_books', $tiers->source_systeme);
+        $this->assertSame('238926000000000001', $tiers->source_id);
+
+        // Le tiers vit sa vie dans Dolibarr : renommé, ICE corrigé.
+        $tiers->update(['name' => 'ACME Industrie SA', 'ice' => '007777777000055']);
+
+        $rapport = $this->zohoRend(['customer' => [$this->contact()]])->executer();
+
+        $this->assertSame(0, $rapport['crees'], 'Ni le nom ni l\'ICE ne servent plus : l\'identifiant suffit.');
+        $this->assertSame(1, Tiers::count());
+        $this->assertSame('ACME Industrie SA', Tiers::first()->name);
+    }
+
+    /**
+     * Un partenaire client ET fournisseur donne deux contacts pour un seul
+     * tiers. Celui qui est retenu doit être le contact CLIENT : c'est lui que
+     * les factures référencent.
+     */
+    public function test_le_tiers_fusionne_garde_l_identifiant_du_contact_client(): void
+    {
+        $this->dansUneEntreprise();
+
+        $this->zohoRend([
+            'customer' => [$this->contact(['contact_id' => 'client-1'])],
+            'vendor' => [$this->contact(['contact_id' => 'fournisseur-1'])],
+        ])->executer();
+
+        $this->assertSame(1, Tiers::count());
+        $this->assertSame('client-1', Tiers::first()->source_id);
+    }
+
+    public function test_un_tiers_saisi_a_la_main_adopte_son_identifiant_zoho(): void
+    {
+        $this->dansUneEntreprise();
+
+        app(TiersService::class)->create([
+            'name' => 'ACME SARL', 'is_client' => true, 'is_supplier' => false,
+            'ice' => '001234567000089',
+        ]);
+
+        $this->zohoRend(['customer' => [$this->contact()]])->executer();
+
+        $this->assertSame('238926000000000001', Tiers::first()->source_id);
+    }
+
     public function test_un_import_rejoue_ne_cree_rien_de_plus(): void
     {
         $this->dansUneEntreprise();

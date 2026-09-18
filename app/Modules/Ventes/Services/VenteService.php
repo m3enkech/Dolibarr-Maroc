@@ -36,11 +36,18 @@ class VenteService
         return DB::transaction(function () use ($data) {
             $type = $data['type'];
 
-            // Factures et avoirs ne reçoivent leur numéro définitif qu'à la
-            // validation : en brouillon ils portent un numéro provisoire.
-            $code = in_array($type, [DocumentVente::TYPE_FACTURE, DocumentVente::TYPE_AVOIR], true)
-                ? $this->sequences->next('PROV')
-                : $this->sequences->next(self::PREFIXES[$type]);
+            // Un document REPRIS d'un autre logiciel garde le numéro qu'il y
+            // portait : c'est celui qui figure sur le papier détenu par le
+            // client, et le renuméroter rendrait l'archive introuvable. Ce
+            // chemin n'est ouvert qu'aux imports — aucune requête HTTP ne
+            // valide de champ `code`.
+            //
+            // Sinon : factures et avoirs ne reçoivent leur numéro définitif
+            // qu'à la validation, et portent un numéro provisoire en brouillon.
+            $code = $data['code']
+                ?? (in_array($type, [DocumentVente::TYPE_FACTURE, DocumentVente::TYPE_AVOIR], true)
+                    ? $this->sequences->next('PROV')
+                    : $this->sequences->next(self::PREFIXES[$type]));
 
             $document = DocumentVente::create([
                 'type' => $type,
@@ -50,6 +57,8 @@ class VenteService
                 'date_document' => $data['date_document'] ?? now()->toDateString(),
                 'date_echeance' => $data['date_echeance'] ?? null,
                 'notes' => $data['notes'] ?? null,
+                'source_systeme' => $data['source_systeme'] ?? null,
+                'source_id' => $data['source_id'] ?? null,
             ]);
 
             $this->syncLignes($document, $data['lignes']);

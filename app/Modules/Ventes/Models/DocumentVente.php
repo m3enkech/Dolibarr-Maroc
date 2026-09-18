@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'type', 'code', 'statut', 'tiers_id', 'source_document_id', 'pos_session_id',
     'entrepot_id', 'opportunite_id', 'client_uuid', 'date_document', 'date_echeance',
     'total_ht', 'total_tva', 'total_ttc', 'notes', 'validated_at',
+    'source_systeme', 'source_id',
 ])]
 class DocumentVente extends Model
 {

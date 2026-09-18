@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'code', 'name', 'description', 'type', 'categorie_produit_id',
     'sell_price', 'buy_price', 'tva_rate',
     'unit', 'stock_min', 'stock_reappro', 'barcode', 'is_active',
+    'source_systeme', 'source_id',
 ])]
 class Produit extends Model
 {

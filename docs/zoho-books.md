@@ -100,30 +100,110 @@ rien ne s'écrirait.
 - Rien n'est écarté en silence : le journal CSV donne, ligne à ligne, l'action et
   sa raison.
 
-## 3. Points à traiter avant d'importer les factures
+## 3. Importer les articles
 
-Trois obstacles identifiés dans le code, à régler avant le lot suivant.
+À jouer **après** les tiers et **avant** les factures : une ligne de facture qui
+ne retrouve pas son article reste un simple libellé — elle s'affiche, mais elle
+ne compte ni dans l'état du stock, ni dans le réappro fondé sur les ventes, ni
+dans le détail par dépôt.
 
-**La clôture comptable.** `ComptaService::creerEcriture` refuse toute écriture
-datée dans un exercice clos. Les factures Books vont de 2022 à 2026 : si un
-exercice est clôturé côté Dolibarr, l'historique antérieur échouera à la
-validation. En local sur une base neuve cela passe — c'est le genre de chose qui
-marche à la répétition et casse en production.
+```bash
+php artisan zoho:import-articles books@mediadesk.local --simulation --journal=reprise-articles.csv
+php artisan zoho:import-articles books@mediadesk.local --journal=reprise-articles.csv
+```
 
-**Le stock.** Valider une facture sort le stock, et une seule ligne observée fait
-3 600 unités. Le levier propre : `StockService` ignore tout article dont le type
-n'est pas `product`. Les articles que Books ne suit pas en stock (`stock_on_hand`
-vide) doivent donc être créés en **service** dans Dolibarr — écritures
-comptables générées, stock intact.
+### Deux décisions qui ne se rattrapent pas
 
-**La traçabilité.** `documents_vente` n'a aucun champ de référence externe,
-seulement `notes`. Sans colonne dédiée (`source_externe` + `source_id`, avec
-index unique), relancer l'import créerait des doublons.
+**Le SKU devient la référence Dolibarr** quand il tient dans la colonne (20
+caractères) et qu'il est libre. « T-TN211 » est ce que les équipes cherchent et
+dictent au téléphone ; leur servir « PR-0042 » à la place leur ferait perdre leur
+catalogue. À défaut, la séquence maison reprend la main et le rapport le dit.
 
-## 4. Ce que ce module ne fait pas
+**Le type suit `product_type`, jamais `track_inventory`.** Books ne suit *aucun*
+stock dans cette organisation : les 1 698 articles y sont tous à
+`track_inventory: false`. S'y fier ferait de tout le catalogue des *services*,
+c'est-à-dire des articles sans stock — et le type d'un produit ne se change plus
+ensuite. `product_type` dit ce que l'article **est** (`goods` ou `service`),
+indépendamment de ce que Books comptait.
+
+Un taux de TVA hors barème marocain (0, 7, 10, 14, 20) est ramené à 20 % et
+signalé : un taux exotique passerait à l'import mais rendrait la fiche produit
+impossible à enregistrer ensuite.
+
+## 4. Importer les factures
+
+À jouer **en dernier**. Comptez du temps : Books ne donne pas les lignes dans la
+liste, il faut un appel par facture.
+
+```bash
+php artisan zoho:import-factures books@mediadesk.local --simulation --journal=reprise-factures.csv
+php artisan zoho:import-factures books@mediadesk.local --journal=reprise-factures.csv
+```
+
+| Option | Effet |
+| --- | --- |
+| `--simulation` | joue tout puis **annule** : le résultat annoncé est le vrai |
+| `--depuis=2024-01-01` | ne reprend que les factures de ce jour ou après |
+| `--avec-stock` | sort aussi la marchandise du stock (voir ci-dessous) |
+| `--sans-paiements` | n'enregistre aucun règlement |
+
+### Les partis pris
+
+**La facture garde son numéro.** « MDK24-00110 » est imprimé sur le papier que le
+client détient ; renuméroter en « FA-0001 » rendrait l'archive introuvable le
+jour d'un contrôle.
+
+**Le montant de Books fait foi, et ce qui ne tombe pas juste est refusé.** Après
+écriture, le total du document est comparé à celui de Books ; au-delà d'un
+centime d'arrondi par ligne, la facture est annulée et signalée. Un trou qu'on
+voit vaut mieux qu'un chiffre d'affaires faux qu'on ne voit pas — et comme
+l'import est rejouable, la pièce corrigée rentrera au passage suivant.
+
+**La remise est déduite, pas lue.** Le champ `discount` de Books vaut tantôt un
+pourcentage, tantôt une somme, selon un réglage d'organisation. Le rapport entre
+le brut (quantité × prix) et le net (`item_total`) ne dépend, lui, d'aucun
+réglage. Frais de port, ajustement et arrondi deviennent des lignes à part —
+sans quoi le total ne tomberait jamais juste.
+
+**La reprise ne passe pas par `valider()`.** Valider une facture vivante
+déclenche des effets destinés au présent — sortie de stock, et demain
+télédéclaration ou relance. Une reprise écrit la comptabilité et *rien d'autre*,
+sauf demande explicite.
+
+**Le stock ne bouge pas par défaut.** Books n'en suivait aucun : sortir quatre
+ans de ventes sans le moindre achat en regard enfoncerait chaque article à des
+milliers d'unités négatives. Le stock de départ s'établit par un **inventaire**,
+à la date du jour — pas en rejouant l'histoire. `--avec-stock` pour passer outre.
+
+**Les règlements suivent les factures.** Sans eux, les factures soldées depuis
+des années s'afficheraient comme impayées et la balance âgée ne voudrait plus
+rien dire. Le mode n'est pas dans Books : tout passe en « autre » (banque).
+
+**Une facture déjà reprise ne coûte même pas son appel réseau.** Un import
+interrompu se relance sans tout refaire.
+
+### L'obstacle qui reste : la clôture comptable
+
+`ComptaService::creerEcriture` refuse toute écriture datée dans un exercice clos,
+et les factures Books remontent à **2021**. La commande lit la dernière année
+clôturée *avant* de commencer et l'affiche : si un exercice est clos, toutes les
+factures de cette année-là et d'avant seront refusées, une à une et sans
+interrompre le reste. Il faut alors rouvrir l'exercice pour reprendre ces
+années-là.
+
+### La traçabilité
+
+`tiers`, `produits` et `documents_vente` portent `source_systeme` + `source_id`,
+sous index unique par entreprise. C'est ce qui rend les trois imports rejouables :
+au second passage, le rapprochement ne devine plus — il reconnaît.
+
+## 5. Ce que ce module ne fait pas
 
 - Aucune écriture vers Zoho : l'échange est à sens unique.
 - Aucune synchronisation continue. C'est une **reprise d'historique**, déclenchée
   à la main. Une synchronisation courante demanderait une tâche planifiée et une
   stratégie de conflits, qui n'existent pas ici.
-- Les articles et les factures ne sont pas encore repris.
+- Les **factures d'achat** (`bills`), les devis et les commandes ne sont pas
+  repris : seules les factures de vente le sont.
+- Le **stock de départ** n'est pas repris — Books n'en tenait pas. Il s'établit
+  par un inventaire.

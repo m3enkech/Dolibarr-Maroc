@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'address', 'city', 'postal_code', 'country',
     'phone', 'email', 'website', 'contact_name',
     'notes', 'is_active',
+    'source_systeme', 'source_id',
 ])]
 class Tiers extends Model
 {

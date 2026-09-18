@@ -8,7 +8,18 @@ use App\Modules\Tiers\Services\TiersService;
 /**
  * Rapatrie les clients et les fournisseurs de Zoho Books dans les tiers Dolibarr.
  *
- * QUATRE PARTIS PRIS.
+ * CINQ PARTIS PRIS.
+ *
+ * 0. ON RAPPROCHE D'ABORD SUR L'IDENTIFIANT ZOHO, quand on le connaît déjà.
+ *    Les deux heuristiques qui suivent ne servent qu'au PREMIER passage : dès
+ *    qu'un tiers porte son `source_id`, le rejeu ne devine plus rien, il
+ *    reconnaît. C'est aussi ce qui permettra aux factures de retrouver leur
+ *    client sans repasser par l'ICE.
+ *
+ *    Un partenaire présent chez Books en client ET en fournisseur donne deux
+ *    contacts pour un seul tiers : le tiers garde le PREMIER identifiant vu,
+ *    celui du contact CLIENT (les clients sont parcourus d'abord) — c'est
+ *    exactement celui que les factures référencent.
  *
  * 1. ON RAPPROCHE SUR L'ICE, PAS SUR LE NOM. L'ICE est l'identifiant officiel
  *    d'une entreprise marocaine : il est unique et stable. Rapprocher sur le nom
@@ -34,6 +45,9 @@ class ImportTiersZoho
     /** Tient la place d'un tiers qui aurait été créé, en simulation. */
     private const MARQUE_SIMULATION = 'simule';
 
+    /** Nom de la passerelle, inscrit sur chaque enregistrement repris. */
+    public const SOURCE = 'zoho_books';
+
     public function __construct(
         private ZohoBooksClient $zoho,
         private TiersService $tiers,
@@ -58,9 +72,15 @@ class ImportTiersZoho
             ->get(['id', 'name'])
             ->keyBy(fn (Tiers $t) => $this->normaliserNom($t->name));
 
+        $parSource = Tiers::query()
+            ->where('source_systeme', self::SOURCE)
+            ->whereNotNull('source_id')
+            ->get(['id', 'source_id'])
+            ->keyBy('source_id');
+
         foreach (['customer' => 'is_client', 'vendor' => 'is_supplier'] as $type => $drapeau) {
             foreach ($this->zoho->contacts($type) as $contact) {
-                $resultat = $this->traiter($contact, $drapeau, $parIce, $parNom, $simulation);
+                $resultat = $this->traiter($contact, $drapeau, $parIce, $parNom, $parSource, $simulation);
 
                 $rapport[$resultat['issue']]++;
                 $rapport['details'][] = $resultat['detail'];
@@ -79,13 +99,14 @@ class ImportTiersZoho
     /**
      * @return array{issue: string, detail: array<string, string>}
      */
-    private function traiter(array $contact, string $drapeau, $parIce, $parNom, bool $simulation): array
+    private function traiter(array $contact, string $drapeau, $parIce, $parNom, $parSource, bool $simulation): array
     {
         $nom = trim((string) ($contact['company_name'] ?: $contact['contact_name'] ?? ''));
         $ice = $this->normaliserIce($contact['cf_ice'] ?? null);
+        $zohoId = (string) ($contact['contact_id'] ?? '');
 
         $detail = [
-            'zoho_id' => (string) ($contact['contact_id'] ?? ''),
+            'zoho_id' => $zohoId,
             'nom' => $nom,
             'ice' => $ice ?? '',
         ];
@@ -97,9 +118,11 @@ class ImportTiersZoho
             ]];
         }
 
-        $existant = $ice !== null
-            ? $parIce->get($ice)
-            : $parNom->get($this->normaliserNom($nom));
+        // L'identifiant Zoho d'abord : c'est une certitude, pas une ressemblance.
+        $existant = ($zohoId !== '' ? $parSource->get($zohoId) : null)
+            ?? ($ice !== null
+                ? $parIce->get($ice)
+                : $parNom->get($this->normaliserNom($nom)));
 
         // Rencontré plus tôt DANS CET IMPORT, alors qu'on ne l'a pas écrit :
         // c'est le cas d'un partenaire présent chez Books en client ET en
@@ -121,17 +144,21 @@ class ImportTiersZoho
                 ]];
             }
 
-            $changements = $this->champsACompleter($tiers, $contact, $drapeau);
+            $changements = $this->champsACompleter($tiers, $contact, $drapeau, $zohoId);
 
             if ($changements === []) {
                 return ['issue' => 'inchanges', 'detail' => $detail + [
                     'action' => 'inchange',
-                    'raison' => $ice !== null ? 'déjà présent (ICE)' : 'déjà présent (nom)',
+                    'raison' => $this->clefDeRapprochement($tiers, $zohoId, $ice),
                 ]];
             }
 
             if (! $simulation) {
                 $this->tiers->update($tiers, $changements);
+            }
+
+            if (isset($changements['source_id'])) {
+                $parSource->put($zohoId, $tiers);
             }
 
             return ['issue' => 'mis_a_jour', 'detail' => $detail + [
@@ -152,6 +179,10 @@ class ImportTiersZoho
             $parIce->put($ice, $cree);
         }
         $parNom->put($this->normaliserNom($nom), $cree);
+
+        if ($zohoId !== '') {
+            $parSource->put($zohoId, $cree);
+        }
 
         return ['issue' => 'crees', 'detail' => $detail + [
             'action' => 'cree',
@@ -187,7 +218,19 @@ class ImportTiersZoho
             'contact_name' => trim(($contact['first_name'] ?? '').' '.($contact['last_name'] ?? '')) ?: null,
             'notes' => 'Importé de Zoho Books (contact '.($contact['contact_id'] ?? '?').').',
             'is_active' => ($contact['status'] ?? 'active') === 'active',
+            'source_systeme' => self::SOURCE,
+            'source_id' => ($contact['contact_id'] ?? null) ?: null,
         ];
+    }
+
+    /** Ce qui a permis de retrouver le tiers — utile quand le rapport surprend. */
+    private function clefDeRapprochement(Tiers $tiers, string $zohoId, ?string $ice): string
+    {
+        if ($zohoId !== '' && $tiers->source_id === $zohoId && $tiers->source_systeme === self::SOURCE) {
+            return 'déjà présent (identifiant Zoho)';
+        }
+
+        return $ice !== null ? 'déjà présent (ICE)' : 'déjà présent (nom)';
     }
 
     /**
@@ -195,13 +238,23 @@ class ImportTiersZoho
      *
      * @return array<string, mixed>
      */
-    private function champsACompleter(Tiers $tiers, array $contact, string $drapeau): array
+    private function champsACompleter(Tiers $tiers, array $contact, string $drapeau, string $zohoId): array
     {
         $changements = [];
 
         // Le rôle, lui, s'ajoute toujours : c'est tout l'intérêt de la fusion.
         if (! $tiers->{$drapeau}) {
             $changements[$drapeau] = true;
+        }
+
+        // Le tiers adopte son identifiant Zoho s'il n'en porte pas encore. Un
+        // tiers qui en a déjà un le GARDE : le second contact d'un partenaire
+        // client-et-fournisseur ne doit pas chasser le premier, sinon le tiers
+        // change d'identité à chaque import et les factures ne le retrouvent
+        // plus. La contrainte d'unicité l'interdirait de toute façon.
+        if ($zohoId !== '' && blank($tiers->source_id)) {
+            $changements['source_systeme'] = self::SOURCE;
+            $changements['source_id'] = $zohoId;
         }
 
         // Mêmes champs qu'à la création : pas d'adresse, la liste Zoho n'en

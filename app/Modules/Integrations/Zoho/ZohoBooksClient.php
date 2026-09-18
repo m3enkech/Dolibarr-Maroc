@@ -55,6 +55,16 @@ class ZohoBooksClient
     }
 
     /**
+     * Les articles du catalogue, page après page.
+     *
+     * @return Generator<int, array<string, mixed>>
+     */
+    public function articles(array $filtres = []): Generator
+    {
+        yield from $this->paginer('/items', 'items', $filtres);
+    }
+
+    /**
      * Les factures, éventuellement bornées dans le temps.
      *
      * @return Generator<int, array<string, mixed>>

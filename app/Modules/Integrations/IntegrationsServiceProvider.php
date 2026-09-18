@@ -2,6 +2,8 @@
 
 namespace App\Modules\Integrations;
 
+use App\Modules\Integrations\Console\ImporterArticlesZohoCommand;
+use App\Modules\Integrations\Console\ImporterFacturesZohoCommand;
 use App\Modules\Integrations\Console\ImporterTiersZohoCommand;
 use App\Modules\Integrations\Console\ObtenirJetonZohoCommand;
 use Illuminate\Support\ServiceProvider;
@@ -20,7 +22,11 @@ class IntegrationsServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ObtenirJetonZohoCommand::class,
+                // Dans l'ordre où elles doivent être jouées : les factures ont
+                // besoin de leurs clients et de leurs articles.
                 ImporterTiersZohoCommand::class,
+                ImporterArticlesZohoCommand::class,
+                ImporterFacturesZohoCommand::class,
             ]);
         }
     }
