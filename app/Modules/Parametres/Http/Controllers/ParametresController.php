@@ -15,7 +15,7 @@ class ParametresController extends Controller
      * clés — ice, if, rc, address, city…).
      */
     private const CHAMPS_SOCIETE = [
-        'ice', 'if', 'rc', 'patente', 'cnss',
+        'ice', 'if', 'rc', 'patente', 'cnss', 'capital', 'conditions_paiement',
         'address', 'city', 'postal_code', 'phone', 'email', 'website',
     ];
 
@@ -61,6 +61,10 @@ class ParametresController extends Controller
             'rc' => ['nullable', 'string', 'max:30'],
             'patente' => ['nullable', 'string', 'max:30'],
             'cnss' => ['nullable', 'string', 'max:30'],
+            // Le capital social et les conditions de reglement figurent sur
+            // le bandeau legal et le bloc d'echeance de la facture.
+            'capital' => ['nullable', 'string', 'max:40'],
+            'conditions_paiement' => ['nullable', 'string', 'max:80'],
             'address' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:120'],
             'postal_code' => ['nullable', 'string', 'max:20'],

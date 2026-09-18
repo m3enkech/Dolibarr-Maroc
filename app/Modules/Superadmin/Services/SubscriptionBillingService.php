@@ -8,8 +8,8 @@ use App\Models\SubscriptionPayment;
 use App\Modules\Tiers\Models\Tiers;
 use App\Modules\Tiers\Services\TiersService;
 use App\Modules\Ventes\Models\DocumentVente;
+use App\Modules\Ventes\Services\DocumentPdfService;
 use App\Modules\Ventes\Services\VenteService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Carbon;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -102,17 +102,12 @@ class SubscriptionBillingService
 
         abort_if($doc === null, 404);
 
-        $tvaBreakdown = $doc->lignes
-            ->groupBy(fn ($ligne) => (string) $ligne->tva_rate)
-            ->map(fn ($lignes, $rate) => [
-                'rate' => (float) $rate,
-                'ht' => $lignes->sum(fn ($l) => (float) $l->montant_ht),
-                'tva' => $lignes->sum(fn ($l) => (float) $l->montant_tva),
-            ])
-            ->sortByDesc('rate')
-            ->values();
-
-        return Pdf::loadView('pdf.document-vente', ['document' => $doc, 'tvaBreakdown' => $tvaBreakdown])
+        // Le MÊME rendu que les factures de vente, et non une copie : la copie
+        // qui vivait ici avait déjà cessé de suivre — il lui manquait la
+        // mention en toutes lettres exigée par l'article 145 du CGI, et la
+        // facture d'abonnement partait en erreur 500 le jour où la vue l'a
+        // demandée. Une facture est une facture.
+        return app(DocumentPdfService::class)->rendre($doc)
             ->download('abonnement-'.$doc->code.'.pdf');
     }
 

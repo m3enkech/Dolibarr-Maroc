@@ -651,6 +651,10 @@ export interface Societe {
     rc: string | null;
     patente: string | null;
     cnss: string | null;
+    /** Capital social, tel qu'il doit figurer au bandeau légal des factures. */
+    capital: string | null;
+    /** « Payable à réception », « 30 jours fin de mois »… imprimé sur la facture. */
+    conditions_paiement: string | null;
     address: string | null;
     city: string | null;
     postal_code: string | null;

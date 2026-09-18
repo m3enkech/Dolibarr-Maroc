@@ -262,6 +262,10 @@ class ImportFacturesZoho
                 'tiers_id' => $tiers->id,
                 'date_document' => $date,
                 'date_echeance' => ($facture['due_date'] ?? '') ?: null,
+                // Le bon de commande du client : c'est la clé dont son service
+                // comptable a besoin pour rapprocher la facture, et il figure
+                // sur le PDF.
+                'reference_client' => Str::limit($this->bonDeCommande($facture), 60, '') ?: null,
                 'notes' => $this->notes($facture),
                 'source_systeme' => ImportTiersZoho::SOURCE,
                 'source_id' => (string) ($facture['invoice_id'] ?? ''),
@@ -496,11 +500,17 @@ class ImportFacturesZoho
     {
         $notes = 'Reprise Zoho Books — facture '.($facture['invoice_number'] ?? '?').'.';
 
-        if ($commande = trim((string) ($facture['salesorder_number'] ?? $facture['reference_number'] ?? ''))) {
+        if ($commande = $this->bonDeCommande($facture)) {
             $notes .= ' Commande '.$commande.'.';
         }
 
         return $notes;
+    }
+
+    /** La commande d'origine chez Books, que le client cite dans ses règlements. */
+    private function bonDeCommande(array $facture): string
+    {
+        return trim((string) (($facture['salesorder_number'] ?? '') ?: ($facture['reference_number'] ?? '')));
     }
 
     /**

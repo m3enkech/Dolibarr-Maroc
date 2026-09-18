@@ -38,6 +38,10 @@ const CHAMPS_SOCIETE: { key: keyof Societe; label: string; placeholder?: string;
     { key: 'rc', label: 'Registre du commerce (RC)' },
     { key: 'patente', label: 'Patente' },
     { key: 'cnss', label: 'CNSS' },
+    // Capital et conditions figurent sur la facture : le premier au bandeau
+    // légal, les secondes au bloc d'échéance.
+    { key: 'capital', label: 'Capital social', placeholder: 'ex. 100 000 MAD' },
+    { key: 'conditions_paiement', label: 'Conditions de paiement', placeholder: 'ex. Payable à réception' },
     { key: 'phone', label: 'Téléphone' },
     { key: 'email', label: 'Email' },
     { key: 'website', label: 'Site web' },

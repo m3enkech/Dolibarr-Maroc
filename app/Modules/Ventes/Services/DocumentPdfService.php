@@ -2,6 +2,7 @@
 
 namespace App\Modules\Ventes\Services;
 
+use App\Core\Format\MontantEnLettres;
 use App\Modules\Ventes\Models\DocumentVente;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as PdfDocument;
@@ -33,6 +34,10 @@ class DocumentPdfService
         return Pdf::loadView('pdf.document-vente', [
             'document' => $document,
             'tvaBreakdown' => $tvaBreakdown,
+            // Article 145 du CGI : la facture porte le montant en toutes
+            // lettres, et c'est cette mention qui fait foi en cas de litige sur
+            // un chiffre mal imprimé.
+            'montantEnLettres' => MontantEnLettres::pour($document->total_ttc),
         ]);
     }
 }
