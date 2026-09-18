@@ -3,6 +3,7 @@
 namespace App\Modules\Integrations;
 
 use App\Modules\Integrations\Console\ImporterTiersZohoCommand;
+use App\Modules\Integrations\Console\ObtenirJetonZohoCommand;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -17,7 +18,10 @@ class IntegrationsServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([ImporterTiersZohoCommand::class]);
+            $this->commands([
+                ObtenirJetonZohoCommand::class,
+                ImporterTiersZohoCommand::class,
+            ]);
         }
     }
 }

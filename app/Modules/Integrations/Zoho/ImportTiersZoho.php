@@ -31,6 +31,9 @@ use App\Modules\Tiers\Services\TiersService;
  */
 class ImportTiersZoho
 {
+    /** Tient la place d'un tiers qui aurait été créé, en simulation. */
+    private const MARQUE_SIMULATION = 'simule';
+
     public function __construct(
         private ZohoBooksClient $zoho,
         private TiersService $tiers,
@@ -98,6 +101,17 @@ class ImportTiersZoho
             ? $parIce->get($ice)
             : $parNom->get($this->normaliserNom($nom));
 
+        // Rencontré plus tôt DANS CET IMPORT, alors qu'on ne l'a pas écrit :
+        // c'est le cas d'un partenaire présent chez Books en client ET en
+        // fournisseur. Le vrai import fusionnera les deux ; la simulation doit
+        // l'annoncer, sans quoi elle promet des créations qui n'auront pas lieu.
+        if ($existant === self::MARQUE_SIMULATION) {
+            return ['issue' => 'mis_a_jour', 'detail' => $detail + [
+                'action' => 'fusionne',
+                'raison' => 'même partenaire déjà vu dans cet import (client et fournisseur)',
+            ]];
+        }
+
         if ($existant !== null) {
             $tiers = Tiers::find($existant->id);
 
@@ -126,16 +140,18 @@ class ImportTiersZoho
             ]];
         }
 
-        if (! $simulation) {
-            $cree = $this->tiers->create($this->donneesDeCreation($contact, $nom, $ice, $drapeau));
+        // Les index suivent DANS LES DEUX MODES, pour qu'un doublon interne à
+        // l'import — le même ICE en client puis en fournisseur — soit rattrapé.
+        // En simulation on n'a pas de tiers à y mettre : une marque suffit, et
+        // c'est elle qui permet au rapport d'annoncer la fusion à venir.
+        $cree = $simulation
+            ? self::MARQUE_SIMULATION
+            : $this->tiers->create($this->donneesDeCreation($contact, $nom, $ice, $drapeau));
 
-            // Les index suivent, pour qu'un doublon à l'intérieur du MÊME import
-            // (le même ICE en client puis en fournisseur) soit rattrapé.
-            if ($ice !== null) {
-                $parIce->put($ice, $cree);
-            }
-            $parNom->put($this->normaliserNom($nom), $cree);
+        if ($ice !== null) {
+            $parIce->put($ice, $cree);
         }
+        $parNom->put($this->normaliserNom($nom), $cree);
 
         return ['issue' => 'crees', 'detail' => $detail + [
             'action' => 'cree',

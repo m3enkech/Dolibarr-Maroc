@@ -227,6 +227,34 @@ class ImportTiersZohoTest extends TestCase
         $this->assertSame('contact sans nom exploitable', $rapport['details'][0]['raison']);
     }
 
+    /**
+     * Une simulation qui n'annonce pas le vrai résultat ne sert à rien.
+     *
+     * Le cas qui l'a révélé : chez Books, 108 partenaires existent en client ET
+     * en fournisseur. Comme la simulation n'écrit pas, elle n'alimentait pas son
+     * index et ne voyait donc pas ces doublons INTERNES à l'import — elle
+     * promettait 566 créations quand le vrai import en fait 458.
+     */
+    public function test_la_simulation_annonce_les_fusions_comme_le_vrai_import(): void
+    {
+        $this->dansUneEntreprise();
+
+        $contacts = [
+            'customer' => [$this->contact()],
+            'vendor' => [$this->contact(['contact_id' => '2'])],
+        ];
+
+        $simule = $this->zohoRend($contacts)->executer(simulation: true);
+        $this->assertSame(0, Tiers::count(), 'La simulation n\'écrit rien.');
+
+        $reel = $this->zohoRend($contacts)->executer();
+
+        $this->assertSame($reel['crees'], $simule['crees'], 'Le nombre de créations annoncé doit être le vrai.');
+        $this->assertSame($reel['mis_a_jour'], $simule['mis_a_jour'], 'Le nombre de fusions aussi.');
+        $this->assertSame(1, $simule['crees']);
+        $this->assertSame(1, $simule['mis_a_jour']);
+    }
+
     public function test_la_simulation_n_ecrit_rien_mais_rend_le_meme_rapport(): void
     {
         $this->dansUneEntreprise();
