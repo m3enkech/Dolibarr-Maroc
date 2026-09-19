@@ -41,6 +41,22 @@ class VentesController extends Controller
             ->when($request->filled('montant_min'), fn ($q) => $q->where('total_ttc', '>=', (float) $request->input('montant_min')))
             ->when($request->filled('montant_max'), fn ($q) => $q->where('total_ttc', '<=', (float) $request->input('montant_max')))
 
+            // L'échéance. « Échue » veut dire DUE ET DÉPASSÉE : une facture
+            // soldée bascule en `paye`, donc `valide` signifie déjà « due » —
+            // même définition que les compteurs de l'écran de suivi, sans quoi
+            // deux écrans donneraient deux nombres pour la même question.
+            ->when($request->string('echeance')->toString() === 'echue', fn ($q) => $q
+                ->where('type', DocumentVente::TYPE_FACTURE)
+                ->where('statut', DocumentVente::STATUT_VALIDE)
+                ->whereNotNull('date_echeance')
+                ->whereDate('date_echeance', '<', now()->toDateString()))
+
+            ->when($request->string('echeance')->toString() === 'a_echoir', fn ($q) => $q
+                ->where('type', DocumentVente::TYPE_FACTURE)
+                ->where('statut', DocumentVente::STATUT_VALIDE)
+                ->whereNotNull('date_echeance')
+                ->whereDate('date_echeance', '>=', now()->toDateString()))
+
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
                 $terme = $request->string('search')->toString();
                 $search = '%'.$terme.'%';

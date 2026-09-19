@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatMAD, formatTva } from '@/lib/format';
+import { etatEcheance } from '@/lib/echeance';
 import { statutClasses, statutLabel, TYPE_LABELS } from '@/pages/ventes/common';
 import type { DocumentVente } from '@/types';
 import { useT } from '@/lib/langue';
@@ -69,7 +70,34 @@ export default function ApercuVente({ id, onFermer }: { id: number; onFermer: ()
                         <Ligne libelle={t('Client')} valeur={doc.tiers?.name} />
                         {doc.tiers?.ice && <Ligne libelle="ICE" valeur={doc.tiers.ice} />}
                         {doc.reference_client && <Ligne libelle={t('Bon de commande')} valeur={doc.reference_client} />}
-                        {doc.date_echeance && <Ligne libelle={t('Échéance')} valeur={doc.date_echeance} />}
+                        {doc.date_echeance && (
+                            <div className="flex items-baseline justify-between gap-3">
+                                <span className="shrink-0 text-slate-500">{t('Échéance')}</span>
+                                <span className="min-w-0 text-end">
+                                    <span className="text-slate-900">{doc.date_echeance}</span>
+                                    {/* Le décompte ne vaut que sur une facture encore
+                                        due : sur une pièce soldée il ferait croire à un
+                                        retard qui n'existe pas. */}
+                                    {doc.statut === 'valide' && (() => {
+                                        const etat = etatEcheance(doc.date_echeance);
+
+                                        return etat ? (
+                                            <span
+                                                className={`ms-2 text-xs font-medium ${
+                                                    etat.depassee
+                                                        ? 'text-red-600'
+                                                        : etat.proche
+                                                          ? 'text-amber-600'
+                                                          : 'text-slate-400'
+                                                }`}
+                                            >
+                                                {t(etat.libelle)}
+                                            </span>
+                                        ) : null;
+                                    })()}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="mt-4 border-t border-slate-100 pt-4">

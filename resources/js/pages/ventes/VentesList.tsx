@@ -6,6 +6,8 @@ import { formatMAD } from '@/lib/format';
 import { useDebounce } from '@/lib/useDebounce';
 import { useT } from '@/lib/langue';
 import Pagination from '@/components/Pagination';
+import SelecteurAnnee from '@/components/SelecteurAnnee';
+import { etatEcheance } from '@/lib/echeance';
 import ApercuVente from '@/pages/ventes/ApercuVente';
 import { statutClasses, statutLabel, TYPE_LABELS, TYPE_LABELS_PLURAL } from '@/pages/ventes/common';
 import type { DocumentType, DocumentVente, Paginated } from '@/types';
@@ -15,7 +17,7 @@ const TABS: DocumentType[] = ['devis', 'commande', 'bon_livraison', 'facture', '
 const STATUTS = ['brouillon', 'valide', 'accepte', 'refuse', 'paye'];
 
 /** Colonnes triables : la liste blanche du serveur, et rien d'autre. */
-const TRIABLES = ['code', 'date_document', 'total_ttc', 'statut'] as const;
+const TRIABLES = ['code', 'date_document', 'date_echeance', 'total_ttc', 'statut'] as const;
 type Triable = (typeof TRIABLES)[number];
 
 export default function VentesList() {
@@ -31,6 +33,7 @@ export default function VentesList() {
     const [dateDebut, setDateDebut] = useState('');
     const [dateFin, setDateFin] = useState('');
     const [montantMin, setMontantMin] = useState('');
+    const [echeance, setEcheance] = useState('');
     const [filtresOuverts, setFiltresOuverts] = useState(false);
     const [tri, setTri] = useState<Triable>('date_document');
     const [direction, setDirection] = useState<'asc' | 'desc'>('desc');
@@ -47,7 +50,7 @@ export default function VentesList() {
     // que le filtre n'a rien trouvé.
     useEffect(() => {
         setPage(1);
-    }, [recherche, annee, statut, dateDebut, dateFin, montantMin, type, perPage]);
+    }, [recherche, annee, statut, dateDebut, dateFin, montantMin, echeance, type, perPage]);
 
     const params = {
         type,
@@ -57,6 +60,7 @@ export default function VentesList() {
         date_debut: dateDebut || undefined,
         date_fin: dateFin || undefined,
         montant_min: montantMin || undefined,
+        echeance: echeance || undefined,
         tri,
         direction,
         page,
@@ -100,7 +104,7 @@ export default function VentesList() {
         setApercu(null);
     };
 
-    const filtresActifs = [annee, statut, dateDebut, dateFin, montantMin].filter(Boolean).length;
+    const filtresActifs = [annee, statut, dateDebut, dateFin, montantMin, echeance].filter(Boolean).length;
 
     const entete = (colonne: Triable, libelle: string, aDroite = false) => (
         <th className={`px-4 py-3 ${aDroite ? 'text-end' : ''}`}>
@@ -166,36 +170,38 @@ export default function VentesList() {
                 </button>
             </div>
 
-            {/* Les années en premier : c'est le filtre qui rend l'historique
+            {/* L'exercice en premier : c'est le filtre qui rend l'historique
                 repris atteignable, et il se pose d'un seul clic. */}
-            {annees && annees.length > 1 && (
-                <div className="flex flex-wrap items-center gap-2">
-                    <button
-                        onClick={() => setAnnee(null)}
-                        className={`rounded-full px-3 py-1 text-sm transition ${
-                            annee === null ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
-                        }`}
-                    >
-                        {t('Toutes')}
-                    </button>
-                    {annees.map((a) => (
-                        <button
-                            key={a.annee}
-                            onClick={() => setAnnee(annee === a.annee ? null : a.annee)}
-                            className={`rounded-full px-3 py-1 text-sm transition ${
-                                annee === a.annee
-                                    ? 'bg-emerald-600 text-white'
-                                    : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
-                            }`}
-                        >
-                            {a.annee}
-                            <span className={annee === a.annee ? 'ms-1.5 text-emerald-100' : 'ms-1.5 text-slate-400'}>
-                                {a.total}
-                            </span>
-                        </button>
-                    ))}
-                </div>
-            )}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <SelecteurAnnee annees={annees ?? []} valeur={annee} onChange={setAnnee} />
+
+                {/* La question qu'on se pose vraiment devant une liste de
+                    factures : lesquelles sont en retard. */}
+                {type === 'facture' && (
+                    <div className="flex items-center gap-2">
+                        {(
+                            [
+                                ['echue', 'En retard'],
+                                ['a_echoir', 'À échoir'],
+                            ] as const
+                        ).map(([cle, libelle]) => (
+                            <button
+                                key={cle}
+                                onClick={() => setEcheance(echeance === cle ? '' : cle)}
+                                className={`rounded-full px-3 py-1 text-sm transition ${
+                                    echeance === cle
+                                        ? cle === 'echue'
+                                            ? 'bg-red-600 text-white'
+                                            : 'bg-amber-500 text-white'
+                                        : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
+                                }`}
+                            >
+                                {t(libelle)}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {filtresOuverts && (
                 <div className="grid gap-3 rounded-xl bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
@@ -266,6 +272,7 @@ export default function VentesList() {
                                     {entete('code', 'Code')}
                                     {entete('date_document', 'Date')}
                                     <th className="px-4 py-3 uppercase tracking-wide">{t('Client')}</th>
+                                    {type === 'facture' && entete('date_echeance', 'Échéance')}
                                     {entete('total_ttc', 'Total TTC', true)}
                                     {type === 'facture' && (
                                         <th className="px-4 py-3 text-end uppercase tracking-wide">{t('Reste à payer')}</th>
@@ -276,14 +283,14 @@ export default function VentesList() {
                             <tbody className="divide-y divide-slate-100">
                                 {isLoading && (
                                     <tr>
-                                        <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                                             {t('Chargement…')}
                                         </td>
                                     </tr>
                                 )}
                                 {!isLoading && data?.data.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                                             {filtresActifs > 0 || recherche
                                                 ? t('Aucun document ne correspond à ces critères.')
                                                 : t('Aucun document. Créez le premier !')}
@@ -303,6 +310,11 @@ export default function VentesList() {
                                         </td>
                                         <td className="px-4 py-3 text-slate-600">{doc.date_document}</td>
                                         <td className="px-4 py-3 font-medium text-slate-900">{doc.tiers?.name}</td>
+                                        {type === 'facture' && (
+                                            <td className="px-4 py-3">
+                                                <Echeance doc={doc} />
+                                            </td>
+                                        )}
                                         <td className="px-4 py-3 text-end tabular-nums text-slate-900">
                                             {formatMAD(doc.total_ttc)}
                                         </td>
@@ -335,6 +347,37 @@ export default function VentesList() {
 
                 {apercu !== null && <ApercuVente id={apercu} onFermer={() => setApercu(null)} />}
             </div>
+        </div>
+    );
+}
+
+/**
+ * L'échéance d'une facture, et ce qu'il en reste.
+ *
+ * Le décompte ne s'affiche QUE sur une facture encore due : sur une pièce
+ * soldée il ferait croire à un retard qui n'existe pas, et c'est ainsi qu'on
+ * relance un client qui ne doit rien.
+ */
+function Echeance({ doc }: { doc: DocumentVente }) {
+    const t = useT();
+    const etat = etatEcheance(doc.date_echeance);
+
+    if (!etat) return <span className="text-slate-300">—</span>;
+
+    const due = doc.statut === 'valide';
+
+    return (
+        <div className="whitespace-nowrap">
+            <div className="text-slate-600">{doc.date_echeance}</div>
+            {due && (
+                <div
+                    className={`text-xs font-medium ${
+                        etat.depassee ? 'text-red-600' : etat.proche ? 'text-amber-600' : 'text-slate-400'
+                    }`}
+                >
+                    {t(etat.libelle)}
+                </div>
+            )}
         </div>
     );
 }
