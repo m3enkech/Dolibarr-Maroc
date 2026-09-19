@@ -32,5 +32,9 @@ class ComptaServiceProvider extends ServiceProvider
         Event::listen(FactureAchatValidee::class, GenererEcritureAchat::class);
         Event::listen(FactureAchatValidee::class, CreerImmobilisationsSurAchat::class);
         Event::listen(PaiementFournisseurEnregistre::class, GenererEcritureDecaissement::class);
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([\App\Modules\Compta\Console\RenumeroterEcrituresCommand::class]);
+        }
     }
 }

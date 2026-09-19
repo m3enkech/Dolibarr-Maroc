@@ -190,7 +190,13 @@ class PilotageFluxTest extends TestCase
 
         $apres = $requetes();
 
-        $this->assertSame(
+        // On exige que le coût ne CROISSE pas — pas qu'il soit identique au
+        // nombre près. Une baisse n'est jamais un N+1, et il s'en produit :
+        // dans la suite complète, le premier appel paie une requête que le
+        // second trouve déjà résolue en mémoire. Exiger l'égalité faisait
+        // échouer le test sur une mesure qui allait dans le BON sens, et un
+        // test qui crie au loup pour une amélioration finit ignoré.
+        $this->assertLessThanOrEqual(
             $avant,
             $apres,
             "Le coût des compteurs a augmenté avec le décor : {$avant} requêtes puis {$apres}. C'est un N+1.",

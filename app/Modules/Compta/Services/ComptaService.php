@@ -476,7 +476,12 @@ class ComptaService
 
             $ecriture = Ecriture::create([
                 'journal' => $journal,
-                'numero' => $this->sequences->next($journal),
+                // La série suit l'année de la PIÈCE, jamais celle du jour où on
+                // la saisit. Sans cette année, une facture de 2022 reprise en
+                // 2026 recevait « VT-2026-01195 » : la date était juste, le
+                // numéro non — et une série de journal doit appartenir à son
+                // exercice. Deux mille cinquante-neuf écritures l'ont appris.
+                'numero' => $this->sequences->next($journal, (int) substr($date, 0, 4)),
                 'date_ecriture' => $date,
                 'libelle' => $libelle,
                 'reference' => $reference,
