@@ -79,16 +79,27 @@ class AchatsController extends Controller
                 fn ($q) => $q->where('type', $request->string('type')->toString()),
             )
             ->when($request->string('statut')->isNotEmpty(), fn ($q) => $q->where('statut', $request->string('statut')->toString()))
+            ->when($request->integer('tiers_id') > 0, fn ($q) => $q->where('tiers_id', $request->integer('tiers_id')))
+
+            // Mêmes filtres de période que les ventes : deux écrans jumeaux qui
+            // se manœuvrent différemment, c'est deux écrans à réapprendre.
+            ->when($request->integer('annee') > 0, fn ($q) => $q->whereYear('date_document', $request->integer('annee')))
+            ->when($request->date('date_debut'), fn ($q, $d) => $q->whereDate('date_document', '>=', $d))
+            ->when($request->date('date_fin'), fn ($q, $d) => $q->whereDate('date_document', '<=', $d))
+            ->when($request->filled('montant_min'), fn ($q) => $q->where('total_ttc', '>=', (float) $request->input('montant_min')))
+
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
                 $search = '%'.$request->string('search').'%';
                 $query->where(fn ($q) => $q
                     ->whereLike('code', $search)
                     ->orWhereLike('ref_fournisseur', $search)
-                    ->orWhereHas('tiers', fn ($t) => $t->whereLike('name', $search)));
+                    ->orWhereHas('tiers', fn ($t) => $t->whereLike('name', $search)->orWhereLike('ice', $search))
+                    ->orWhereHas('lignes', fn ($l) => $l->whereLike('designation', $search)));
             })
             ->latest('date_document')
             ->latest('id')
-            ->paginate($request->integer('per_page', 15));
+            ->paginate($request->integer('per_page', 15))
+            ->withQueryString();
 
         return DocumentAchatResource::collection($documents);
     }

@@ -7,6 +7,8 @@ use Database\Factories\TiersFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
@@ -40,6 +42,18 @@ class Tiers extends Model
             'is_active' => 'boolean',
             'converti_at' => 'datetime',
         ];
+    }
+
+    /** Les interlocuteurs chez ce client ou ce fournisseur. */
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(Contact::class);
+    }
+
+    /** Celui que visent les documents et les relances, s'il est désigné. */
+    public function contactPrincipal(): HasOne
+    {
+        return $this->hasOne(Contact::class)->where('is_principal', true);
     }
 
     protected static function newFactory(): TiersFactory

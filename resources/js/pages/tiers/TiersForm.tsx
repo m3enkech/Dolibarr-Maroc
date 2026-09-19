@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useFeatures } from '@/lib/features';
-import TiersTimeline from '@/pages/tiers/TiersTimeline';
 import { LEAD_SOURCES, LEAD_SOURCE_LABELS, type Tiers } from '@/types';
 import { useT } from '@/lib/langue';
 
@@ -125,7 +124,9 @@ export default function TiersForm() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['tiers'] });
             queryClient.invalidateQueries({ queryKey: ['tiers-count'] });
-            navigate('/tiers');
+            // On revient a la fiche du tiers qu'on vient de modifier, pas a la
+            // liste : retrouver sa ligne parmi des centaines est une corvee.
+            navigate(isEdit && id ? `/tiers/${id}` : '/tiers');
         },
         onError: (err: any) => {
             const messages = err?.response?.data?.errors;
@@ -188,9 +189,23 @@ export default function TiersForm() {
                             <label className={label}>{t('Nom / Raison sociale *')}</label>
                             <input required value={form.name} onChange={text('name')} className={input} />
                         </div>
-                        <div>
-                            <label className={label}>{t('Contact principal')}</label>
-                            <input value={form.contact_name} onChange={text('contact_name')} className={input} />
+                        {/* Les interlocuteurs vivent dans leur propre table
+                            depuis qu'un tiers peut en avoir plusieurs : les
+                            laisser AUSSI ici ferait diverger les deux, et
+                            personne ne saurait lequel les documents visent. */}
+                        <div className="flex items-end pb-2">
+                            {isEdit && id ? (
+                                <p className="text-sm text-slate-500">
+                                    {t('Interlocuteurs :')}{' '}
+                                    <Link to={`/tiers/${id}`} className="text-emerald-700 underline">
+                                        {t('gérés sur la fiche du tiers')}
+                                    </Link>
+                                </p>
+                            ) : (
+                                <p className="text-sm text-slate-400">
+                                    {t('Les interlocuteurs s\'ajouteront une fois le tiers créé.')}
+                                </p>
+                            )}
                         </div>
                         {/* Quatre cases sur une ligne : sans `flex-wrap`, leur
                             largeur cumulée s'impose à la colonne de grille et
@@ -404,7 +419,6 @@ export default function TiersForm() {
                 </div>
             </form>
 
-            {isEdit && id && features.crm && <TiersTimeline tiersId={id} />}
         </div>
     );
 }

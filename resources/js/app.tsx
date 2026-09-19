@@ -43,6 +43,7 @@ import Relances from '@/pages/relances/Relances';
 import StockPage from '@/pages/stock/StockPage';
 import Adhesions from '@/pages/tiers/Adhesions';
 import TiersForm from '@/pages/tiers/TiersForm';
+import Tiers360 from '@/pages/tiers/Tiers360';
 import TiersList from '@/pages/tiers/TiersList';
 import VenteDetail from '@/pages/ventes/VenteDetail';
 import VenteForm from '@/pages/ventes/VenteForm';
@@ -123,7 +124,9 @@ function App() {
                             <Route path="/pilotage" element={<PilotagePage />} />
                             <Route path="/tiers" element={<TiersList />} />
                             <Route path="/tiers/nouveau" element={<TiersForm />} />
-                            <Route path="/tiers/:id" element={<TiersForm />} />
+                            {/* La fiche est une CONSULTATION ; l'edition vit derriere un bouton. */}
+                            <Route path="/tiers/:id" element={<Tiers360 />} />
+                            <Route path="/tiers/:id/modifier" element={<TiersForm />} />
                             <Route path="/adhesions" element={<Adhesions />} />
                             <Route path="/catalogue" element={<ProduitsList />} />
                             <Route path="/catalogue/categories" element={<CategoriesProduit />} />
