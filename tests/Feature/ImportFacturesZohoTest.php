@@ -555,6 +555,55 @@ class ImportFacturesZohoTest extends TestCase
         $this->assertSame(1, DocumentVente::count());
     }
 
+    /**
+     * RÉGRESSION — l'annuaire en mémoire ne doit rien retenir d'une transaction
+     * annulée.
+     *
+     * L'annuaire vit en mémoire ; le rollback ne le touche pas. Y inscrire un
+     * tiers depuis l'INTÉRIEUR de la transaction, c'était garder son identifiant
+     * alors que sa ligne venait de disparaître — et un refus est ici chose
+     * courante (exercice clôturé, total incohérent). Les factures suivantes du
+     * même client pointaient alors sur une ligne morte : sur PostgreSQL,
+     * violation de clé étrangère en cascade ; sur SQLite, pire, l'identifiant
+     * est réattribué et la créance part chez un AUTRE client, sans un mot au
+     * rapport.
+     */
+    public function test_un_client_cree_pour_une_facture_refusee_ne_contamine_pas_les_suivantes(): void
+    {
+        $this->dansUneEntreprise();
+        $this->clientEtArticle();
+
+        $inconnu = ['customer_id' => 'client-fantome', 'customer_name' => 'SOCIÉTÉ FANTÔME', 'cf_ice' => ''];
+
+        $rapport = $this->zohoRend(
+            [
+                $this->resume(['invoice_id' => 'f-refusee']),
+                $this->resume(['invoice_id' => 'f-bonne', 'invoice_number' => 'MDK24-00111']),
+            ],
+            [
+                // Refusée : le total ne tombe pas juste. Le client est créé puis annulé.
+                'f-refusee' => $this->detail(
+                    $inconnu + ['invoice_id' => 'f-refusee'],
+                    [$this->ligne(['quantity' => 1, 'rate' => 100, 'item_total' => 100])],
+                ),
+                // Même client, facture saine : elle doit passer, et le client
+                // doit être recréé puisque le premier n'a jamais existé.
+                'f-bonne' => $this->detail($inconnu + ['invoice_id' => 'f-bonne', 'invoice_number' => 'MDK24-00111']),
+            ],
+        )->executer();
+
+        $this->assertSame(1, $rapport['refusees']);
+        $this->assertSame(1, $rapport['importees'], 'La seconde facture ne doit pas hériter du refus de la première.');
+
+        $facture = DocumentVente::firstWhere('code', 'MDK24-00111');
+        $this->assertNotNull($facture);
+
+        // LA garantie : le tiers du document existe vraiment, et c'est le bon.
+        $tiers = Tiers::find($facture->tiers_id);
+        $this->assertNotNull($tiers, 'Le document ne doit pas pointer sur une ligne annulée.');
+        $this->assertSame('SOCIÉTÉ FANTÔME', $tiers->name, 'Ni sur le client de quelqu\'un d\'autre.');
+    }
+
     public function test_une_ligne_sans_article_connu_reste_un_libelle(): void
     {
         $this->dansUneEntreprise();

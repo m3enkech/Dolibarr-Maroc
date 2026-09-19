@@ -2,6 +2,7 @@
 
 namespace App\Modules\Integrations\Zoho;
 
+use App\Core\Format\CleDeRapprochement;
 use App\Modules\Tiers\Models\Tiers;
 use App\Modules\Tiers\Services\TiersService;
 
@@ -68,9 +69,13 @@ class ImportTiersZoho
             ->get(['id', 'ice'])
             ->keyBy(fn (Tiers $t) => $this->normaliserIce($t->ice));
 
+        // `forget('')` : un nom qui ne donne aucune clé exploitable n'entre pas
+        // dans l'index, sinon tous ces tiers se ramassent dans la même case et
+        // le dernier écrase les autres.
         $parNom = Tiers::query()
             ->get(['id', 'name'])
-            ->keyBy(fn (Tiers $t) => $this->normaliserNom($t->name));
+            ->keyBy(fn (Tiers $t) => $this->normaliserNom($t->name))
+            ->forget('');
 
         $parSource = Tiers::query()
             ->where('source_systeme', self::SOURCE)
@@ -286,8 +291,6 @@ class ImportTiersZoho
     /** Repli quand l'ICE manque : casse, accents et espaces neutralisés. */
     private function normaliserNom(?string $nom): string
     {
-        $sansAccent = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', (string) $nom) ?: (string) $nom;
-
-        return preg_replace('/[^a-z0-9]+/', '', mb_strtolower($sansAccent)) ?? '';
+        return CleDeRapprochement::nom($nom);
     }
 }

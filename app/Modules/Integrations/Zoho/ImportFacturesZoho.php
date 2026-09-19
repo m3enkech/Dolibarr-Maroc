@@ -2,6 +2,7 @@
 
 namespace App\Modules\Integrations\Zoho;
 
+use App\Core\Format\CleDeRapprochement;
 use App\Modules\Catalogue\Models\Produit;
 use App\Modules\Compta\Models\Exercice;
 use App\Modules\Compta\Services\ComptaService;
@@ -163,7 +164,12 @@ class ImportFacturesZoho
                 ->filter(fn (Tiers $t) => filled($t->ice))
                 ->keyBy(fn (Tiers $t) => $this->chiffres($t->ice)),
 
-            'tiers_nom' => $tiers->keyBy(fn (Tiers $t) => $this->normaliserNom($t->name)),
+            // Un nom qui ne donne aucune clé exploitable n'entre pas : sinon
+            // tous ces tiers se ramassent dans la case « » et le dernier écrase
+            // les autres.
+            'tiers_nom' => $tiers
+                ->keyBy(fn (Tiers $t) => $this->normaliserNom($t->name))
+                ->forget(''),
 
             'produits' => Produit::query()
                 ->where('source_systeme', ImportTiersZoho::SOURCE)
@@ -246,11 +252,16 @@ class ImportFacturesZoho
         $htEcrit = 0.0;
         $raison = [];
 
+        // Ce qu'il faudra inscrire à l'annuaire SI la facture est écrite pour de
+        // bon. Rien n'y entre depuis l'intérieur de la transaction : voir plus
+        // bas, à l'endroit où on l'applique.
+        $aIndexer = null;
+
         $ecriture = function () use (
             $facture, $numero, $date, $lignes, $attendu, &$index,
-            $simulation, $avecStock, $avecPaiements, &$htEcrit, &$raison
+            $avecStock, $avecPaiements, &$htEcrit, &$raison, &$aIndexer
         ): void {
-            [$tiers, $noteTiers] = $this->tiersDeLaFacture($facture, $index, $simulation);
+            [$tiers, $noteTiers, $aIndexer] = $this->tiersDeLaFacture($facture, $index);
 
             if ($noteTiers !== null) {
                 $raison[] = $noteTiers;
@@ -320,6 +331,22 @@ class ImportFacturesZoho
             }
         } else {
             DB::transaction($ecriture);
+
+            // APRÈS le commit, et seulement après.
+            //
+            // L'annuaire vit en mémoire ; le rollback d'une transaction ne le
+            // touche pas. Y inscrire un tiers depuis l'INTÉRIEUR de la
+            // transaction, c'est garder son identifiant alors que sa ligne a
+            // disparu — et un refus est ici chose courante : exercice clôturé,
+            // total incohérent. Les factures suivantes du même client
+            // pointeraient alors sur une ligne morte : sur PostgreSQL, violation
+            // de clé étrangère en cascade ; sur SQLite, pire encore, le rowid
+            // est réattribué et la créance part chez un AUTRE client, sans un
+            // mot au rapport.
+            if ($aIndexer !== null) {
+                $this->indexer($index, $aIndexer);
+            }
+
             $index['factures']->put((string) ($facture['invoice_id'] ?? ''), true);
         }
 
@@ -417,20 +444,24 @@ class ImportFacturesZoho
      * son nom en dernier recours. Introuvable, il est créé — une facture sans
      * client ne s'écrit pas, et l'écarter creuserait un trou dans le CA.
      *
-     * @return array{0: Tiers, 1: ?string}  le tiers, et ce qu'il faut en dire
+     * Ne touche PAS à l'annuaire : elle rend ce qu'il faudrait y inscrire, et
+     * c'est l'appelant qui l'inscrit une fois la transaction validée.
+     *
+     * @return array{0: Tiers, 1: ?string, 2: ?array{tiers: Tiers, zoho_id: string, ice: string, nom: string}}
      */
-    private function tiersDeLaFacture(array $facture, array &$index, bool $simulation): array
+    private function tiersDeLaFacture(array $facture, array &$index): array
     {
         $zohoId = (string) ($facture['customer_id'] ?? '');
         $ice = $this->chiffres((string) ($facture['cf_ice'] ?? ''));
         $nom = trim((string) ($facture['customer_name'] ?? '')) ?: 'Client repris de Zoho Books';
+        $cleNom = $this->normaliserNom($nom);
 
         $trouve = ($zohoId !== '' ? $index['tiers_source']->get($zohoId) : null)
             ?? ($ice !== '' ? $index['tiers_ice']->get($ice) : null)
-            ?? $index['tiers_nom']->get($this->normaliserNom($nom));
+            ?? ($cleNom !== '' ? $index['tiers_nom']->get($cleNom) : null);
 
         if ($trouve !== null) {
-            return [$trouve, null];
+            return [$trouve, null, null];
         }
 
         $adresse = $facture['billing_address'] ?? [];
@@ -450,28 +481,34 @@ class ImportFacturesZoho
             'source_id' => $zohoId ?: null,
         ]);
 
-        // L'annuaire suit, sinon les factures suivantes du même client en
-        // créeraient un deuxième, puis un troisième.
-        //
-        // PAS en simulation : ce tiers-là va être annulé avec le reste de la
-        // transaction. Le garder en mémoire ferait pointer les factures
-        // suivantes vers une ligne qui n'existe plus, et la simulation
-        // annoncerait des refus imaginaires.
-        if (! $simulation) {
-            if ($zohoId !== '') {
-                $index['tiers_source']->put($zohoId, $tiers);
-            }
-            if ($ice !== '') {
-                $index['tiers_ice']->put($ice, $tiers);
-            }
-            $index['tiers_nom']->put($this->normaliserNom($nom), $tiers);
-        }
-
-        $cle = $zohoId ?: ($ice ?: $this->normaliserNom($nom));
+        $cle = $zohoId ?: ($ice ?: ($cleNom ?: $nom));
         $premiereFois = ! isset($this->clientsCrees[$cle]);
         $this->clientsCrees[$cle] = true;
 
-        return [$tiers, $premiereFois ? 'client créé au passage (absent des contacts)' : null];
+        return [
+            $tiers,
+            $premiereFois ? 'client créé au passage (absent des contacts)' : null,
+            ['tiers' => $tiers, 'zoho_id' => $zohoId, 'ice' => $ice, 'nom' => $cleNom],
+        ];
+    }
+
+    /**
+     * Inscrit à l'annuaire un tiers DÉJÀ COMMITÉ, pour que les factures
+     * suivantes du même client le retrouvent au lieu d'en créer un deuxième.
+     *
+     * @param  array{tiers: Tiers, zoho_id: string, ice: string, nom: string}  $entree
+     */
+    private function indexer(array &$index, array $entree): void
+    {
+        if ($entree['zoho_id'] !== '') {
+            $index['tiers_source']->put($entree['zoho_id'], $entree['tiers']);
+        }
+        if ($entree['ice'] !== '') {
+            $index['tiers_ice']->put($entree['ice'], $entree['tiers']);
+        }
+        if ($entree['nom'] !== '') {
+            $index['tiers_nom']->put($entree['nom'], $entree['tiers']);
+        }
     }
 
     /** @param  list<string>  $raison */
@@ -534,8 +571,6 @@ class ImportFacturesZoho
 
     private function normaliserNom(?string $nom): string
     {
-        $sansAccent = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', (string) $nom) ?: (string) $nom;
-
-        return preg_replace('/[^a-z0-9]+/', '', mb_strtolower($sansAccent)) ?? '';
+        return CleDeRapprochement::nom($nom);
     }
 }

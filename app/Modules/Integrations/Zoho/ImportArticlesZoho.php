@@ -2,6 +2,7 @@
 
 namespace App\Modules\Integrations\Zoho;
 
+use App\Core\Format\CleDeRapprochement;
 use App\Modules\Catalogue\Models\Produit;
 use App\Modules\Catalogue\Services\ProduitService;
 use Illuminate\Support\Str;
@@ -67,7 +68,9 @@ class ImportArticlesZoho
 
         $parSource = $tous->filter(fn (Produit $p) => filled($p->source_id))->keyBy('source_id')->map($repere);
         $parCode = $tous->keyBy(fn (Produit $p) => Str::lower($p->code))->map($repere);
-        $parNom = $tous->keyBy(fn (Produit $p) => $this->normaliserNom($p->name))->map($repere);
+        // `forget('')` : un nom qui ne donne aucune clé exploitable n'entre pas
+        // dans l'index, sinon tous ces articles se ramassent dans la même case.
+        $parNom = $tous->keyBy(fn (Produit $p) => $this->normaliserNom($p->name))->forget('')->map($repere);
 
         foreach ($this->zoho->articles() as $article) {
             $resultat = $this->traiter($article, $parSource, $parCode, $parNom, $simulation);
@@ -333,8 +336,6 @@ class ImportArticlesZoho
     /** Casse, accents et espaces neutralisés — repli quand le SKU manque. */
     private function normaliserNom(?string $nom): string
     {
-        $sansAccent = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', (string) $nom) ?: (string) $nom;
-
-        return preg_replace('/[^a-z0-9]+/', '', mb_strtolower($sansAccent)) ?? '';
+        return CleDeRapprochement::nom($nom);
     }
 }
