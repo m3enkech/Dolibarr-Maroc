@@ -125,6 +125,8 @@ export interface DocumentVente {
     id: number;
     type: DocumentType;
     code: string;
+    /** Le bon de commande du CLIENT, qu'il cite dans ses règlements. */
+    reference_client: string | null;
     statut: DocumentStatut;
     tiers_id: number;
     tiers?: { id: number; code: string; name: string; ice: string | null; city: string | null };

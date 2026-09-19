@@ -56,6 +56,9 @@ class VenteService
                 'tiers_id' => $data['tiers_id'],
                 'date_document' => $data['date_document'] ?? now()->toDateString(),
                 'date_echeance' => $data['date_echeance'] ?? null,
+                // Le bon de commande du CLIENT, celui que son service
+                // comptable cite pour rapprocher la facture.
+                'reference_client' => $data['reference_client'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'source_systeme' => $data['source_systeme'] ?? null,
                 'source_id' => $data['source_id'] ?? null,

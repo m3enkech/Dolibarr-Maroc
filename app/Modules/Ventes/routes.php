@@ -5,6 +5,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('ventes')->group(function () {
     Route::get('documents', [VentesController::class, 'index']);
+    // Déclarée AVANT `documents/{document}`, sinon « annees » serait pris pour
+    // un identifiant et la route ne répondrait jamais.
+    Route::get('documents/annees', [VentesController::class, 'annees']);
     Route::post('documents', [VentesController::class, 'store']);
     Route::get('documents/{document}', [VentesController::class, 'show']);
     Route::put('documents/{document}', [VentesController::class, 'update']);

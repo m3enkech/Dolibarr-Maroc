@@ -14,6 +14,7 @@ class DocumentVenteResource extends JsonResource
             'id' => $this->id,
             'type' => $this->type,
             'code' => $this->code,
+            'reference_client' => $this->reference_client,
             'statut' => $this->statut,
             'tiers_id' => $this->tiers_id,
             'tiers' => $this->whenLoaded('tiers', fn () => [
