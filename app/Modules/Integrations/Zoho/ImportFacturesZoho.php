@@ -30,11 +30,14 @@ use Throwable;
  *    rendrait l'archive introuvable le jour d'un contrôle. `VenteService`
  *    accepte donc un code imposé, réservé aux reprises.
  *
- * 2. LE MONTANT DE BOOKS FAIT FOI, ET ON REFUSE CE QUI NE TOMBE PAS JUSTE. Après
- *    écriture, le total du document est comparé à celui de Books ; au-delà d'un
- *    centime d'arrondi par ligne, la facture est annulée et signalée. Un trou
- *    qu'on voit vaut mieux qu'un chiffre d'affaires faux qu'on ne voit pas — et
- *    comme l'import est rejouable, la pièce corrigée rentrera au passage suivant.
+ * 2. LE MONTANT DE BOOKS FAIT FOI. Après écriture, le total du document est
+ *    comparé à celui de Books. L'écart que l'ARRONDI DU PRIX UNITAIRE peut
+ *    expliquer — Books porte cinq décimales, la colonne en stocke deux, et
+ *    l'erreur se multiplie par la quantité — est absorbé sur la ligne qui l'a
+ *    créé, et signalé au rapport. Tout écart AU-DELÀ de cette borne vient
+ *    d'autre chose : la facture est alors annulée et listée. Un trou qu'on voit
+ *    vaut mieux qu'un chiffre d'affaires faux qu'on ne voit pas — et comme
+ *    l'import est rejouable, la pièce corrigée rentrera au passage suivant.
  *
  * 3. LA REMISE EST DÉDUITE DES MONTANTS, PAS LUE. Le champ `discount` de Books
  *    vaut tantôt un pourcentage, tantôt une somme, selon un réglage
@@ -64,9 +67,6 @@ class ImportFacturesZoho
 {
     /** Ni un brouillon ni une facture annulée n'ont d'existence comptable. */
     private const STATUTS_IGNORES = ['draft', 'void'];
-
-    /** Arrondi toléré par ligne, plus deux centimes pour l'en-tête. */
-    private const TOLERANCE_PAR_LIGNE = 0.01;
 
     /** Le mode de règlement n'est pas dans Books : tout passe en « autre ». */
     private const MODE_REGLEMENT = 'autre';
@@ -284,14 +284,23 @@ class ImportFacturesZoho
             ]);
 
             $obtenu = round((float) $document->total_ttc, 2);
-            $tolerance = round(self::TOLERANCE_PAR_LIGNE * count($lignes) + 0.02, 2);
+            $ecart = round($attendu - $obtenu, 2);
+            $budget = $this->budgetDArrondi($lignes);
 
-            if (abs($obtenu - $attendu) > $tolerance) {
+            if (abs($ecart) > $budget) {
                 throw new RuntimeException(sprintf(
-                    'total incohérent : %.2f chez Books, %.2f une fois les lignes reprises',
+                    'total incohérent : %.2f chez Books, %.2f une fois les lignes reprises '
+                    .'(écart de %+.2f, au-delà des %.2f que l\'arrondi peut expliquer)',
                     $attendu,
                     $obtenu,
+                    $ecart,
+                    $budget,
                 ));
+            }
+
+            if (abs($ecart) > 0.004) {
+                $this->absorberEcart($document, $ecart);
+                $raison[] = sprintf('écart d\'arrondi de %+.2f absorbé', $ecart);
             }
 
             $htEcrit = round((float) $document->total_ht, 2);
@@ -542,6 +551,80 @@ class ImportFacturesZoho
         }
 
         return $notes;
+    }
+
+    /**
+     * Ce que l'arrondi du prix unitaire peut expliquer, en dirhams TTC.
+     *
+     * Books porte ses prix à cinq décimales — 0,93333 DH l'impression A4 —
+     * quand `prix_unitaire` en stocke deux. L'erreur est d'un demi-centime au
+     * plus PAR UNITÉ, donc elle se multiplie par la quantité : sur 1 500
+     * impressions, elle atteint 7,50 DH. Ce n'est pas un défaut à corriger,
+     * c'est la conséquence arithmétique d'un choix assumé.
+     *
+     * D'où ce budget, qui n'est pas une tolérance arbitraire mais la borne
+     * exacte de ce que l'arrondi peut produire. En dessous, on absorbe et on le
+     * dit ; au-dessus, l'écart vient d'autre chose — une ligne manquante, une
+     * remise d'en-tête non modélisée — et la facture est refusée.
+     *
+     * @param  list<array<string, mixed>>  $lignes
+     */
+    private function budgetDArrondi(array $lignes): float
+    {
+        $budget = 0.02;
+
+        foreach ($lignes as $ligne) {
+            $ttc = 1 + (float) $ligne['tva_rate'] / 100;
+
+            // Le demi-centime perdu sur le prix, multiplié par la quantité…
+            $budget += 0.005 * abs((float) $ligne['quantite']) * $ttc;
+            // …plus l'arrondi du montant de la ligne elle-même.
+            $budget += 0.01 * $ttc;
+        }
+
+        return round($budget, 2);
+    }
+
+    /**
+     * Fait tomber le document sur le montant de Books, au centime près.
+     *
+     * L'écart est porté par la ligne la PLUS GROSSE — c'est elle qui l'a créé,
+     * l'erreur étant proportionnelle à la quantité — et réparti entre HT et TVA
+     * selon le taux de cette ligne, pour que les deux tombent juste et pas
+     * seulement leur somme.
+     *
+     * Pas de ligne « Arrondi » ajoutée : elle porterait un montant NÉGATIF une
+     * fois sur deux, formerait son propre compte de vente, et l'écriture
+     * partirait déséquilibrée. Corriger la ligne existante ne crée aucun de ces
+     * problèmes — et `montant_ht` est de toute façon un montant FIGÉ à la
+     * saisie, jamais un produit recalculé.
+     */
+    private function absorberEcart(DocumentVente $document, float $ecart): void
+    {
+        $document->load('lignes');
+
+        $ligne = $document->lignes->sortByDesc(fn ($l) => abs((float) $l->montant_ttc))->first();
+
+        if ($ligne === null) {
+            return;
+        }
+
+        $deltaHt = round($ecart / (1 + (float) $ligne->tva_rate / 100), 2);
+        $deltaTva = round($ecart - $deltaHt, 2);
+
+        $ligne->update([
+            'montant_ht' => round((float) $ligne->montant_ht + $deltaHt, 2),
+            'montant_tva' => round((float) $ligne->montant_tva + $deltaTva, 2),
+            'montant_ttc' => round((float) $ligne->montant_ttc + $ecart, 2),
+        ]);
+
+        $document->load('lignes');
+
+        $document->update([
+            'total_ht' => round($document->lignes->sum(fn ($l) => (float) $l->montant_ht), 2),
+            'total_tva' => round($document->lignes->sum(fn ($l) => (float) $l->montant_tva), 2),
+            'total_ttc' => round($document->lignes->sum(fn ($l) => (float) $l->montant_ttc), 2),
+        ]);
     }
 
     /** La commande d'origine chez Books, que le client cite dans ses règlements. */

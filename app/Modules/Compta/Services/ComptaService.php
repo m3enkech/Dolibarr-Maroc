@@ -189,9 +189,18 @@ class ComptaService
         ];
 
         foreach ($htParCompte as $compteId => $ht) {
-            if ($ht > 0) {
-                $lignes[] = ['compte' => Compte::find($compteId), 'debit' => 0, 'credit' => $ht];
+            // Un compte de vente NÉGATIF est un débit, pas une ligne à jeter.
+            // Le cas se présente dès qu'une pièce porte un arrondi ou un geste
+            // commercial en moins sur un compte qui lui est propre : ignorer la
+            // ligne déséquilibrait l'écriture, qui était alors rejetée en bloc
+            // et la facture avec elle.
+            if (abs($ht) < 0.005) {
+                continue;
             }
+
+            $lignes[] = $ht > 0
+                ? ['compte' => Compte::find($compteId), 'debit' => 0, 'credit' => $ht]
+                : ['compte' => Compte::find($compteId), 'debit' => -$ht, 'credit' => 0];
         }
         if ((float) $document->total_tva > 0) {
             $lignes[] = ['compte' => $this->compteParDefaut('tva_facturee'), 'debit' => 0, 'credit' => (float) $document->total_tva];

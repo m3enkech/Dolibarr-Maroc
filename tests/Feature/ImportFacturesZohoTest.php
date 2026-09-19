@@ -19,6 +19,7 @@ use App\Modules\Ventes\Models\DocumentVente;
 use App\Modules\Ventes\Services\VenteService;
 use Generator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -257,9 +258,66 @@ class ImportFacturesZohoTest extends TestCase
     }
 
     /**
-     * La garantie qui protège le chiffre d'affaires : si les lignes reprises ne
-     * reconstituent pas le montant de Books, la facture n'entre pas. Un trou
-     * qu'on voit vaut mieux qu'un CA faux qu'on ne voit pas.
+     * Les trois cas réels rencontrés sur les 1 337 factures de Media Desk.
+     *
+     * Books porte ses prix à cinq décimales — 0,93333 DH l'impression A4 —
+     * quand la colonne en stocke deux. L'erreur d'un demi-centime se multiplie
+     * par la quantité : sur 1 500 impressions, elle atteint 5 dirhams. Ces trois
+     * factures étaient refusées ; elles doivent entrer, et tomber au centime
+     * près sur le montant de Books.
+     */
+    #[DataProvider('arrondisReels')]
+    public function test_l_ecart_d_arrondi_du_prix_unitaire_est_absorbe(
+        float $quantite,
+        float $prix,
+        float $itemTotal,
+        float $totalBooks,
+        float $htAttendu,
+        float $tvaAttendue,
+    ): void {
+        $this->dansUneEntreprise();
+        $this->clientEtArticle();
+
+        $rapport = $this->zohoRend(
+            [$this->resume(['total' => $totalBooks])],
+            ['facture-1' => $this->detail(
+                ['total' => $totalBooks, 'payment_made' => 0],
+                [$this->ligne(['quantity' => $quantite, 'rate' => $prix, 'item_total' => $itemTotal])],
+            )],
+        )->executer();
+
+        $this->assertSame(1, $rapport['importees'], 'La facture doit entrer.');
+        $this->assertStringContainsString('écart d\'arrondi', $rapport['details'][0]['raison']);
+
+        $facture = DocumentVente::first();
+        $this->assertSame(number_format($htAttendu, 2, '.', ''), $facture->total_ht, 'Le HT doit être celui de Books.');
+        $this->assertSame(number_format($tvaAttendue, 2, '.', ''), $facture->total_tva, 'La TVA aussi.');
+        $this->assertSame(number_format($totalBooks, 2, '.', ''), $facture->total_ttc, 'Et le TTC au centime près.');
+
+        // L'écriture doit rester équilibrée malgré la correction.
+        $vente = Ecriture::where('journal', Ecriture::JOURNAL_VENTES)->first();
+        $this->assertEqualsWithDelta(
+            (float) $vente->lignes->sum('debit'),
+            (float) $vente->lignes->sum('credit'),
+            0.001,
+        );
+    }
+
+    public static function arrondisReels(): array
+    {
+        return [
+            // MDK25-00250 : 1 500 impressions à 0,93333 → 0,93 perd 5,00 HT.
+            'impression A4 en volume' => [1500, 0.93333, 1400, 1680, 1400, 280],
+            // #MDK22-175 : 20 ramettes à 54,1667.
+            'ramettes de papier' => [20, 54.1667, 1083.33, 1300, 1083.33, 216.67],
+            // #MDK22-174 : 8 cartouches à 316,6667 — écart NÉGATIF.
+            'cartouches HP' => [8, 316.6667, 2533.33, 3040, 2533.33, 506.67],
+        ];
+    }
+
+    /**
+     * L'autre moitié de la règle : ce que l'arrondi ne peut PAS expliquer reste
+     * refusé. Un trou qu'on voit vaut mieux qu'un CA faux qu'on ne voit pas.
      */
     public function test_une_facture_dont_le_total_ne_tombe_pas_juste_est_refusee_sans_rien_laisser(): void
     {
