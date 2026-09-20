@@ -1,0 +1,90 @@
+# Déploiement sur un VPS géré par un panneau (FASTPANEL, Plesk, cPanel…).
+#
+# LE PANNEAU GARDE LES PORTS 80 ET 443. Il possède nginx, ses certificats
+# Let's Encrypt et ses vhosts ; lui poser un second serveur web en face, c'est
+# un conflit de ports au premier redémarrage et un certificat qui cesse de se
+# renouveler sans prévenir. On reste donc DERRIÈRE lui : l'application n'écoute
+# que sur la boucle locale, le nginx du panneau lui parle en proxy.
+#
+# ⚠️ `127.0.0.1:8080` ET PAS `8080` TOUT COURT. Publier le port sur toutes les
+# interfaces rendrait l'application joignable en direct sur l'IP du VPS, hors
+# du nginx — et comme l'application fait confiance aux en-têtes de proxy
+# (`trustProxies`), n'importe qui pourrait alors forger son adresse IP et vider
+# les seaux de la limitation de débit, ou s'en servir pour enfermer un autre
+# utilisateur dehors. Le deux-points de gauche n'est pas cosmétique.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dolibarr-maroc:vps
+    restart: unless-stopped
+    env_file: .env.vps
+    environment:
+      PORT: 8080
+      # Mono-instance : les migrations au démarrage sont sûres ici, là où sur
+      # plusieurs instances elles se marcheraient dessus.
+      RUN_MIGRATIONS: "true"
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Le système de fichiers d'un conteneur est jetable : les journaux et les
+      # fichiers déposés doivent lui survivre.
+      - app-storage:/var/www/html/storage/app
+      - app-logs:/var/www/html/storage/logs
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      # Sans cela, PostgreSQL crée la base en « C » et le tri des noms ignore
+      # les accents : « Épicerie » se rangerait après « Zahra ».
+      LANG: fr_FR.utf8
+    env_file: .env.vps
+    # AUCUN port publié : seule l'application, sur le réseau interne de Compose,
+    # a besoin d'y accéder. Une base PostgreSQL exposée sur Internet se fait
+    # trouver en quelques heures.
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # `depends_on` seul n'attend que le DÉMARRAGE du conteneur, pas que
+      # PostgreSQL accepte des connexions : sans ce contrôle, la première
+      # migration part trop tôt une fois sur deux.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Sauvegarde quotidienne de la base, gardée 14 jours.
+  #
+  # Ce n'est pas du luxe : sans elle, une erreur de manipulation sur un serveur
+  # que vous administrez vous-même est définitive. Cloud SQL sauvegardait pour
+  # vous ; ici, personne ne le fait à votre place.
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    env_file: .env.vps
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./sauvegardes:/sauvegardes
+    entrypoint: >
+      sh -c 'while true; do
+        PGPASSWORD="$$DB_PASSWORD" pg_dump -h db -U "$$DB_USERNAME" -d "$$DB_DATABASE" -Fc
+          > /sauvegardes/dolibarr-$$(date +%Y%m%d-%H%M).dump 2>/sauvegardes/derniere-erreur.log
+          && find /sauvegardes -name "dolibarr-*.dump" -mtime +14 -delete;
+        sleep 86400;
+      done'
+
+volumes:
+  db-data:
+  app-storage:
+  app-logs:
