@@ -87,6 +87,17 @@ Dans le panneau (les libellés varient selon la version) :
 3. Ouvrir la **configuration nginx** du site et y placer :
 
 ```nginx
+# EN PREMIER, et ce n'est pas un détail : la validation de Let's Encrypt dépose
+# un fichier ici et vient le relire en HTTP. Si le proxy attrapait aussi cette
+# adresse, la requête partirait vers l'application — qui répondrait 404. Le
+# certificat s'émettrait quand même aujourd'hui (il est demandé AVANT que le
+# proxy existe), puis le renouvellement échouerait EN SILENCE quatre-vingt-dix
+# jours plus tard, et le site tomberait en « certificat expiré » un matin.
+location ^~ /.well-known/acme-challenge/ {
+    root /var/www/html;   # le chemin que FASTPANEL donne au site ; à vérifier
+    allow all;
+}
+
 location / {
     proxy_pass http://127.0.0.1:8080;
     proxy_http_version 1.1;
