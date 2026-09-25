@@ -32,52 +32,63 @@ cd "D:/Claude/Dolibarr Maroc"
 git push origin master
 ```
 
-## 2. Installer Docker sur le VPS
+## 2. Installer et démarrer — une seule commande
 
-En SSH (`ssh root@85.31.237.190`, ou le compte que FASTPANEL vous a donné) :
-
-```bash
-curl -fsSL https://get.docker.com | sh
-docker --version && docker compose version
-```
-
-FASTPANEL et Docker cohabitent sans problème tant que Docker ne réclame pas
-80/443 — ce que notre configuration ne fait pas.
-
-## 3. Déposer l'application
+En SSH, **en root** (`ssh root@85.31.237.190`) :
 
 ```bash
-mkdir -p /opt/dolibarr && cd /opt/dolibarr
-git clone https://github.com/m3enkech/Dolibarr-Maroc.git .
-cp .env.vps.example .env.vps
+git clone https://github.com/m3enkech/Dolibarr-Maroc.git /opt/dolibarr && bash /opt/dolibarr/scripts/deploy-vps.sh
 ```
 
-Engendrer les deux secrets, puis les coller dans `.env.vps` :
+Le script fait tout ce qui suit, s'arrête au moindre doute, et peut être
+relancé sans risque — c'est aussi la commande de mise à jour (section 6) :
+
+1. vérifie l'espace disque et les outils ;
+2. installe Docker s'il est absent — **et refuse** de réinstaller un moteur
+   déjà présent sans compose v2 : `get.docker.com` remplacerait le paquet
+   `docker.io` d'Ubuntu et arrêterait tous les conteneurs de la machine ;
+3. clone ou met à jour le code, et ferme `/opt/dolibarr` aux autres comptes
+   locaux (`chmod 700`) : il contiendra les dumps complets de la base ;
+4. engendre `APP_KEY` et `DB_PASSWORD` sur le serveur, **sans jamais les
+   afficher**, et **sans jamais régénérer** une valeur déjà posée ;
+5. construit l'image et démarre ;
+6. attend que l'application réponde, et détecte un conteneur qui plante en
+   boucle au lieu d'attendre dix minutes pour rien ;
+7. vérifie que le port 8080 n'écoute **que** sur `127.0.0.1`, et que le montant
+   en toutes lettres sort bien **en français**.
+
+### Les pièges qu'il évite — à connaître si vous faites à la main
+
+**`--env-file .env.vps` sur CHAQUE commande Compose.** Le fichier interpole
+`${DB_PASSWORD}` à l'analyse, depuis le shell ou `--env-file` — jamais depuis
+`env_file:`. Sans lui, Compose s'arrête sur « DB_PASSWORD manquant ».
+
+**`needrestart` coupe les sites voisins.** Sous Ubuntu 22.04 il est branché sur
+apt ; en mode non interactif il redémarre sans rien dire tous les services qui
+chargent une bibliothèque mise à jour — PHP, nginx, MySQL, la messagerie. D'où :
 
 ```bash
-openssl rand -base64 32                       # -> DB_PASSWORD
-docker build -t dolibarr-maroc:vps . && docker run --rm dolibarr-maroc:vps php artisan key:generate --show   # -> APP_KEY
+curl -fsSL https://get.docker.com | NEEDRESTART_MODE=l NEEDRESTART_SUSPEND=1 sh
 ```
 
-> **`APP_KEY` se pose une fois et ne se change plus.** Tout ce qui est chiffré
-> en base l'est avec elle ; la remplacer rend ces données illisibles, sans
-> message d'erreur au moment où on le fait.
+**`.env.vps` en 0600.** Il contient la clé de chiffrement et le mot de passe
+de la base : `chmod 600 .env.vps`.
 
-Puis :
+**`APP_KEY` se pose une fois et ne se change plus.** Tout ce qui est chiffré en
+base l'est avec elle ; la remplacer rend ces données illisibles, sans message
+d'erreur au moment où on le fait. Pour l'engendrer à la main :
+`echo "base64:$(openssl rand -base64 32)"`.
 
-```bash
-nano .env.vps      # APP_KEY, DB_PASSWORD, et le SMTP si vous l'avez
-docker compose -f docker-compose.vps.yml up -d --build
-docker compose -f docker-compose.vps.yml logs -f app     # Ctrl-C pour sortir
-```
+> ⚠️ `docker run … php artisan key:generate --show` **ne marche pas** : l'entrypoint
+> de l'image ignore ses arguments et lance le serveur. La commande ne rend
+> jamais de clé.
 
-Vérifier que l'application répond **sur la boucle locale** :
+**Si `.env.vps` disparaît alors que la base existe**, n'en engendrez surtout
+pas un neuf : ses secrets sont les seuls qui ouvrent cette base. Le script
+s'arrête dans ce cas précis au lieu de fabriquer des secrets qui ne
+correspondent plus à rien.
 
-```bash
-curl -I http://127.0.0.1:8080/up      # attendu : HTTP 200
-```
-
-## 4. Publier le site dans FASTPANEL
+## 3. Publier le site dans FASTPANEL
 
 Dans le panneau (les libellés varient selon la version) :
 
@@ -122,7 +133,7 @@ location / {
 Le nuage gris de Cloudflare est ici une nécessité, pas un détail : en orange,
 Let's Encrypt ne pourrait pas valider le domaine par HTTP.
 
-## 5. Fermer la porte de derrière
+## 4. Fermer la porte de derrière
 
 > ⚠️ **Le point à ne pas rater.** L'application fait confiance aux en-têtes de
 > proxy (`trustProxies` dans `bootstrap/app.php`) — c'est ce qui lui permet de
@@ -141,11 +152,11 @@ curl -m 10 http://85.31.237.190:8080/up     # attendu : connexion refusée
 Si ça répond, le port est ouvert : corrigez la publication, ou fermez 8080 au
 pare-feu.
 
-## 6. Créer le compte et reprendre les données
+## 5. Créer le compte et reprendre les données
 
 ```bash
 cd /opt/dolibarr
-alias art='docker compose -f docker-compose.vps.yml exec app php artisan'
+alias art='docker compose --env-file .env.vps -f docker-compose.vps.yml exec -u www-data app php artisan'
 ```
 
 Créer l'entreprise et son administrateur depuis l'interface
@@ -174,15 +185,18 @@ art compta:renumeroter votre@email.ma --simulation
 art compta:renumeroter votre@email.ma --force
 ```
 
-## 7. Mettre à jour plus tard
+## 6. Mettre à jour plus tard
+
+La même commande qu'à l'installation — elle est faite pour être rejouée :
 
 ```bash
-cd /opt/dolibarr && git pull
-docker compose -f docker-compose.vps.yml up -d --build
+bash /opt/dolibarr/scripts/deploy-vps.sh
 ```
 
-Les migrations passent au démarrage (`RUN_MIGRATIONS=true`), et les caches de
-configuration, de routes et de vues sont refaits par l'entrypoint.
+Elle récupère le code, reconstruit l'image, redémarre, et refait toutes les
+vérifications. Les migrations passent au démarrage (`RUN_MIGRATIONS=true`). Elle
+refuse de s'exécuter si des fichiers suivis ont été modifiés à la main sur le
+serveur, plutôt que de les écraser en silence.
 
 ## Ce qu'il reste à surveiller
 

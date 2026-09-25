@@ -13,6 +13,13 @@
 # les seaux de la limitation de débit, ou s'en servir pour enfermer un autre
 # utilisateur dehors. Le deux-points de gauche n'est pas cosmétique.
 
+# Nom de projet EXPLICITE. Implicite, Compose le déduirait du dossier
+# (« dolibarr ») : un autre projet du même nom sur la machine partagerait ses
+# volumes, et `--remove-orphans` supprimerait ses conteneurs. Fixé AVANT le
+# premier déploiement, et à ne plus changer : renommer après coup ferait
+# repartir sur des volumes neufs, et la base existante disparaîtrait de la vue.
+name: dolibarr-maroc
+
 services:
   app:
     build:
@@ -40,13 +47,22 @@ services:
   db:
     image: postgres:17-alpine
     restart: unless-stopped
+    # ⚠️ Ces `${…}` sont lus à l'ANALYSE du fichier — depuis le shell ou le
+    # fichier passé en `--env-file`, JAMAIS depuis `env_file:` ci-dessous, qui
+    # ne nourrit que l'environnement du conteneur. Lancé sans `--env-file`,
+    # PostgreSQL démarrait avec un mot de passe VIDE et refusait de
+    # s'initialiser. Le `:?` fait échouer Compose tout de suite, avec la raison,
+    # au lieu de laisser démarrer une base cassée.
     environment:
-      POSTGRES_DB: ${DB_DATABASE}
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      # Sans cela, PostgreSQL crée la base en « C » et le tri des noms ignore
-      # les accents : « Épicerie » se rangerait après « Zahra ».
-      LANG: fr_FR.utf8
+      POSTGRES_DB: ${DB_DATABASE:?DB_DATABASE manquant — lancez avec --env-file .env.vps}
+      POSTGRES_USER: ${DB_USERNAME:?DB_USERNAME manquant — lancez avec --env-file .env.vps}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD manquant — lancez avec --env-file .env.vps}
+      # Collation ICU française : le tri des noms respecte les accents
+      # (« Épicerie » avant « Zahra »). Un simple LANG ne suffit pas sur une
+      # image Alpine — musl n'a pas de tables de collation, le tri resterait à
+      # l'octet. ICU, lui, est embarqué dans l'image officielle. Ne joue qu'à
+      # la PREMIÈRE création du volume.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale-provider=icu --icu-locale=fr-FR"
     env_file: .env.vps
     # AUCUN port publié : seule l'application, sur le réseau interne de Compose,
     # a besoin d'y accéder. Une base PostgreSQL exposée sur Internet se fait
@@ -57,7 +73,9 @@ services:
       # `depends_on` seul n'attend que le DÉMARRAGE du conteneur, pas que
       # PostgreSQL accepte des connexions : sans ce contrôle, la première
       # migration part trop tôt une fois sur deux.
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      # `$$` : évalué DANS le conteneur, à chaque sonde, depuis ses propres
+      # variables — pas figé à l'analyse du fichier.
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -76,13 +94,32 @@ services:
         condition: service_healthy
     volumes:
       - ./sauvegardes:/sauvegardes
-    entrypoint: >
-      sh -c 'while true; do
-        PGPASSWORD="$$DB_PASSWORD" pg_dump -h db -U "$$DB_USERNAME" -d "$$DB_DATABASE" -Fc
-          > /sauvegardes/dolibarr-$$(date +%Y%m%d-%H%M).dump 2>/sauvegardes/derniere-erreur.log
-          && find /sauvegardes -name "dolibarr-*.dump" -mtime +14 -delete;
-        sleep 86400;
-      done'
+    # Bloc LITTÉRAL (`|`) en forme liste, pas un bloc plié (`>`). Dans un bloc
+    # plié, les lignes plus indentées GARDENT leur retour à la ligne : le `&&`
+    # se retrouvait en tête de ligne, `sh` refusait la syntaxe, et le conteneur
+    # plantait en boucle — on croyait avoir des sauvegardes, il n'y en avait
+    # aucune.
+    entrypoint:
+      - sh
+      - -c
+      - |
+        # Les dumps contiennent TOUTE la base (tiers, factures, mots de passe
+        # hachés, sessions). Avec l'umask par défaut ils sortaient en 0644,
+        # lisibles par tous les comptes du VPS — dont l'utilisateur PHP des
+        # sites voisins : une seule faille WordPress suffisait à les emporter.
+        umask 077
+        while true; do
+          f="/sauvegardes/dolibarr-$$(date +%Y%m%d-%H%M).dump"
+          # Écrit sous un nom temporaire, renommé seulement si pg_dump réussit :
+          # un dump interrompu ne doit jamais ressembler à une sauvegarde valide.
+          if PGPASSWORD="$$DB_PASSWORD" pg_dump -h db -U "$$DB_USERNAME" -d "$$DB_DATABASE" -Fc -f "$$f.partiel" 2>/sauvegardes/derniere-erreur.log; then
+            mv "$$f.partiel" "$$f"
+            find /sauvegardes -name 'dolibarr-*.dump' -mtime +14 -delete
+          else
+            rm -f "$$f.partiel"
+          fi
+          sleep 86400
+        done
 
 volumes:
   db-data:

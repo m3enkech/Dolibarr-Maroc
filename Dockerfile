@@ -32,8 +32,16 @@ RUN composer dump-autoload --no-dev --optimize --no-scripts
 FROM php:8.4-fpm-alpine AS runtime
 
 # Extensions PHP requises par l'app (PostgreSQL, PDF/dompdf, Excel/PhpSpreadsheet, i18n).
+#
+# ⚠️ `icu-data-full`, et pas seulement `icu-libs`. Depuis Alpine 3.16, les
+# données ICU sont coupées en deux : `icu-libs` ne tire que `icu-data-en`, les
+# règles ANGLAISES. Sans le paquet complet, NumberFormatter('fr', SPELLOUT)
+# retombe sur l'anglais sans lever la moindre erreur — et la mention en toutes
+# lettres exigée par l'article 145 du CGI sort « Seven hundred twenty dirhams »
+# sur une facture marocaine. Rien ne le signale : seule une vérification sur
+# l'image construite le révèle (scripts/deploy-vps.sh la fait).
 RUN set -eux; \
-    apk add --no-cache nginx supervisor gettext libpq icu-libs libzip libpng freetype libjpeg-turbo oniguruma; \
+    apk add --no-cache nginx supervisor gettext libpq icu-libs icu-data-full libzip libpng freetype libjpeg-turbo oniguruma; \
     apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev icu-dev libzip-dev libpng-dev freetype-dev libjpeg-turbo-dev oniguruma-dev; \
     docker-php-ext-configure gd --with-freetype --with-jpeg; \
     docker-php-ext-install -j"$(nproc)" pdo_pgsql gd zip intl bcmath mbstring opcache; \

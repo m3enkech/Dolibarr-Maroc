@@ -20,6 +20,10 @@ bootstrap/cache
 database/database.sqlite
 database/database.sqlite*
 database/*.sqlite-*
+# Les dumps de la base : sans cette ligne, `COPY . .` les recopiait dans CHAQUE
+# image reconstruite, lisibles par www-data, et ils survivaient dans les
+# anciennes images bien au-delà des quatorze jours de rotation.
+sauvegardes
 
 # Dev / tests / docs inutiles en prod
 tests
