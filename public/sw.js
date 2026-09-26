@@ -11,6 +11,15 @@
  *
  * NB : appareil de caisse mono-utilisateur — les réponses API authentifiées
  * mises en cache ne doivent pas être partagées entre comptes sur un même poste.
+ *
+ * DEUX EXCLUSIONS, et elles ne sont pas négociables :
+ *  - /api/v1/auth/… ne passe JAMAIS par le cache. Le cache est indexé par l'URL
+ *    seule, pas par le jeton : hors ligne, GET /auth/me aurait rendu le profil
+ *    du DERNIER compte qui l'a demandé — nom, permissions, statut superadmin
+ *    d'un autre caissier installés dans la session courante.
+ *  - seules les réponses RÉUSSIES sont gardées. Un 401 mis en cache aurait
+ *    déconnecté la caisse au premier rechargement hors ligne, alors qu'on ne
+ *    peut pas se reconnecter sans réseau.
  */
 const CACHE = 'dolibarr-pos-v1';
 const SHELL = ['/caisse', '/'];
@@ -30,6 +39,9 @@ self.addEventListener('activate', (event) => {
 });
 
 function putInCache(request, response) {
+    if (!response.ok) {
+        return response;
+    }
     const copy = response.clone();
     caches.open(CACHE).then((cache) => cache.put(request, copy));
     return response;
@@ -59,6 +71,9 @@ self.addEventListener('fetch', (event) => {
         );
         return;
     }
+
+    // Identité et session : réseau seul (voir l'en-tête).
+    if (url.pathname.startsWith('/api/v1/auth/')) return;
 
     // API GET : réseau d'abord, repli sur la dernière réponse en cache.
     if (url.pathname.startsWith('/api/')) {
