@@ -195,7 +195,9 @@ bash /opt/dolibarr/scripts/deploy-vps.sh
 ```
 
 Elle récupère le code, reconstruit l'image, redémarre, et refait toutes les
-vérifications. Les migrations passent au démarrage (`RUN_MIGRATIONS=true`). Elle
+vérifications. Si la mise à jour a changé le script lui-même, il se relance
+aussitôt sur sa nouvelle version : bash lit un script au fil de l'eau, et
+sans cela c'est l'ancienne logique qui irait au bout. Les migrations passent au démarrage (`RUN_MIGRATIONS=true`). Elle
 refuse de s'exécuter si des fichiers suivis ont été modifiés à la main sur le
 serveur, plutôt que de les écraser en silence.
 

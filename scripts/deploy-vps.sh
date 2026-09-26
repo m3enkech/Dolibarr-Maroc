@@ -106,6 +106,7 @@ fi
 # ----------------------------------------------------------------------------
 etape "3/7  Code source"
 
+code_neuf=0
 if [ -d "$CIBLE/.git" ]; then
     cd "$CIBLE"
     # Une modification faite à la main sur le serveur ne doit pas être écrasée
@@ -113,10 +114,14 @@ if [ -d "$CIBLE/.git" ]; then
     if ! git diff --quiet || ! git diff --cached --quiet; then
         arret "des fichiers suivis ont été modifiés sur le serveur ($CIBLE) — à régler à la main avant de mettre à jour."
     fi
+    avant=$(git rev-parse HEAD)
     git fetch --quiet origin
     git merge --ff-only --quiet "origin/$(git rev-parse --abbrev-ref HEAD)" \
         || arret "la mise à jour n'est pas une avance rapide — historique divergent sur le serveur."
     vert "Mis à jour : $(git log -1 --format='%h %s')"
+    if [ "$(git rev-parse HEAD)" != "$avant" ]; then
+        code_neuf=1
+    fi
 else
     if [ -e "$CIBLE" ] && [ -n "$(ls -A "$CIBLE" 2>/dev/null)" ]; then
         arret "$CIBLE existe et n'est pas vide, sans être un dépôt git — je ne l'écrase pas."
@@ -124,6 +129,20 @@ else
     git clone --quiet "$DEPOT" "$CIBLE"
     cd "$CIBLE"
     vert "Cloné : $(git log -1 --format='%h %s')"
+    code_neuf=1
+fi
+
+# bash lit un script AU FIL DE L'EAU, pas d'un bloc. Le `git merge` ci-dessus
+# vient de remplacer ce fichier sur le disque, mais le processus en cours garde
+# l'ANCIEN ouvert et irait au bout de l'ancienne logique : une vérification
+# ajoutée au script ne jouerait qu'au lancement SUIVANT. Constaté le
+# 2026-09-26 — après une mise à jour, c'est l'ancien message de fin qui
+# s'affichait. On repart donc de zéro sur la version qu'on vient de récupérer.
+# Les étapes 1 à 3 sont sans effet la seconde fois ; la variable interdit toute
+# boucle.
+if [ "$code_neuf" -eq 1 ] && [ -z "${DEPLOY_VPS_RELANCE:-}" ]; then
+    jaune "Nouvelle version du code : le script se relance sur cette version."
+    exec env DEPLOY_VPS_RELANCE=1 bash "$CIBLE/scripts/deploy-vps.sh" "$@"
 fi
 
 # Le dossier contient .env.vps et, surtout, les dumps COMPLETS de la base. En
