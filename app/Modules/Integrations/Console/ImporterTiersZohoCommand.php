@@ -50,11 +50,27 @@ class ImporterTiersZohoCommand extends CommandeImportZoho
             ));
         }
 
+        // Un ICE refusé n'est pas repris : la fiche entre comme si elle n'en
+        // avait pas, et la valeur de Books reste dans ses notes. Il faut le
+        // corriger à la main — on dit lesquels, pas seulement combien.
+        $iceRejetes = array_filter($rapport['details'], fn ($d) => ($d['ice_rejete'] ?? '') !== '');
+
+        if ($iceRejetes !== []) {
+            $this->warn(sprintf(
+                '%d contact(s) portent dans Zoho un ICE qui n\'a pas 15 chiffres : ICE NON repris, à corriger.',
+                count($iceRejetes),
+            ));
+
+            foreach ($iceRejetes as $d) {
+                $this->line(sprintf('  - %s : « %s » (%d chiffres)', $d['nom'], $d['ice_rejete'], strlen($d['ice_rejete'])));
+            }
+        }
+
         return $this->terminer($rapport['details']);
     }
 
     protected function colonnesJournal(): array
     {
-        return ['zoho_id', 'nom', 'ice', 'action', 'raison'];
+        return ['zoho_id', 'nom', 'ice', 'ice_rejete', 'action', 'raison'];
     }
 }

@@ -64,10 +64,14 @@ class ImportTiersZoho
 
         // Index des tiers existants, chargé UNE fois : une requête par contact
         // ferait mille requêtes pour un import de mille lignes.
+        // `forget('')` : un ICE qui n'a pas quinze chiffres ne donne aucune clé
+        // (voir normaliserIce) ; sans cela, ces tiers se rangeraient tous dans
+        // la même case vide.
         $parIce = Tiers::query()
             ->whereNotNull('ice')
             ->get(['id', 'ice'])
-            ->keyBy(fn (Tiers $t) => $this->normaliserIce($t->ice));
+            ->keyBy(fn (Tiers $t) => $this->normaliserIce($t->ice))
+            ->forget('');
 
         // `forget('')` : un nom qui ne donne aucune clé exploitable n'entre pas
         // dans l'index, sinon tous ces tiers se ramassent dans la même case et
@@ -108,12 +112,16 @@ class ImportTiersZoho
     {
         $nom = trim((string) ($contact['company_name'] ?: $contact['contact_name'] ?? ''));
         $ice = $this->normaliserIce($contact['cf_ice'] ?? null);
+        // Ce que Books portait, quand ce n'est pas un ICE valable : le rapport
+        // le signale, et la fiche créée le garde dans ses notes.
+        $iceRejete = $ice === null ? $this->chiffresIce($contact['cf_ice'] ?? null) : '';
         $zohoId = (string) ($contact['contact_id'] ?? '');
 
         $detail = [
             'zoho_id' => $zohoId,
             'nom' => $nom,
             'ice' => $ice ?? '',
+            'ice_rejete' => $iceRejete,
         ];
 
         if ($nom === '') {
@@ -178,7 +186,7 @@ class ImportTiersZoho
         // c'est elle qui permet au rapport d'annoncer la fusion à venir.
         $cree = $simulation
             ? self::MARQUE_SIMULATION
-            : $this->tiers->create($this->donneesDeCreation($contact, $nom, $ice, $drapeau));
+            : $this->tiers->create($this->donneesDeCreation($contact, $nom, $ice, $iceRejete, $drapeau));
 
         if ($ice !== null) {
             $parIce->put($ice, $cree);
@@ -191,7 +199,11 @@ class ImportTiersZoho
 
         return ['issue' => 'crees', 'detail' => $detail + [
             'action' => 'cree',
-            'raison' => $ice !== null ? 'nouveau (ICE)' : 'nouveau, SANS ICE',
+            'raison' => match (true) {
+                $ice !== null => 'nouveau (ICE)',
+                $iceRejete !== '' => 'nouveau, ICE INVALIDE',
+                default => 'nouveau, SANS ICE',
+            },
         ]];
     }
 
@@ -210,8 +222,18 @@ class ImportTiersZoho
      * jour où l'on voudra les adresses, il faudra une table de correspondance
      * vers les codes ISO, pas une recopie.
      */
-    private function donneesDeCreation(array $contact, string $nom, ?string $ice, string $drapeau): array
+    private function donneesDeCreation(array $contact, string $nom, ?string $ice, string $iceRejete, string $drapeau): array
     {
+        $notes = 'Importé de Zoho Books (contact '.($contact['contact_id'] ?? '?').').';
+
+        if ($iceRejete !== '') {
+            $notes .= sprintf(
+                ' ICE refusé à l\'import : « %s » (%d chiffres au lieu de 15), à corriger.',
+                $iceRejete,
+                strlen($iceRejete),
+            );
+        }
+
         return [
             'name' => $nom,
             'is_client' => $drapeau === 'is_client',
@@ -221,7 +243,7 @@ class ImportTiersZoho
             'phone' => $contact['phone'] ?: ($contact['mobile'] ?: null),
             'website' => $contact['website'] ?: null,
             'contact_name' => trim(($contact['first_name'] ?? '').' '.($contact['last_name'] ?? '')) ?: null,
-            'notes' => 'Importé de Zoho Books (contact '.($contact['contact_id'] ?? '?').').',
+            'notes' => $notes,
             'is_active' => ($contact['status'] ?? 'active') === 'active',
             'source_systeme' => self::SOURCE,
             'source_id' => ($contact['contact_id'] ?? null) ?: null,
@@ -280,12 +302,28 @@ class ImportTiersZoho
         return $changements;
     }
 
-    /** L'ICE se compare sur ses chiffres seuls : espaces et tirets varient. */
+    /**
+     * L'ICE se compare sur ses chiffres seuls : espaces et tirets varient.
+     *
+     * Et il en a EXACTEMENT quinze : c'est la règle de la saisie manuelle
+     * (StoreTiersRequest, `digits:15`). Books accepte n'importe quoi, et la
+     * reprise réelle y a trouvé quatre ICE à seize chiffres. SQLite les avait
+     * rangés sans broncher dans une colonne de quinze caractères ; PostgreSQL
+     * les refuse, et l'import s'arrêtait net au premier (constaté le 2026-09-26
+     * sur le VPS). Un ICE faux n'identifie personne : il n'est ni stocké, ni
+     * utilisé pour rapprocher.
+     */
     private function normaliserIce(?string $ice): ?string
     {
-        $chiffres = preg_replace('/\D+/', '', (string) $ice);
+        $chiffres = $this->chiffresIce($ice);
 
-        return $chiffres === '' ? null : $chiffres;
+        return strlen($chiffres) === 15 ? $chiffres : null;
+    }
+
+    /** Les chiffres de l'ICE tel que Books le rend, valable ou non. */
+    private function chiffresIce(?string $ice): string
+    {
+        return (string) preg_replace('/\D+/', '', (string) $ice);
     }
 
     /** Repli quand l'ICE manque : casse, accents et espaces neutralisés. */

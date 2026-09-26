@@ -219,6 +219,45 @@ class ImportTiersZohoTest extends TestCase
         $this->assertSame('nouveau, SANS ICE', $rapport['details'][0]['raison']);
     }
 
+    /**
+     * Un ICE marocain a quinze chiffres. Books en portait à seize : SQLite les
+     * rangeait en silence, PostgreSQL arrêtait tout l'import au premier. Ce
+     * test ne prouve la chose que sous phpunit.pgsql.xml.
+     */
+    public function test_un_ice_qui_n_a_pas_15_chiffres_n_est_pas_repris(): void
+    {
+        $this->dansUneEntreprise();
+
+        $rapport = $this->zohoRend(['customer' => [$this->contact([
+            'company_name' => 'EF GROUP', 'cf_ice' => '0027344980000087',
+        ])]])->executer();
+
+        $this->assertSame(1, $rapport['crees']);
+        $this->assertSame('nouveau, ICE INVALIDE', $rapport['details'][0]['raison']);
+        $this->assertSame('0027344980000087', $rapport['details'][0]['ice_rejete']);
+
+        $tiers = Tiers::firstWhere('name', 'EF GROUP');
+        $this->assertNull($tiers->ice, 'Un ICE faux ne doit pas être enregistré comme ICE.');
+        $this->assertStringContainsString('0027344980000087', $tiers->notes, 'La valeur de Books doit rester lisible pour la corriger.');
+    }
+
+    public function test_un_ice_invalide_ne_complete_pas_une_fiche_et_se_rapproche_sur_le_nom(): void
+    {
+        $this->dansUneEntreprise();
+
+        app(TiersService::class)->create([
+            'name' => 'EF GROUP', 'is_client' => true, 'is_supplier' => false,
+        ]);
+
+        $rapport = $this->zohoRend(['customer' => [$this->contact([
+            'company_name' => 'EF GROUP', 'cf_ice' => '0027344980000087',
+        ])]])->executer();
+
+        $this->assertSame(0, $rapport['crees'], 'Le tiers existant doit être retrouvé par son nom.');
+        $this->assertSame(1, Tiers::count());
+        $this->assertNull(Tiers::first()->ice, 'Un ICE faux ne doit pas compléter une fiche.');
+    }
+
     public function test_un_contact_sans_nom_est_ecarte_avec_sa_raison(): void
     {
         $this->dansUneEntreprise();
