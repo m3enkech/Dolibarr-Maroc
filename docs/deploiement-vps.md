@@ -71,6 +71,14 @@ chargent une bibliothèque mise à jour — PHP, nginx, MySQL, la messagerie. D'
 curl -fsSL https://get.docker.com | NEEDRESTART_MODE=l NEEDRESTART_SUSPEND=1 sh
 ```
 
+**`buildx` manque avec le Docker d'Ubuntu.** Le paquet `docker.io` n'embarque pas
+le plugin de construction ; Compose ne peut alors pas construire l'image. Il
+s'ajoute seul, sans toucher au moteur ni aux conteneurs en service :
+
+```bash
+NEEDRESTART_MODE=l NEEDRESTART_SUSPEND=1 apt-get install -y docker-buildx
+```
+
 **`.env.vps` en 0600.** Il contient la clé de chiffrement et le mot de passe
 de la base : `chmod 600 .env.vps`.
 
@@ -90,48 +98,41 @@ correspondent plus à rien.
 
 ## 3. Publier le site dans FASTPANEL
 
-Dans le panneau (les libellés varient selon la version) :
+**Par le panneau, jamais en éditant les fichiers.** FASTPANEL régénère la
+configuration nginx de chaque site à partir de sa propre base — au
+renouvellement du certificat, notamment. Une modification faite à la main dans
+`/etc/nginx/fastpanel2-available/` fonctionne… jusqu'au premier renouvellement,
+quatre-vingt-dix jours plus tard, où le site retombe sans prévenir sur la page
+d'attente du panneau.
 
-1. **Sites → Ajouter un site** → nom de domaine `crm.mediadesk.ma`.
-2. Choisir un site **sans PHP** (site statique ou « proxy ») : c'est le
-   conteneur qui exécute PHP, pas le panneau.
-3. Ouvrir la **configuration nginx** du site et y placer :
+1. **Sites → Ajouter un site** → nom de domaine `crm.mediadesk.ma`, puis
+   **SSL → Let's Encrypt** et redirection HTTP → HTTPS. *Sans* le `www.` :
+   `www.crm.mediadesk.ma` n'a pas d'enregistrement DNS, et sa validation fait
+   échouer tout le certificat.
+2. Dans les **paramètres du site**, section **Handler / Gestionnaire**, choisir
+   **Reverse Proxy** et donner l'adresse `http://127.0.0.1:8080`. C'est le mode
+   qu'utilise déjà `api.mediadesk.ma` sur ce serveur.
+3. Décocher **« Use Nginx for static files »** si l'option est proposée : c'est
+   le conteneur qui sert les fichiers de l'application, pas le dossier du site.
 
-```nginx
-# EN PREMIER, et ce n'est pas un détail : la validation de Let's Encrypt dépose
-# un fichier ici et vient le relire en HTTP. Si le proxy attrapait aussi cette
-# adresse, la requête partirait vers l'application — qui répondrait 404. Le
-# certificat s'émettrait quand même aujourd'hui (il est demandé AVANT que le
-# proxy existe), puis le renouvellement échouerait EN SILENCE quatre-vingt-dix
-# jours plus tard, et le site tomberait en « certificat expiré » un matin.
-location ^~ /.well-known/acme-challenge/ {
-    root /var/www/html;   # le chemin que FASTPANEL donne au site ; à vérifier
-    allow all;
-}
+Ce qu'on n'a **pas** à faire, et qui casserait tout :
 
-location / {
-    proxy_pass http://127.0.0.1:8080;
-    proxy_http_version 1.1;
+- **Ne pas ajouter de bloc `/.well-known/acme-challenge/`.** FASTPANEL l'inclut
+  déjà dans chaque site (`/etc/nginx/fastpanel2-includes/letsencrypt.conf`, en
+  `^~`, donc prioritaire sur le proxy). Un second bloc identique fait échouer
+  `nginx -t` sur « duplicate location ».
+- **Ne pas se contenter de remplacer `location /`.** Le modèle de site PHP porte
+  aussi un bloc pour les `.js`, `.css`, `.pdf`… qui passe AVANT `location /` et
+  renvoie la page d'attente du panneau : l'application s'afficherait sans style
+  ni JavaScript. Le mode Reverse Proxy, lui, renvoie ces fichiers au conteneur.
 
-    proxy_set_header Host              $host;
-    proxy_set_header X-Real-IP         $remote_addr;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-    # Sans cette ligne, Laravel se croit en http derrière le proxy et fabrique
-    # des liens de réinitialisation en http — le mot de passe passerait en clair.
-    proxy_set_header X-Forwarded-Proto $scheme;
+Les en-têtes de proxy sont déjà justes : le mode Reverse Proxy inclut
+`/etc/nginx/proxy_params`, qui transmet `X-Forwarded-Proto`. Sans lui, Laravel
+se croirait en http et fabriquerait des liens de réinitialisation en http.
 
-    # Les imports et les PDF prennent leur temps ; 60 s par défaut coupe au
-    # milieu et l'utilisateur voit une erreur de passerelle sans explication.
-    proxy_read_timeout 300s;
-    client_max_body_size 32m;
-}
-```
-
-4. **SSL → Let's Encrypt**, émettre le certificat pour `crm.mediadesk.ma` et
-   activer la redirection HTTP → HTTPS.
-
-Le nuage gris de Cloudflare est ici une nécessité, pas un détail : en orange,
-Let's Encrypt ne pourrait pas valider le domaine par HTTP.
+Le nuage de Cloudflare reste **gris** : c'est le VPS qui présente son propre
+certificat, et nginx voit l'adresse réelle des visiteurs — celle dont dépend la
+limitation de débit.
 
 ## 4. Fermer la porte de derrière
 

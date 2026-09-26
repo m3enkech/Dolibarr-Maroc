@@ -89,6 +89,15 @@ docker compose version >/dev/null || arret "le plugin compose est absent."
 docker info >/dev/null 2>&1 \
     || arret "le démon Docker ne répond pas — voir : systemctl status docker"
 
+# Le paquet `docker.io` d'Ubuntu n'embarque pas buildx, dont Compose a besoin
+# pour construire l'image. Constaté sur le VPS de production. Un seul paquet,
+# qui ne touche ni au moteur ni aux conteneurs en service — mais on ne
+# l'installe pas d'office : le nom diffère selon l'origine du moteur.
+docker buildx version >/dev/null 2>&1 \
+    || arret "le plugin buildx est absent. Installez-le :
+    NEEDRESTART_MODE=l NEEDRESTART_SUSPEND=1 apt-get install -y docker-buildx          (moteur docker.io d'Ubuntu)
+    NEEDRESTART_MODE=l NEEDRESTART_SUSPEND=1 apt-get install -y docker-buildx-plugin   (moteur docker-ce)"
+
 # État du pare-feu, À TITRE D'INFORMATION : on n'y touche pas.
 if command -v ufw >/dev/null; then
     jaune "Pare-feu ufw : $(ufw status 2>/dev/null | head -1)"
@@ -277,15 +286,16 @@ cat <<'SUITE'
 
 == Reste à faire, À LA MAIN — ce script n'y touche volontairement pas
 
-1. Dans FASTPANEL, sur le site crm.mediadesk.ma, remplacer la configuration
-   nginx par le bloc de docs/deploiement-vps.md (proxy vers 127.0.0.1:8080,
-   AVEC l'exception /.well-known/acme-challenge/ placée avant).
+1. Dans FASTPANEL, paramètres du site crm.mediadesk.ma : Handler → Reverse
+   Proxy, adresse http://127.0.0.1:8080 (docs/deploiement-vps.md, section 3).
+   Par le panneau, PAS en éditant /etc/nginx : il régénère ces fichiers au
+   renouvellement du certificat. Et aucun bloc acme-challenge à ajouter : le
+   panneau l'inclut déjà.
 
-2. Tester AVANT de recharger — si le test échoue, rien n'est rechargé et les
-   autres sites continuent de tourner :
+2. Vérifier ensuite que nginx accepte toujours sa configuration :
 
-       nginx -t && systemctl reload nginx
+       nginx -t
 
 3. Créer le compte sur https://crm.mediadesk.ma, puis rejouer la reprise
-   Zoho (voir docs/deploiement-vps.md, section 6).
+   Zoho (voir docs/deploiement-vps.md, section 5).
 SUITE
