@@ -53,8 +53,8 @@ class SubscriptionBillingService
                 'date_document' => now()->toDateString(),
                 'lignes' => [[
                     'designation' => sprintf(
-                        'Abonnement Dolibarr Maroc — %s (%s → %s)',
-                        $planLabel, $debut->format('d/m/Y'), $fin->format('d/m/Y'),
+                        'Abonnement %s — %s (%s → %s)',
+                        config('app.name'), $planLabel, $debut->format('d/m/Y'), $fin->format('d/m/Y'),
                     ),
                     'quantite' => 1,
                     'prix_unitaire' => $ht,

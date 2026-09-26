@@ -152,7 +152,7 @@
     @if (! empty($document->tenant->settings['ice'])) — ICE : {{ $document->tenant->settings['ice'] }} @endif
     @if (! empty($document->tenant->settings['if'])) — IF : {{ $document->tenant->settings['if'] }} @endif
     @if (! empty($document->tenant->settings['rc'])) — RC : {{ $document->tenant->settings['rc'] }} @endif
-    — Document généré par Dolibarr Maroc
+    — Document généré par {{ config('app.name') }}
 </div>
 </body>
 </html>

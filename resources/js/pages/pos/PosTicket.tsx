@@ -1,5 +1,6 @@
 import type { DocumentVente, Tenant } from '@/types';
 import { dh } from '@/pages/pos/ui';
+import { NOM_APPLICATION } from '@/lib/marque';
 
 const MODE_LABELS: Record<string, string> = {
     especes: 'Espèces',
@@ -46,7 +47,7 @@ export default function PosTicket({ doc, tenant, vendeur, rendu, donne }: PosTic
             className="mx-auto w-[290px] bg-white px-4 py-5 font-mono text-[11px] leading-snug text-slate-900"
         >
             <div className="text-center">
-                <div className="text-sm font-bold uppercase">{tenant?.name ?? 'Dolibarr Maroc'}</div>
+                <div className="text-sm font-bold uppercase">{tenant?.name ?? NOM_APPLICATION}</div>
                 <div className="mt-1 text-[10px]">Ticket de caisse</div>
                 <div className="mt-2 text-[10px]">
                     {doc.code} — {new Date(doc.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
@@ -134,7 +135,7 @@ export default function PosTicket({ doc, tenant, vendeur, rendu, donne }: PosTic
 
             <div className="text-center text-[10px]">
                 <div>Merci de votre visite !</div>
-                <div className="mt-1 text-slate-500">Généré par Dolibarr Maroc</div>
+                <div className="mt-1 text-slate-500">Généré par {NOM_APPLICATION}</div>
             </div>
         </div>
     );

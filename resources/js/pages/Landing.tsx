@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { EMAIL_CONTACT, INITIALES_APPLICATION, NOM_APPLICATION, NOM_EN_DEUX_PARTIES } from '@/lib/marque';
 
 /* ------------------------------------------------------------------ */
 /* Icônes SVG inline (style trait, cohérentes avec l'identité du site) */
@@ -230,10 +231,10 @@ function Logo({ dark = false }: { dark?: boolean }) {
     return (
         <span className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
-                DM
+                {INITIALES_APPLICATION}
             </span>
             <span className={`text-lg font-semibold ${dark ? 'text-white' : 'text-slate-900'}`}>
-                Dolibarr <span className="text-emerald-600">Maroc</span>
+                {NOM_EN_DEUX_PARTIES[0]}{NOM_EN_DEUX_PARTIES[1] && <> <span className="text-emerald-600">{NOM_EN_DEUX_PARTIES[1]}</span></>}
             </span>
         </span>
     );
@@ -359,7 +360,7 @@ function HeroMockup() {
                     <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
                     <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
                     <span className="ml-3 hidden rounded-md bg-white px-2 py-0.5 text-[10px] text-slate-400 ring-1 ring-slate-200 sm:block">
-                        app.dolibarr-maroc.ma
+                        {window.location.host}
                     </span>
                 </div>
                 <div className="flex">
@@ -563,7 +564,7 @@ function MarocSection() {
                         Conçu pour le Maroc, pas adapté après coup
                     </h2>
                     <p className="mt-4 text-lg text-slate-400">
-                        Les logiciels génériques ignorent la DGI, le CGNC et l'ICE. Dolibarr Maroc les intègre
+                        Les logiciels génériques ignorent la DGI, le CGNC et l'ICE. {NOM_APPLICATION} les intègre
                         nativement, du devis jusqu'à la télédéclaration.
                     </p>
                 </div>
@@ -668,7 +669,7 @@ function Pricing() {
                 </div>
                 <p className="mt-10 text-center text-sm text-slate-500">
                     Besoin d'un déploiement sur mesure ou de plus d'utilisateurs ?{' '}
-                    <a href="mailto:contact@dolibarr-maroc.ma" className="font-medium text-emerald-600 hover:underline">
+                    <a href={`mailto:${EMAIL_CONTACT}`} className="font-medium text-emerald-600 hover:underline">
                         Contactez-nous
                     </a>
                 </p>
@@ -785,7 +786,7 @@ function Footer() {
                                 </Link>
                             </li>
                             <li>
-                                <a href="mailto:contact@dolibarr-maroc.ma" className="transition hover:text-white">
+                                <a href={`mailto:${EMAIL_CONTACT}`} className="transition hover:text-white">
                                     Contact
                                 </a>
                             </li>
@@ -793,7 +794,7 @@ function Footer() {
                     </div>
                 </div>
                 <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-slate-800 pt-6 text-xs text-slate-500 sm:flex-row">
-                    <span>© 2026 Dolibarr Maroc. Tous droits réservés.</span>
+                    <span>© 2026 {NOM_APPLICATION}. Tous droits réservés.</span>
                     <span className="inline-flex items-center gap-1.5">
                         Fait avec soin au Maroc <MorocFlag className="h-3 w-4" />
                     </span>

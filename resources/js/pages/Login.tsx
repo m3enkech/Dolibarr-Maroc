@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useT } from '@/lib/langue';
+import { NOM_APPLICATION } from '@/lib/marque';
 
 export default function Login() {
     const t = useT();
@@ -36,7 +37,7 @@ export default function Login() {
         <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
             <div className="w-full max-w-md">
                 <div className="mb-6 text-center">
-                    <h1 className="text-2xl font-semibold text-slate-900">{t('Dolibarr Maroc')}</h1>
+                    <h1 className="text-2xl font-semibold text-slate-900">{NOM_APPLICATION}</h1>
                     <p className="mt-1 text-sm text-slate-500">{t('Connectez-vous à votre espace')}</p>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm">

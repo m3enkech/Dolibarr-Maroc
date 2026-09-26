@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { useFeatures } from '@/lib/features';
 import { useT } from '@/lib/langue';
 import SelecteurLangue from '@/components/SelecteurLangue';
+import { NOM_APPLICATION } from '@/lib/marque';
 
 interface MenuLeaf {
     to: string;
@@ -226,7 +227,7 @@ export default function Layout() {
             >
                 <div className="flex items-center justify-between gap-2 border-b border-slate-800 px-5 py-4">
                     <div className="min-w-0">
-                        <div className="text-lg font-semibold text-white">Dolibarr Maroc</div>
+                        <div className="text-lg font-semibold text-white">{NOM_APPLICATION}</div>
                         <div className="mt-0.5 truncate text-xs text-slate-400">{tenant?.name}</div>
                     </div>
                     <button

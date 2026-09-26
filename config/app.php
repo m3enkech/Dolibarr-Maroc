@@ -13,7 +13,11 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Dolibarr Maroc'),
+
+    // Adresse des liens « Contact » de la page d'accueil. Distincte de
+    // MAIL_FROM_ADDRESS : l'adresse qui ENVOIE n'est pas forcément celle qui lit.
+    'contact_email' => env('APP_CONTACT_EMAIL', 'contact@dolibarr-maroc.ma'),
 
     /*
     |--------------------------------------------------------------------------

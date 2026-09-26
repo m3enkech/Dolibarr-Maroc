@@ -98,7 +98,7 @@
     {{ $document->tenant->name }}
     @if (! empty($s['ice'])) — ICE : {{ $s['ice'] }} @endif
     @if (! empty($s['if'])) — IF : {{ $s['if'] }} @endif
-    — Lettre de relance générée par Dolibarr Maroc
+    — Lettre de relance générée par {{ config('app.name') }}
 </div>
 </body>
 </html>

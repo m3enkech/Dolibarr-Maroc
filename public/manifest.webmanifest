@@ -1,7 +1,7 @@
 {
-    "name": "Dolibarr Maroc — Caisse",
+    "name": "Caisse",
     "short_name": "Caisse",
-    "description": "Caisse (POS) Dolibarr Maroc, utilisable hors-ligne.",
+    "description": "Caisse (POS), utilisable hors-ligne.",
     "start_url": "/caisse",
     "scope": "/",
     "display": "standalone",
