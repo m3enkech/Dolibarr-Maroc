@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import SelecteurTiers from '@/components/SelecteurTiers';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import { ACHAT_TYPE_LABELS } from '@/pages/achats/common';
-import type { AchatType, DocumentAchat, Entrepot, Paginated, PreRemplissageAchat, Produit, Tiers } from '@/types';
+import type { AchatType, DocumentAchat, Entrepot, Paginated, PreRemplissageAchat, Produit } from '@/types';
 
 const TVA_RATES = ['20', '14', '10', '7', '0'];
 
@@ -72,9 +73,14 @@ export default function AchatForm() {
             ? searchParams.get('type')
             : 'commande') as AchatType,
     );
-    const [tiersId, setTiersId] = useState(
-        preRemplissage?.fournisseur_id ? String(preRemplissage.fournisseur_id) : '',
-    );
+    // Fournisseur de départ, pour un NOUVEAU document seulement : celui que le
+    // Réappro a déduit de l'historique d'abord, sinon celui de ?tiers_id= (fiche
+    // tiers). En modification, c'est le document chargé qui fait foi.
+    const [tiersId, setTiersId] = useState(() => {
+        if (preRemplissage?.fournisseur_id) return String(preRemplissage.fournisseur_id);
+        const demande = searchParams.get('tiers_id') ?? '';
+        return !isEdit && /^[1-9]\d*$/.test(demande) ? demande : '';
+    });
     const [entrepotId, setEntrepotId] = useState(
         preRemplissage?.entrepot_id ? String(preRemplissage.entrepot_id) : '',
     );
@@ -96,16 +102,6 @@ export default function AchatForm() {
             : [nouvelleLigne()],
     );
     const [error, setError] = useState<string | null>(null);
-
-    const { data: fournisseurs } = useQuery({
-        queryKey: ['fournisseurs-options'],
-        queryFn: async () => {
-            const { data } = await api.get<Paginated<Tiers>>('/tiers', {
-                params: { type: 'fournisseur', per_page: 200 },
-            });
-            return data.data;
-        },
-    });
 
     const { data: entrepots } = useQuery({
         queryKey: ['entrepots'],
@@ -266,16 +262,24 @@ export default function AchatForm() {
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="rounded-xl bg-white p-5 shadow-sm">
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <div>
-                            <label className={label}>Fournisseur *</label>
-                            <select required value={tiersId} onChange={(e) => setTiersId(e.target.value)} className={input}>
-                                <option value="">— Choisir —</option>
-                                {fournisseurs?.map((f) => (
-                                    <option key={f.id} value={f.id}>
-                                        {f.name}
-                                    </option>
-                                ))}
-                            </select>
+                        {/* Recherche côté serveur : la liste chargée d'avance
+                            s'arrêtait aux 200 premiers fournisseurs. Écran resté
+                            en français : traduire={false}. */}
+                        <div className="min-w-0">
+                            <label htmlFor="achat-tiers" className={label}>
+                                Fournisseur *
+                            </label>
+                            <SelecteurTiers
+                                id="achat-tiers"
+                                type="fournisseur"
+                                required
+                                compact
+                                traduire={false}
+                                value={tiersId ? Number(tiersId) : null}
+                                onChange={(choisi) => setTiersId(choisi === null ? '' : String(choisi))}
+                                tiersConnu={existing?.tiers ?? null}
+                                placeholder="Rechercher un fournisseur (nom, code, ICE)…"
+                            />
                         </div>
                         {(type === 'commande' || type === 'reception' || type === 'facture') && (
                             <div>

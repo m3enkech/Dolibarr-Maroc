@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { useFeatures } from '@/lib/features';
 import { formatMAD } from '@/lib/format';
 import { useT } from '@/lib/langue';
 import Pagination from '@/components/Pagination';
@@ -60,7 +62,16 @@ type Onglet = 'devis' | 'commande' | 'bon_livraison' | 'facture' | 'avoir' | 'ac
 export default function Tiers360() {
     const t = useT();
     const { id } = useParams<{ id: string }>();
+    const { can } = useAuth();
+    const { features } = useFeatures();
     const [onglet, setOnglet] = useState<Onglet>('facture');
+
+    // L'historique est servi par le module CRM : sa route répond 403 quand le
+    // module est désactivé (défaut) ou que le rôle n'y a pas accès (comptable,
+    // caissier). Proposer un onglet qui ne peut que refuser, c'est montrer une
+    // liste vide qui fait croire à un client sans histoire. Même double test
+    // que le menu : le module, puis le droit.
+    const historiqueVisible = features.crm && can('crm');
     const [page, setPage] = useState(1);
     const [apercu, setApercu] = useState<number | null>(null);
 
@@ -132,7 +143,7 @@ export default function Tiers360() {
         ...(tiers?.is_supplier ? [{ cle: 'achats' as Onglet, label: 'Achats', compte: synthese?.achats }] : []),
         { cle: 'produits', label: 'Articles' },
         { cle: 'contacts', label: 'Contacts', compte: synthese?.contacts },
-        { cle: 'historique', label: 'Historique' },
+        ...(historiqueVisible ? [{ cle: 'historique' as Onglet, label: 'Historique' }] : []),
     ];
 
     if (!tiers) {
@@ -180,6 +191,18 @@ export default function Tiers360() {
                         >
                             + {t('Facture')}
                         </Link>
+                        {/* Pendant des deux boutons de vente pour un fournisseur :
+                            le formulaire d'achat lit lui aussi ?tiers_id=. Réservé
+                            à qui peut saisir un achat — il n'y aurait sinon qu'un
+                            refus au bout. */}
+                        {tiers.is_supplier && can('achats', 'write') && (
+                            <Link
+                                to={`/achats/nouveau?type=commande&tiers_id=${tiers.id}`}
+                                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                            >
+                                + {t('Commande fournisseur')}
+                            </Link>
+                        )}
                         <Link
                             to={`/tiers/${tiers.id}/modifier`}
                             className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
@@ -228,7 +251,7 @@ export default function Tiers360() {
             </div>
 
             {/* ---------------------------- contenu ----------------------------- */}
-            {onglet === 'historique' && <TiersTimeline tiersId={String(tiers.id)} />}
+            {onglet === 'historique' && historiqueVisible && <TiersTimeline tiersId={String(tiers.id)} />}
 
             {onglet === 'contacts' && <ContactsTiers tiersId={tiers.id} />}
 

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import SelecteurTiers from '@/components/SelecteurTiers';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
-import type { Paginated, Produit, Tiers } from '@/types';
+import type { Paginated, Produit } from '@/types';
 import { useT } from '@/lib/langue';
 
 interface CategorieTarifaire {
@@ -59,12 +60,6 @@ export default function Tarifs() {
             (await api.get<Paginated<Produit>>('/produits', { params: { per_page: 500 } })).data.data,
     });
 
-    const { data: clients } = useQuery({
-        queryKey: ['tarifs-clients'],
-        queryFn: async () =>
-            (await api.get<Paginated<Tiers>>('/tiers', { params: { type: 'client', per_page: 300 } })).data.data,
-    });
-
     const { data: grille } = useQuery({
         queryKey: ['produit-tarifs', produitId],
         queryFn: async () =>
@@ -90,6 +85,11 @@ export default function Tarifs() {
 
     /* --- Lignes de tarif --- */
     const [cible, setCible] = useState(''); // "cat:3" ou "cli:7"
+    // Les niveaux tiennent dans une liste ; les clients non (ils étaient
+    // tronqués à 300). Le choix se fait donc en deux temps : le GENRE de cible,
+    // puis le niveau dans sa liste ou le client par recherche. `cible` garde
+    // son format « genre:id », que l'enregistrement sait déjà lire.
+    const [genreCible, setGenreCible] = useState<'cat' | 'cli'>('cat');
     const [qteMin, setQteMin] = useState('1');
     const [prix, setPrix] = useState('');
 
@@ -249,21 +249,48 @@ export default function Tarifs() {
                         </div>
 
                         <div className="mt-3 flex flex-wrap items-end gap-3">
-                            <div>
-                                <label className="mb-1 block text-xs text-slate-500">{t('Pour')}</label>
-                                <select value={cible} onChange={(e) => setCible(e.target.value)} className={champ}>
-                                    <option value="">{t('Choisir…')}</option>
-                                    <optgroup label={t('Niveau de tarif')}>
-                                        {(categories ?? []).map((c) => (
-                                            <option key={`cat-${c.id}`} value={`cat:${c.id}`}>{c.name}</option>
-                                        ))}
-                                    </optgroup>
-                                    <optgroup label={t('Client précis')}>
-                                        {(clients ?? []).map((c) => (
-                                            <option key={`cli-${c.id}`} value={`cli:${c.id}`}>{c.name}</option>
-                                        ))}
-                                    </optgroup>
-                                </select>
+                            <div className="min-w-0 max-w-full">
+                                <label htmlFor="tarif-cible" className="mb-1 block text-xs text-slate-500">
+                                    {t('Pour')}
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                    <select
+                                        value={genreCible}
+                                        onChange={(e) => {
+                                            setGenreCible(e.target.value as 'cat' | 'cli');
+                                            setCible('');
+                                        }}
+                                        aria-label={t('Type de cible du tarif')}
+                                        className={champ}
+                                    >
+                                        <option value="cat">{t('Niveau de tarif')}</option>
+                                        <option value="cli">{t('Client précis')}</option>
+                                    </select>
+                                    {genreCible === 'cat' ? (
+                                        <select
+                                            id="tarif-cible"
+                                            value={cible}
+                                            onChange={(e) => setCible(e.target.value)}
+                                            className={champ}
+                                        >
+                                            <option value="">{t('Choisir…')}</option>
+                                            {(categories ?? []).map((c) => (
+                                                <option key={`cat-${c.id}`} value={`cat:${c.id}`}>
+                                                    {c.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <SelecteurTiers
+                                            id="tarif-cible"
+                                            type="client"
+                                            className="w-64 max-w-full"
+                                            value={cible.startsWith('cli:') ? Number(cible.slice(4)) : null}
+                                            onChange={(choisi) => setCible(choisi === null ? '' : `cli:${choisi}`)}
+                                            placeholder={t('Rechercher un client…')}
+                                        />
+                                    )}
+                                </div>
                             </div>
                             <div>
                                 <label className="mb-1 block text-xs text-slate-500">{t('À partir de (qté)')}</label>

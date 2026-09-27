@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import SelecteurTiers from '@/components/SelecteurTiers';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import { TYPE_LABELS } from '@/pages/ventes/common';
-import type { DocumentType, DocumentVente, Paginated, Produit, Tiers } from '@/types';
+import type { DocumentType, DocumentVente, Paginated, Produit } from '@/types';
 
 const TVA_RATES = ['20', '14', '10', '7', '0'];
 
@@ -57,20 +58,19 @@ export default function VenteForm() {
             ? searchParams.get('type')
             : 'devis') as DocumentType,
     );
-    const [tiersId, setTiersId] = useState('');
+    // Client présélectionné par ?tiers_id= (boutons « + Devis / + Facture » de
+    // la fiche tiers) — pour un NOUVEAU document seulement : en modification,
+    // c'est le document chargé qui fait foi. Un paramètre qui n'est pas un
+    // entier est ignoré plutôt qu'envoyé tel quel au serveur.
+    const [tiersId, setTiersId] = useState(() => {
+        const demande = searchParams.get('tiers_id') ?? '';
+        return !isEdit && /^[1-9]\d*$/.test(demande) ? demande : '';
+    });
     const [dateDocument, setDateDocument] = useState(() => new Date().toISOString().slice(0, 10));
     const [dateEcheance, setDateEcheance] = useState('');
     const [notes, setNotes] = useState('');
     const [lignes, setLignes] = useState<LigneForm[]>(() => [nouvelleLigne()]);
     const [error, setError] = useState<string | null>(null);
-
-    const { data: tiersList } = useQuery({
-        queryKey: ['tiers-options'],
-        queryFn: async () => {
-            const { data } = await api.get<Paginated<Tiers>>('/tiers', { params: { per_page: 200 } });
-            return data.data;
-        },
-    });
 
     const { data: produits } = useQuery({
         queryKey: ['produits-options'],
@@ -226,16 +226,24 @@ export default function VenteForm() {
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="rounded-xl bg-white p-5 shadow-sm">
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <div>
-                            <label className={label}>Client *</label>
-                            <select required value={tiersId} onChange={(e) => setTiersId(e.target.value)} className={input}>
-                                <option value="">— Choisir —</option>
-                                {tiersList?.map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                        {t.name}
-                                    </option>
-                                ))}
-                            </select>
+                        {/* Recherche côté serveur : la liste chargée d'avance
+                            s'arrêtait aux 200 premiers tiers. Pas de filtre de
+                            rôle, comme avant — un devis part aussi vers un
+                            prospect. Écran resté en français : traduire={false}. */}
+                        <div className="min-w-0">
+                            <label htmlFor="vente-tiers" className={label}>
+                                Client *
+                            </label>
+                            <SelecteurTiers
+                                id="vente-tiers"
+                                required
+                                compact
+                                traduire={false}
+                                value={tiersId ? Number(tiersId) : null}
+                                onChange={(choisi) => setTiersId(choisi === null ? '' : String(choisi))}
+                                tiersConnu={existing?.tiers ?? null}
+                                placeholder="Rechercher un client (nom, code, ICE)…"
+                            />
                         </div>
                         <div>
                             <label className={label}>Date</label>

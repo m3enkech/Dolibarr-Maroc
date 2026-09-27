@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import SelecteurTiers from '@/components/SelecteurTiers';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import type { AdhesionStatut, Paginated, PortailAdhesion, Tiers } from '@/types';
+import type { AdhesionStatut, PortailAdhesion } from '@/types';
 import { useT } from '@/lib/langue';
 
 const ETAT: Record<AdhesionStatut, { libelle: string; classe: string }> = {
@@ -67,22 +68,14 @@ export default function Adhesions() {
     const peutAgir = can('tiers', 'write');
 
     const [ouverte, setOuverte] = useState<number | null>(null);
-    const [clientChoisi, setClientChoisi] = useState('');
+    // `null` = aucune fiche choisie : l'approbation en CRÉE une au nom de l'acheteur.
+    const [clientChoisi, setClientChoisi] = useState<number | null>(null);
     const [message, setMessage] = useState<string | null>(null);
     const [erreur, setErreur] = useState<string | null>(null);
 
     const { data: adhesions, isLoading } = useQuery({
         queryKey: ['portail-adhesions'],
         queryFn: async () => (await api.get<{ data: PortailAdhesion[] }>('/portail/adhesions')).data.data,
-    });
-
-    // Les fiches clients ne sont chargées qu'à l'ouverture d'un panneau : inutile
-    // d'en tirer 300 pour un écran qu'on ne fait souvent que consulter.
-    const { data: clients } = useQuery({
-        queryKey: ['tiers-clients'],
-        queryFn: async () =>
-            (await api.get<Paginated<Tiers>>('/tiers', { params: { type: 'client', per_page: 300 } })).data.data,
-        enabled: ouverte !== null,
     });
 
     const action = useMutation({
@@ -97,9 +90,10 @@ export default function Adhesions() {
             setOuverte(null);
             queryClient.invalidateQueries({ queryKey: ['portail-adhesions'] });
             // Une approbation sans fiche choisie crée un client : les listes de
-            // tiers déjà en cache seraient sinon incomplètes.
+            // tiers déjà en cache seraient sinon incomplètes — recherches du
+            // sélecteur comprises.
             queryClient.invalidateQueries({ queryKey: ['tiers'] });
-            queryClient.invalidateQueries({ queryKey: ['tiers-clients'] });
+            queryClient.invalidateQueries({ queryKey: ['selecteur-tiers'] });
             queryClient.invalidateQueries({ queryKey: ['tiers-count'] });
         },
         onError: (err) => {
@@ -114,7 +108,7 @@ export default function Adhesions() {
      */
     const ouvrirPanneau = (a: PortailAdhesion) => {
         setOuverte(a.id);
-        setClientChoisi(a.client ? String(a.client.id) : '');
+        setClientChoisi(a.client ? a.client.id : null);
     };
 
     if (isLoading) {
@@ -138,27 +132,30 @@ export default function Adhesions() {
 
     const panneau = (a: PortailAdhesion) => (
         <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-            <label className="block text-xs font-medium text-emerald-900">{t('Compte client à relier')}</label>
+            <label htmlFor={`adhesion-client-${a.id}`} className="block text-xs font-medium text-emerald-900">
+                {t('Compte client à relier')}
+            </label>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-                <select
+                {/* Vide = « créer une fiche » : c'est l'option « aucun » du
+                    sélecteur, et le texte d'attente du champ tant que rien
+                    n'est choisi. La fiche déjà reliée (accès révoqué) est
+                    connue : pas besoin de la relire. */}
+                <SelecteurTiers
+                    id={`adhesion-client-${a.id}`}
+                    type="client"
+                    className="min-w-64 flex-1"
                     value={clientChoisi}
-                    onChange={(e) => setClientChoisi(e.target.value)}
-                    className="min-w-64 flex-1 rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm"
-                >
-                    <option value="">{t('➕ Créer une fiche client à son nom')}</option>
-                    {(clients ?? []).map((c) => (
-                        <option key={c.id} value={c.id}>
-                            {c.code} — {c.name}
-                        </option>
-                    ))}
-                </select>
+                    onChange={(choisi) => setClientChoisi(choisi)}
+                    tiersConnu={a.client}
+                    aucun={t('➕ Créer une fiche client à son nom')}
+                />
                 <button
                     disabled={action.isPending}
                     onClick={() =>
                         action.mutate({
                             id: a.id,
                             verbe: 'approuver',
-                            tiersId: clientChoisi ? Number(clientChoisi) : null,
+                            tiersId: clientChoisi,
                         })
                     }
                     className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"

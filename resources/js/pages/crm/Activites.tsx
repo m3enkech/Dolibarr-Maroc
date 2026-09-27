@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import SelecteurTiers from '@/components/SelecteurTiers';
 import { api } from '@/lib/api';
-import type { Activite, ActiviteType, Paginated, Tiers } from '@/types';
+import type { Activite, ActiviteType, Paginated } from '@/types';
 import { useT } from '@/lib/langue';
 
 const TYPES: Record<ActiviteType, { label: string; icon: string }> = {
@@ -26,14 +27,6 @@ export default function Activites() {
             const { data } = await api.get<Paginated<Activite>>('/crm/activites', {
                 params: vue === 'a_faire' ? { a_faire: 1 } : {},
             });
-            return data.data;
-        },
-    });
-
-    const { data: tiers } = useQuery({
-        queryKey: ['tiers-options-crm'],
-        queryFn: async () => {
-            const { data } = await api.get<Paginated<Tiers>>('/tiers', { params: { per_page: 300 } });
             return data.data;
         },
     });
@@ -121,12 +114,20 @@ export default function Activites() {
                                 ))}
                             </select>
                         </div>
-                        <div>
-                            <label className="mb-1 block text-xs font-medium text-slate-600">{t('Tiers')}</label>
-                            <select required value={form.tiers_id} onChange={(e) => setForm((f) => ({ ...f, tiers_id: e.target.value }))} className={input}>
-                                <option value="">{t('— Choisir —')}</option>
-                                {tiers?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
+                        {/* Tous rôles confondus, comme avant : on journalise un
+                            appel à un fournisseur aussi bien qu'à un prospect. */}
+                        <div className="w-full min-w-0 sm:w-64">
+                            <label htmlFor="activite-tiers" className="mb-1 block text-xs font-medium text-slate-600">
+                                {t('Tiers')}
+                            </label>
+                            <SelecteurTiers
+                                id="activite-tiers"
+                                required
+                                value={form.tiers_id ? Number(form.tiers_id) : null}
+                                onChange={(choisi) =>
+                                    setForm((f) => ({ ...f, tiers_id: choisi === null ? '' : String(choisi) }))
+                                }
+                            />
                         </div>
                         <div className="flex-1" style={{ minWidth: 180 }}>
                             <label className="mb-1 block text-xs font-medium text-slate-600">{t('Sujet')}</label>

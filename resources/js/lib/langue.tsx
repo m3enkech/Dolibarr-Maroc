@@ -40,7 +40,13 @@ export function langueCourante(): Langue {
     return langueInitiale();
 }
 
-function interpoler(modele: string, vars?: Record<string, string | number>): string {
+/**
+ * Substitue les `{variables}` sans rien traduire. Exporté pour les composants
+ * PARTAGÉS posés sur un écran resté en français par décision (facturation,
+ * comptabilité) : ils gardent la même signature que t(), sans passer à
+ * l'arabe au milieu d'une page qui ne l'est pas.
+ */
+export function interpoler(modele: string, vars?: Record<string, string | number>): string {
     if (vars === undefined) {
         return modele;
     }

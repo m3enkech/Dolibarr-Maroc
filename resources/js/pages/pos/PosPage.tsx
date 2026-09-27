@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import SelecteurTiers, { prechargerTiers } from '@/components/SelecteurTiers';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import PosPaiement, { type PaiementSaisi } from '@/pages/pos/PosPaiement';
@@ -9,8 +10,16 @@ import PosTicket from '@/pages/pos/PosTicket';
 import { buildLocalDoc, enqueueSale, queueCount, syncQueue } from '@/pages/pos/offlineQueue';
 import { construireGrille, prixApplicable, type TarifProduit } from '@/pages/pos/tarifs';
 import { RemiseChips, calcLigne, calcTotaux, dh, remiseEffective, type CartLine } from '@/pages/pos/ui';
-import type { DocumentVente, Entrepot, Paginated, PosRapport, PosSession, Produit, StockNiveau } from '@/types';
+import type { DocumentVente, Entrepot, Paginated, PosRapport, PosSession, Produit, StockNiveau, Tiers } from '@/types';
 import { useT } from '@/lib/langue';
+
+/*
+ * Annuaire client de la caisse (repli hors ligne du sélecteur) : 500 par page,
+ * dix pages au plus. Au-delà de 5 000 clients, les derniers ne seraient plus
+ * vendables HORS LIGNE sur leur compte — en ligne, la recherche les trouve tous.
+ */
+const ANNUAIRE_PAR_PAGE = 500;
+const ANNUAIRE_PAGES_MAX = 10;
 
 interface SessionResponse {
     data: PosSession | null;
@@ -37,7 +46,6 @@ export default function PosPage() {
 
     const [cart, setCart] = useState<CartLine[]>([]);
     const [client, setClient] = useState<{ id: number; name: string } | null>(null);
-    const [clientOpen, setClientOpen] = useState(false);
     const [remiseTicket, setRemiseTicket] = useState(0); // remise globale ticket (%)
     const [remiseEditKey, setRemiseEditKey] = useState<string | null>(null); // ligne en édition de remise
     const [remiseTicketOpen, setRemiseTicketOpen] = useState(false);
@@ -112,13 +120,57 @@ export default function PosPage() {
         queryFn: async () => (await api.get<{ data: Entrepot[] }>('/stock/entrepots')).data.data,
     });
 
-    /* Clients : la caisse d'un grossiste vend à des comptes identifiés. */
-    const { data: clients } = useQuery({
-        queryKey: ['pos-clients'],
-        queryFn: async () =>
-            (await api.get<Paginated<{ id: number; name: string; code: string }>>('/tiers', {
-                params: { type: 'client', per_page: 300 },
-            })).data.data,
+    /*
+     * Clients : la caisse d'un grossiste vend à des comptes identifiés. Ils se
+     * CHERCHENT désormais (SelecteurTiers) au lieu d'être chargés d'avance : la
+     * liste de 300 s'arrêtait en route, les suivants n'étaient pas vendables.
+     *
+     * Hors ligne, le service worker ne sert que des URL déjà vues. On précharge
+     * donc la liste d'ouverture (les vingt premiers clients) pendant qu'il y a
+     * du réseau, pour qu'elle reste consultable après une coupure. Le client
+     * déjà choisi, lui, reste affiché sans requête (voir `tiersConnu`), et
+     * « Client comptoir » ne dépend d'aucune.
+     */
+    useEffect(() => {
+        prechargerTiers(queryClient, 'client');
+    }, [queryClient]);
+
+    /*
+     * Annuaire client COMPLET, gardé toute la session : c'est le repli du
+     * sélecteur quand le réseau tombe. L'ancienne liste de 300 le faisait sans
+     * le dire — hors ligne, n'importe lequel des 300 premiers clients restait
+     * vendable sur son compte (la vente part en file avec son tiers_id, le
+     * serveur applique son tarif à la synchronisation). Sans cet annuaire, seuls
+     * les vingt de la liste d'ouverture l'auraient été : les autres partaient
+     * en « Client comptoir », au prix catalogue et hors compte.
+     *
+     * Par pages d'adresses FIXES (type, per_page, page) : le service worker les
+     * met en cache une à une et les ressert après un rechargement hors ligne.
+     * Une page manquante hors ligne n'annule pas les précédentes : un annuaire
+     * partiel vaut mieux que pas d'annuaire. `offlineFirst` : la première
+     * tentative part même si le navigateur se dit hors ligne, pour atteindre
+     * ce cache.
+     */
+    const { data: annuaireClients } = useQuery({
+        queryKey: ['pos-annuaire-clients'],
+        queryFn: async () => {
+            const clients: Tiers[] = [];
+            for (let page = 1; page <= ANNUAIRE_PAGES_MAX; page++) {
+                try {
+                    const { data } = await api.get<Paginated<Tiers>>('/tiers', {
+                        params: { type: 'client', per_page: ANNUAIRE_PAR_PAGE, page },
+                    });
+                    clients.push(...data.data);
+                    if (page >= data.meta.last_page) break;
+                } catch (err) {
+                    if (page === 1) throw err;
+                    break;
+                }
+            }
+            return clients;
+        },
+        networkMode: 'offlineFirst',
+        staleTime: 5 * 60_000,
     });
 
     /* Grille tarifaire applicable : dépend du client sélectionné. */
@@ -203,7 +255,6 @@ export default function PosPage() {
         setRemiseEditKey(null);
         setRemiseTicketOpen(false);
         setClient(null);
-        setClientOpen(false);
     };
 
     const ouvrir = useMutation({
@@ -598,41 +649,21 @@ export default function PosPage() {
                     panneau, seule la liste des lignes défile. */}
                 <aside className="flex max-h-[45vh] w-full shrink-0 flex-col rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl lg:max-h-none lg:w-[360px]">
                     <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-5 py-4">
-                        {/* Compte client : applique automatiquement son tarif. */}
-                        <div className="relative min-w-0">
-                            <button
-                                onClick={() => setClientOpen((v) => !v)}
-                                className={`flex max-w-[13rem] items-center gap-1.5 truncate rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
-                                    client
-                                        ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
-                                        : 'border-white/10 bg-white/[0.05] text-slate-400 hover:text-slate-200'
-                                }`}
-                                title={t('Vendre à un compte client (applique son tarif)')}
-                            >
-                                👤 {client ? client.name : t('Client comptoir')}
-                            </button>
-
-                            {clientOpen && (
-                                <div className="absolute left-0 z-30 mt-1 max-h-72 w-64 overflow-y-auto rounded-xl border border-white/10 bg-slate-900 p-1 shadow-2xl">
-                                    <button
-                                        onClick={() => { setClient(null); setClientOpen(false); }}
-                                        className="w-full rounded-lg px-3 py-2 text-left text-xs text-slate-300 hover:bg-white/[0.07]"
-                                    >
-                                        {t('Client comptoir')} <span className="text-slate-500">{t('· prix catalogue')}</span>
-                                    </button>
-                                    {(clients ?? []).map((c) => (
-                                        <button
-                                            key={c.id}
-                                            onClick={() => { setClient({ id: c.id, name: c.name }); setClientOpen(false); }}
-                                            className="w-full truncate rounded-lg px-3 py-2 text-left text-xs text-slate-200 hover:bg-white/[0.07]"
-                                        >
-                                            {c.name}
-                                            <span className="ml-1 font-mono text-[10px] text-slate-500">{c.code}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                        {/* Compte client : applique automatiquement son tarif.
+                            Vide = client comptoir, au prix catalogue. */}
+                        <SelecteurTiers
+                            type="client"
+                            sombre
+                            className="flex-1 sm:max-w-[16rem]"
+                            value={client?.id ?? null}
+                            onChange={(_, choisi) => setClient(choisi ? { id: choisi.id, name: choisi.name } : null)}
+                            tiersConnu={client}
+                            repliLocal={annuaireClients}
+                            aucun={`${t('Client comptoir')} ${t('· prix catalogue')}`}
+                            placeholder={`👤 ${t('Client comptoir')}`}
+                            title={t('Vendre à un compte client (applique son tarif)')}
+                            aria-label={t('Compte client')}
+                        />
 
                         {cart.length > 0 && (
                             <button

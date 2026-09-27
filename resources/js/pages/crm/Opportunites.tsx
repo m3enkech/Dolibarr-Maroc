@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
+import SelecteurTiers from '@/components/SelecteurTiers';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
-import type { Opportunite, OpportuniteEtape, Paginated, PipelineBoard, Tiers } from '@/types';
+import type { Opportunite, OpportuniteEtape, PipelineBoard } from '@/types';
 import { useT } from '@/lib/langue';
 
 const ETAPES: { key: OpportuniteEtape; label: string; accent: string }[] = [
@@ -29,14 +30,6 @@ export default function Opportunites() {
         queryFn: async () => {
             const { data } = await api.get<PipelineBoard>('/crm/opportunites');
             return data;
-        },
-    });
-
-    const { data: tiers } = useQuery({
-        queryKey: ['tiers-options-crm'],
-        queryFn: async () => {
-            const { data } = await api.get<Paginated<Tiers>>('/tiers', { params: { per_page: 300 } });
-            return data.data;
         },
     });
 
@@ -126,14 +119,20 @@ export default function Opportunites() {
                         <label className="mb-1 block text-xs font-medium text-slate-600">{t('Intitulé')}</label>
                         <input required value={form.titre} onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))} className={`${input} w-full`} placeholder="Ex. Refonte site web" />
                     </div>
-                    <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">{t('Client / prospect')}</label>
-                        <select required value={form.tiers_id} onChange={(e) => setForm((f) => ({ ...f, tiers_id: e.target.value }))} className={input}>
-                            <option value="">{t('— Choisir —')}</option>
-                            {tiers?.map((t) => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
-                            ))}
-                        </select>
+                    {/* Sans filtre de rôle, comme avant : le filtre « client »
+                        du serveur écarte justement les prospects. */}
+                    <div className="w-full min-w-0 sm:w-64">
+                        <label htmlFor="opportunite-tiers" className="mb-1 block text-xs font-medium text-slate-600">
+                            {t('Client / prospect')}
+                        </label>
+                        <SelecteurTiers
+                            id="opportunite-tiers"
+                            required
+                            value={form.tiers_id ? Number(form.tiers_id) : null}
+                            onChange={(choisi) =>
+                                setForm((f) => ({ ...f, tiers_id: choisi === null ? '' : String(choisi) }))
+                            }
+                        />
                     </div>
                     <div>
                         <label className="mb-1 block text-xs font-medium text-slate-600">{t('Montant estimé')}</label>
