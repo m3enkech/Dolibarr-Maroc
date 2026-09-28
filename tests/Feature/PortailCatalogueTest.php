@@ -231,6 +231,37 @@ class PortailCatalogueTest extends TestCase
      * courante et le scope fail-closed le faisait disparaître — 404 permanent,
      * silencieux, pour tout le monde.
      */
+    public function test_le_catalogue_se_parcourt_page_a_page_sans_doublon_ni_oubli(): void
+    {
+        $g = $this->grossiste('Grossiste A', 'a@gros.ma');
+        $token = $this->acheteur('e@test.ma');
+        $this->rattacher($token, $g, 'e@test.ma');
+
+        // 25 homonymes : une page de 24 et une de 1. Sans départage par
+        // identifiant, PostgreSQL peut les rendre dans un ordre différent d'une
+        // page à l'autre — « Voir plus » montrerait un article deux fois et en
+        // cacherait un autre.
+        $ids = [];
+        for ($i = 0; $i < 25; $i++) {
+            $ids[] = $this->withToken($g['token'])->postJson('/api/v1/produits', [
+                'name' => 'Ramette A4', 'type' => 'product', 'sell_price' => 10, 'tva_rate' => 20,
+            ])->assertCreated()->json('data.id');
+        }
+
+        $url = "/api/portail/v1/grossistes/{$g['slug']}/catalogue";
+        $page1 = $this->withToken($token)->getJson($url)
+            ->assertOk()
+            ->assertJsonPath('meta.total', 25)
+            ->assertJsonPath('meta.dernier_page', 2)
+            ->json('data');
+        $page2 = $this->withToken($token)->getJson("{$url}?page=2")
+            ->assertOk()
+            ->assertJsonPath('meta.page', 2)
+            ->json('data');
+
+        $this->assertSame($ids, collect([...$page1, ...$page2])->pluck('id')->all());
+    }
+
     public function test_la_fiche_article_est_servie_et_reste_cloisonnee(): void
     {
         $a = $this->grossiste('Grossiste A', 'a@gros.ma');

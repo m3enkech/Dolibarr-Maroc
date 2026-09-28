@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import SelecteurProduit from '@/components/SelecteurProduit';
 import SelecteurTiers from '@/components/SelecteurTiers';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
-import type { Paginated, Produit } from '@/types';
 import { useT } from '@/lib/langue';
 
 interface CategorieTarifaire {
@@ -54,11 +54,8 @@ export default function Tarifs() {
             (await api.get<{ data: CategorieTarifaire[] }>('/categories-tarifaires')).data.data,
     });
 
-    const { data: produits } = useQuery({
-        queryKey: ['tarifs-produits'],
-        queryFn: async () =>
-            (await api.get<Paginated<Produit>>('/produits', { params: { per_page: 500 } })).data.data,
-    });
+    // L'article se CHERCHE (SelecteurProduit) : la liste chargée d'avance
+    // s'arrêtait aux 500 premiers, et les suivants n'avaient pas de grille.
 
     const { data: grille } = useQuery({
         queryKey: ['produit-tarifs', produitId],
@@ -228,18 +225,14 @@ export default function Tarifs() {
                     <strong>{t('quantité minimum')}</strong> crée un palier dégressif.
                 </p>
 
-                <select
-                    value={produitId}
-                    onChange={(e) => setProduitId(e.target.value)}
-                    className={`mt-4 w-full max-w-md ${champ}`}
-                >
-                    <option value="">{t('Choisir un article…')}</option>
-                    {(produits ?? []).map((p) => (
-                        <option key={p.id} value={p.id}>
-                            {p.code} — {p.name}
-                        </option>
-                    ))}
-                </select>
+                <SelecteurProduit
+                    className="mt-4 w-full max-w-md"
+                    value={produitId === '' ? null : Number(produitId)}
+                    onChange={(choisi) => setProduitId(choisi === null ? '' : String(choisi))}
+                    placeholder={t('Choisir un article…')}
+                    aria-label={t('Article')}
+                />
+
 
                 {produitId !== '' && grille && (
                     <>

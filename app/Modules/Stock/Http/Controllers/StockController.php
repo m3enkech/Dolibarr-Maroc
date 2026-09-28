@@ -50,7 +50,10 @@ class StockController extends Controller
             // quantité ATTENDUE — l'écran affichait donc le stock de Casablanca
             // à côté des commandes attendues à Agadir, sur la même ligne.
             ->addSelect(['en_commande' => $this->enCommandeSubquery($entrepotId)])
+            // Départage des homonymes : la caisse lit ces niveaux page à page,
+            // et un ordre instable entre pages y ferait manquer des articles.
             ->orderBy('name')
+            ->orderBy('id')
             ->paginate($request->integer('per_page', 15));
 
         return response()->json([

@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import SelecteurProduit, { type ProduitChoisi } from '@/components/SelecteurProduit';
 import SelecteurTiers from '@/components/SelecteurTiers';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import { ACHAT_TYPE_LABELS } from '@/pages/achats/common';
-import type { AchatType, DocumentAchat, Entrepot, Paginated, PreRemplissageAchat, Produit } from '@/types';
+import type { AchatType, DocumentAchat, Entrepot, PreRemplissageAchat, Produit } from '@/types';
 
 const TVA_RATES = ['20', '14', '10', '7', '0'];
 
@@ -19,6 +20,12 @@ interface LigneForm {
      */
     uid: string;
     produit_id: string;
+    /**
+     * Libellé de l'article (référence, nom), LOCAL lui aussi : le sélecteur
+     * l'affiche sans relire l'article — document chargé, pré-remplissage du
+     * Réappro ou choix fait dans la liste.
+     */
+    produit: ProduitChoisi | null;
     source_ligne_id: number | null;
     designation: string;
     quantite: string;
@@ -35,6 +42,7 @@ let compteurLigne = 0;
 const nouvelleLigne = (): LigneForm => ({
     uid: `a${++compteurLigne}`,
     produit_id: '',
+    produit: null,
     source_ligne_id: null,
     designation: '',
     quantite: '1',
@@ -93,6 +101,9 @@ export default function AchatForm() {
             ? preRemplissage.lignes.map((l) => ({
                   ...nouvelleLigne(),
                   produit_id: String(l.produit_id),
+                  // La désignation du Réappro EST le nom de l'article : trente
+                  // lignes pré-remplies s'affichent sans trente relectures.
+                  produit: { id: l.produit_id, name: l.designation, code: l.code ?? null },
                   designation: l.designation,
                   quantite: String(l.quantite),
                   // Dernier prix payé à ce fournisseur, à confirmer : un prix
@@ -111,13 +122,9 @@ export default function AchatForm() {
         },
     });
 
-    const { data: produits } = useQuery({
-        queryKey: ['produits-achat-options'],
-        queryFn: async () => {
-            const { data } = await api.get<Paginated<Produit>>('/produits', { params: { per_page: 200 } });
-            return data.data;
-        },
-    });
+    // Plus de catalogue chargé d'avance (il s'arrêtait aux 200 premiers
+    // articles) : chaque ligne cherche son article, et seulement quand sa
+    // liste s'ouvre.
 
     const { data: existing } = useQuery({
         queryKey: ['achat-detail', id],
@@ -141,6 +148,8 @@ export default function AchatForm() {
                 (existing.lignes ?? []).map((l) => ({
                     uid: nouvelleLigne().uid,
                     produit_id: l.produit_id ? String(l.produit_id) : '',
+                    // Livré par show() avec le document : voir VenteForm.
+                    produit: l.produit ?? null,
                     source_ligne_id: l.source_ligne_id,
                     designation: l.designation,
                     quantite: String(parseFloat(l.quantite)),
@@ -156,17 +165,21 @@ export default function AchatForm() {
     const setLigne = (index: number, patch: Partial<LigneForm>) =>
         setLignes((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
 
-    const onProduitChange = (index: number, produitId: string) => {
-        const produit = produits?.find((p) => String(p.id) === produitId);
+    const onProduitChange = (index: number, produit: Produit | null) => {
         if (produit) {
+            // Reprendre l'article déjà choisi ne réécrit rien (voir VenteForm) :
+            // un prix d'achat du Réappro ou renégocié reste celui saisi.
+            if (lignes[index]?.produit_id === String(produit.id)) return;
             setLigne(index, {
-                produit_id: produitId,
+                produit_id: String(produit.id),
+                produit: { id: produit.id, name: produit.name, code: produit.code },
                 designation: produit.name,
                 prix_unitaire: produit.buy_price ?? '0',
                 tva_rate: String(parseFloat(produit.tva_rate)),
             });
         } else {
-            setLigne(index, { produit_id: '' });
+            // « Ligne libre » : l'article s'en va, la saisie de la ligne reste.
+            setLigne(index, { produit_id: '', produit: null });
         }
     };
 
@@ -363,19 +376,19 @@ export default function AchatForm() {
                                             Ligne de commande #{ligne.source_ligne_id}
                                         </span>
                                     ) : (
-                                        <select
+                                        // Recherche côté serveur, prix d'ACHAT affiché : c'est
+                                        // lui que le choix reporte. Écran resté en français.
+                                        <SelecteurProduit
                                             id={`ligne-produit-${ligne.uid}`}
-                                            value={ligne.produit_id}
-                                            onChange={(e) => onProduitChange(index, e.target.value)}
-                                            className={champLigne}
-                                        >
-                                            <option value="">Ligne libre</option>
-                                            {produits?.map((p) => (
-                                                <option key={p.id} value={p.id}>
-                                                    {p.name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                            traduire={false}
+                                            prix="achat"
+                                            aucun="Ligne libre"
+                                            placeholder="Ligne libre — rechercher un article…"
+                                            classesHauteur="py-2.5 xl:py-1.5"
+                                            value={ligne.produit_id ? Number(ligne.produit_id) : null}
+                                            produitConnu={ligne.produit}
+                                            onChange={(_, produit) => onProduitChange(index, produit)}
+                                        />
                                     )}
                                 </div>
 

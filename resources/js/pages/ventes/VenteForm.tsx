@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import SelecteurProduit, { type ProduitChoisi } from '@/components/SelecteurProduit';
 import SelecteurTiers from '@/components/SelecteurTiers';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import { TYPE_LABELS } from '@/pages/ventes/common';
-import type { DocumentType, DocumentVente, Paginated, Produit } from '@/types';
+import type { DocumentType, DocumentVente, Produit } from '@/types';
 
 const TVA_RATES = ['20', '14', '10', '7', '0'];
 
@@ -19,6 +20,12 @@ interface LigneForm {
      */
     uid: string;
     produit_id: string;
+    /**
+     * Libellé de l'article (référence, nom), LOCAL lui aussi : le sélecteur
+     * l'affiche sans relire l'article. Vient du document chargé en
+     * modification, du choix fait dans la liste sinon.
+     */
+    produit: ProduitChoisi | null;
     designation: string;
     quantite: string;
     prix_unitaire: string;
@@ -32,6 +39,7 @@ let compteurLigne = 0;
 const nouvelleLigne = (): LigneForm => ({
     uid: `v${++compteurLigne}`,
     produit_id: '',
+    produit: null,
     designation: '',
     quantite: '1',
     prix_unitaire: '0',
@@ -72,13 +80,10 @@ export default function VenteForm() {
     const [lignes, setLignes] = useState<LigneForm[]>(() => [nouvelleLigne()]);
     const [error, setError] = useState<string | null>(null);
 
-    const { data: produits } = useQuery({
-        queryKey: ['produits-options'],
-        queryFn: async () => {
-            const { data } = await api.get<Paginated<Produit>>('/produits', { params: { per_page: 200 } });
-            return data.data;
-        },
-    });
+    // Plus de catalogue chargé d'avance : il s'arrêtait aux 200 premiers
+    // articles (Media Desk en compte 1 698). Chaque ligne CHERCHE son article
+    // (SelecteurProduit), et n'interroge le serveur qu'une fois sa liste
+    // ouverte — ajouter une ligne ne coûte aucune requête.
 
     const { data: existing } = useQuery({
         queryKey: ['vente-detail', id],
@@ -100,6 +105,10 @@ export default function VenteForm() {
                 (existing.lignes ?? []).map((l) => ({
                     uid: nouvelleLigne().uid,
                     produit_id: l.produit_id ? String(l.produit_id) : '',
+                    // Livré par show() avec le document : aucune requête par
+                    // ligne pour afficher les articles. `null` (article
+                    // supprimé depuis) : le sélecteur le relit et le signale.
+                    produit: l.produit ?? null,
                     designation: l.designation,
                     quantite: String(parseFloat(l.quantite)),
                     prix_unitaire: l.prix_unitaire,
@@ -113,17 +122,22 @@ export default function VenteForm() {
     const setLigne = (index: number, patch: Partial<LigneForm>) =>
         setLignes((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
 
-    const onProduitChange = (index: number, produitId: string) => {
-        const produit = produits?.find((p) => String(p.id) === produitId);
+    const onProduitChange = (index: number, produit: Produit | null) => {
         if (produit) {
+            // Reprendre l'article déjà choisi ne réécrit rien : le <select>
+            // d'avant ne signalait pas un choix inchangé, et un prix négocié
+            // ou une désignation retouchée ne doivent pas repartir au catalogue.
+            if (lignes[index]?.produit_id === String(produit.id)) return;
             setLigne(index, {
-                produit_id: produitId,
+                produit_id: String(produit.id),
+                produit: { id: produit.id, name: produit.name, code: produit.code },
                 designation: produit.name,
                 prix_unitaire: produit.sell_price,
                 tva_rate: String(parseFloat(produit.tva_rate)),
             });
         } else {
-            setLigne(index, { produit_id: '' });
+            // « Ligne libre » : l'article s'en va, la saisie de la ligne reste.
+            setLigne(index, { produit_id: '', produit: null });
         }
     };
 
@@ -289,19 +303,20 @@ export default function VenteForm() {
                                     <label htmlFor={`ligne-produit-${ligne.uid}`} className={labelLigne}>
                                         Produit
                                     </label>
-                                    <select
+                                    {/* Recherche côté serveur (nom, référence, code-barres) :
+                                        la liste chargée d'avance s'arrêtait aux 200 premiers
+                                        articles. « Ligne libre » reste l'option de tête.
+                                        Écran resté en français : traduire={false}. */}
+                                    <SelecteurProduit
                                         id={`ligne-produit-${ligne.uid}`}
-                                        value={ligne.produit_id}
-                                        onChange={(e) => onProduitChange(index, e.target.value)}
-                                        className={champLigne}
-                                    >
-                                        <option value="">Ligne libre</option>
-                                        {produits?.map((p) => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        traduire={false}
+                                        aucun="Ligne libre"
+                                        placeholder="Ligne libre — rechercher un article…"
+                                        classesHauteur="py-2.5 xl:py-1.5"
+                                        value={ligne.produit_id ? Number(ligne.produit_id) : null}
+                                        produitConnu={ligne.produit}
+                                        onChange={(_, produit) => onProduitChange(index, produit)}
+                                    />
                                 </div>
 
                                 <div className="col-span-2 min-w-0 xl:col-span-1">

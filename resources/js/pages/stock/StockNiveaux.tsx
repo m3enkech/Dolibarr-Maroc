@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import SelecteurProduit from '@/components/SelecteurProduit';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
-import type { Entrepot, MouvementStock, Paginated, Produit, StockNiveau } from '@/types';
+import type { Entrepot, MouvementStock, Paginated, StockNiveau } from '@/types';
 import { useT } from '@/lib/langue';
 
 const TYPES_MOUVEMENT: Record<string, string> = {
@@ -38,15 +39,8 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
         placeholderData: keepPreviousData,
     });
 
-    const { data: produits } = useQuery({
-        queryKey: ['produits-stock-options'],
-        queryFn: async () => {
-            const { data } = await api.get<Paginated<Produit>>('/produits', {
-                params: { type: 'product', per_page: 200 },
-            });
-            return data.data;
-        },
-    });
+    // L'article du mouvement se CHERCHE (SelecteurProduit) : la liste chargée
+    // d'avance s'arrêtait aux 200 premiers produits.
 
     const mutation = useMutation({
         mutationFn: (payload: Record<string, unknown>) =>
@@ -121,16 +115,18 @@ export default function StockNiveaux({ entrepots }: { entrepots: Entrepot[] }) {
                         <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
                     )}
                     <div className="flex flex-wrap items-end gap-3">
-                        <div>
-                            <label className="mb-1 block text-xs font-medium text-slate-600">{t('Produit')}</label>
-                            <select required value={produitId} onChange={(e) => setProduitId(e.target.value)} className={`${input} w-56`}>
-                                <option value="">{t('— Choisir —')}</option>
-                                {produits?.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.name}
-                                    </option>
-                                ))}
-                            </select>
+                        <div className="min-w-0">
+                            <label htmlFor="mouvement-produit" className="mb-1 block text-xs font-medium text-slate-600">
+                                {t('Produit')}
+                            </label>
+                            <SelecteurProduit
+                                id="mouvement-produit"
+                                type="product"
+                                required
+                                className="w-56 max-w-full"
+                                value={produitId === '' ? null : Number(produitId)}
+                                onChange={(choisi) => setProduitId(choisi === null ? '' : String(choisi))}
+                            />
                         </div>
                         <div>
                             <label className="mb-1 block text-xs font-medium text-slate-600">{t('Entrepôt')}</label>

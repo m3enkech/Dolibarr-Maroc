@@ -3,6 +3,7 @@
 namespace App\Modules\Achats\Http\Resources;
 
 use App\Modules\Achats\Models\DocumentAchat;
+use App\Modules\Catalogue\Http\Resources\ProduitResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -50,7 +51,7 @@ class DocumentAchatResource extends JsonResource
                 'montant_tva' => $ligne->montant_tva,
                 'montant_ttc' => $ligne->montant_ttc,
                 'position' => $ligne->position,
-            ])),
+            ] + ProduitResource::pourLigne($ligne))),
             'paiements' => $this->when(
                 $this->type === DocumentAchat::TYPE_FACTURE && $this->relationLoaded('paiements'),
                 fn () => $this->paiements->map(fn ($paiement) => [

@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import SelecteurProduit from '@/components/SelecteurProduit';
 import { api } from '@/lib/api';
-import type { Entrepot, Paginated, Produit } from '@/types';
+import type { Entrepot } from '@/types';
 import { useT } from '@/lib/langue';
 
 interface TransfertResult {
@@ -22,15 +23,8 @@ export default function Transferts({ entrepots }: { entrepots: Entrepot[] }) {
 
     const queryClient = useQueryClient();
 
-    const { data: produits } = useQuery({
-        queryKey: ['produits-stock-options'],
-        queryFn: async () => {
-            const { data } = await api.get<Paginated<Produit>>('/produits', {
-                params: { type: 'product', per_page: 200 },
-            });
-            return data.data;
-        },
-    });
+    // L'article à transférer se CHERCHE (SelecteurProduit) : la liste chargée
+    // d'avance s'arrêtait aux 200 premiers produits.
 
     const mutation = useMutation({
         mutationFn: async () => {
@@ -80,16 +74,17 @@ export default function Transferts({ entrepots }: { entrepots: Entrepot[] }) {
             <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-5 shadow-sm">
                 {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-                <div>
-                    <label className={label}>{t('Produit')}</label>
-                    <select required value={produitId} onChange={(e) => setProduitId(e.target.value)} className={`${input} w-full`}>
-                        <option value="">{t('— Choisir un produit —')}</option>
-                        {produits?.map((p) => (
-                            <option key={p.id} value={p.id}>
-                                {p.name} ({p.code})
-                            </option>
-                        ))}
-                    </select>
+                <div className="min-w-0">
+                    <label htmlFor="transfert-produit" className={label}>
+                        {t('Produit')}
+                    </label>
+                    <SelecteurProduit
+                        id="transfert-produit"
+                        type="product"
+                        required
+                        value={produitId === '' ? null : Number(produitId)}
+                        onChange={(choisi) => setProduitId(choisi === null ? '' : String(choisi))}
+                    />
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">

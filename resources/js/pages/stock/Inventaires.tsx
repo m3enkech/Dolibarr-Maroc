@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import SelecteurProduit from '@/components/SelecteurProduit';
 import { api } from '@/lib/api';
 import type { Entrepot, Inventaire, Paginated, Produit } from '@/types';
 import { useT } from '@/lib/langue';
@@ -172,7 +173,9 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
     const t = useT();
     const [counts, setCounts] = useState<Record<number, string>>({});
     const [extra, setExtra] = useState<{ id: number; code: string; name: string; unit: string | null }[]>([]);
-    const [addProduitId, setAddProduitId] = useState('');
+    // L'article complet choisi dans le sélecteur : son code, son nom et son
+    // unité rejoignent les lignes à l'ajout, sans le relire.
+    const [aAjouter, setAAjouter] = useState<Produit | null>(null);
     const [error, setError] = useState<string | null>(null);
     const queryClient = useQueryClient();
 
@@ -196,17 +199,6 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
             setCounts(initial);
         }
     }, [inventaire]);
-
-    const { data: produits } = useQuery({
-        queryKey: ['produits-stock-options'],
-        queryFn: async () => {
-            const { data } = await api.get<Paginated<Produit>>('/produits', {
-                params: { type: 'product', per_page: 200 },
-            });
-            return data.data;
-        },
-        enabled: !readonly,
-    });
 
     const comptagesPayload = () => {
         const ids = new Set<number>([...(inventaire?.lignes?.map((l) => l.produit_id) ?? []), ...extra.map((e) => e.id)]);
@@ -260,14 +252,19 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
         onError,
     });
 
-    // Produits pas encore dans l'inventaire (pour ajouter un article trouvé).
-    const produitsDisponibles = useMemo(() => {
-        const presents = new Set<number>([
-            ...(inventaire?.lignes?.map((l) => l.produit_id) ?? []),
-            ...extra.map((e) => e.id),
-        ]);
-        return (produits ?? []).filter((p) => !presents.has(p.id));
-    }, [produits, inventaire, extra]);
+    /*
+     * Articles déjà dans l'inventaire. On les écartait d'une liste chargée
+     * d'avance — les 200 premiers produits, les suivants n'étaient pas
+     * ajoutables. Ils se cherchent désormais parmi TOUS les produits ; un
+     * article déjà présent reste visible dans les résultats, marqué comme tel
+     * (le cacher ferait croire, sur une recherche par référence, qu'il
+     * n'existe pas), et son ajout est refusé.
+     */
+    const presents = useMemo(
+        () => new Set<number>([...(inventaire?.lignes?.map((l) => l.produit_id) ?? []), ...extra.map((e) => e.id)]),
+        [inventaire, extra],
+    );
+    const dejaPresent = aAjouter !== null && presents.has(aAjouter.id);
 
     if (isLoading || !inventaire) {
         return <div className="py-8 text-center text-slate-400">{t('Chargement…')}</div>;
@@ -396,30 +393,37 @@ function InventaireDetail({ id, onBack }: { id: number; onBack: () => void }) {
                 </table>
             </div>
 
-            {!readonly && produitsDisponibles.length > 0 && (
+            {!readonly && (
                 <div className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 shadow-sm">
                     <div className="min-w-0 flex-1">
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label htmlFor={`inventaire-${id}-ajout`} className="mb-1 block text-xs font-medium text-slate-600">
                             {t('Ajouter un produit trouvé')}
                         </label>
-                        <select value={addProduitId} onChange={(e) => setAddProduitId(e.target.value)} className={`${input} w-full min-w-0`}>
-                            <option value="">{t('— Choisir —')}</option>
-                            {produitsDisponibles.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                    {p.name} ({p.code})
-                                </option>
-                            ))}
-                        </select>
+                        <SelecteurProduit
+                            id={`inventaire-${id}-ajout`}
+                            type="product"
+                            value={aAjouter?.id ?? null}
+                            produitConnu={aAjouter}
+                            onChange={(_, produit) => setAAjouter(produit)}
+                            mention={(p) => (presents.has(p.id) ? t("déjà dans l'inventaire") : null)}
+                        />
+                        {dejaPresent && (
+                            <p className="mt-1 text-xs text-amber-700">
+                                {t("Cet article est déjà dans l'inventaire : saisissez son comptage dans le tableau.")}
+                            </p>
+                        )}
                     </div>
                     <button
                         onClick={() => {
-                            const p = produitsDisponibles.find((x) => String(x.id) === addProduitId);
-                            if (p) {
-                                setExtra((e) => [...e, { id: p.id, code: p.code, name: p.name, unit: p.unit }]);
-                                setAddProduitId('');
+                            if (aAjouter !== null && !dejaPresent) {
+                                setExtra((e) => [
+                                    ...e,
+                                    { id: aAjouter.id, code: aAjouter.code, name: aAjouter.name, unit: aAjouter.unit },
+                                ]);
+                                setAAjouter(null);
                             }
                         }}
-                        disabled={!addProduitId}
+                        disabled={aAjouter === null || dejaPresent}
                         className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
                     >
                         {t('Ajouter')}

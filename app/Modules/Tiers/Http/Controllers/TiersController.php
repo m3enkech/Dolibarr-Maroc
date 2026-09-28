@@ -42,7 +42,11 @@ class TiersController extends Controller
             ->when($request->string('type')->toString() === 'fournisseur', fn ($q) => $q->where('is_supplier', true))
             ->when($request->string('lead_source')->isNotEmpty(),
                 fn ($q) => $q->where('lead_source', $request->string('lead_source')->toString()))
+            // Départage des homonymes : l'annuaire client de la caisse se lit
+            // page à page, et PostgreSQL ne garantit aucun ordre entre deux noms
+            // égaux — un client pouvait tomber entre deux pages, absent hors ligne.
             ->orderBy('name')
+            ->orderBy('id')
             ->paginate($request->integer('per_page', 15));
 
         return TiersResource::collection($tiers);

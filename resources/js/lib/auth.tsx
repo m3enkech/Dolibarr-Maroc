@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Navigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import type { PermissionLevel, Permissions, Tenant, User } from '@/types';
@@ -42,6 +43,7 @@ function readJson<T>(key: string): T | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+    const queryClient = useQueryClient();
     const [user, setUser] = useState<User | null>(() => readJson<User>('user'));
     const [tenant, setTenant] = useState<Tenant | null>(() => readJson<Tenant>('tenant'));
     const [permissions, setPermissions] = useState<Permissions>(
@@ -57,17 +59,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPermissions(data.permissions ?? {});
     };
 
+    /*
+     * Le cache des requêtes vit aussi longtemps que l'onglet, et ses clés ne
+     * portent pas l'entreprise (['selecteur-produit', 'tous', ''], ['tiers']…).
+     * Déconnexion puis connexion sous un autre compte, sans recharger la page :
+     * le compte suivant voyait, le temps d'une relecture ou d'une durée de
+     * fraîcheur, les articles, prix et clients de l'entreprise précédente — et
+     * pouvait les choisir. On vide donc tout le cache à chaque changement de
+     * session, dans les deux sens : c'est la seule garantie qui couvre tous les
+     * écrans, présents et à venir, sans compter sur chaque clé.
+     */
     const oublierSession = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('tenant');
         localStorage.removeItem('permissions');
+        queryClient.clear();
         setUser(null);
         setTenant(null);
         setPermissions({});
     };
 
     const persist = (data: SessionResponse) => {
+        queryClient.clear();
         localStorage.setItem('token', data.token);
         appliquerProfil(data);
     };

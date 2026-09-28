@@ -37,7 +37,12 @@ class PortailCatalogueService
                     ->orWhereLike('code', $terme)
                     ->orWhere('barcode', $recherche));
             })
-            ->orderBy('name');
+            // L'identifiant départage les homonymes : l'acheteur parcourt ce
+            // catalogue page après page (« Voir plus »), et PostgreSQL ne
+            // garantit aucun ordre entre deux noms égaux — un article pouvait
+            // revenir sur deux pages et un autre sur aucune.
+            ->orderBy('name')
+            ->orderBy('id');
 
         $produits = $query->paginate($parPage, ['*'], 'page', $page);
 

@@ -92,6 +92,7 @@ export default function Alertes({ entrepots }: { entrepots: Entrepot[] }) {
             lignes: groupe.lignes.map((a) => ({
                 produit_id: a.produit_id,
                 designation: a.name,
+                code: a.code,
                 quantite: parseFloat(a.suggestion as string),
                 prix_unitaire: a.dernier_prix_achat,
             })),

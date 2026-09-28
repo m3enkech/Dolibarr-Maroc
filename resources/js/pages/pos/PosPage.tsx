@@ -7,10 +7,11 @@ import { useAuth } from '@/lib/auth';
 import PosPaiement, { type PaiementSaisi } from '@/pages/pos/PosPaiement';
 import { FermerCaisse, OuvrirCaisse, SessionFermee } from '@/pages/pos/PosSessionOverlays';
 import PosTicket from '@/pages/pos/PosTicket';
+import { chargerParPages } from '@/pages/pos/chargerParPages';
 import { buildLocalDoc, enqueueSale, queueCount, syncQueue } from '@/pages/pos/offlineQueue';
 import { construireGrille, prixApplicable, type TarifProduit } from '@/pages/pos/tarifs';
 import { RemiseChips, calcLigne, calcTotaux, dh, remiseEffective, type CartLine } from '@/pages/pos/ui';
-import type { DocumentVente, Entrepot, Paginated, PosRapport, PosSession, Produit, StockNiveau, Tiers } from '@/types';
+import type { DocumentVente, Entrepot, PosRapport, PosSession, Produit, StockNiveau, Tiers } from '@/types';
 import { useT } from '@/lib/langue';
 
 /*
@@ -20,6 +21,24 @@ import { useT } from '@/lib/langue';
  */
 const ANNUAIRE_PAR_PAGE = 500;
 const ANNUAIRE_PAGES_MAX = 10;
+
+/*
+ * Catalogue et niveaux de stock : 500 par page, jusqu'à quarante pages. La
+ * borne est plus large que pour l'annuaire : ici il n'y a PAS de recherche
+ * serveur derrière — un article hors de la liste ne se trouve ni à la saisie
+ * ni à la douchette, en ligne comme hors ligne. Si elle est atteinte, la
+ * caisse le dit (voir `catalogue.complet`).
+ */
+const CATALOGUE_PAR_PAGE = 500;
+const CATALOGUE_PAGES_MAX = 40;
+
+/*
+ * Tuiles affichées dans la grille. Le catalogue entier (1 698 articles chez
+ * Media Desk) y ferait des milliers de boutons, recalculés à chaque lettre
+ * tapée : on en montre autant qu'avant (une page de 500), la recherche et la
+ * douchette portent, elles, sur TOUT le catalogue.
+ */
+const GRILLE_MAX = 500;
 
 interface SessionResponse {
     data: PosSession | null;
@@ -107,13 +126,30 @@ export default function PosPage() {
     const session = sessionData?.data ?? null;
     const rapport = sessionData?.rapport ?? null;
 
-    const { data: produits } = useQuery({
+    /*
+     * Catalogue COMPLET, cherché sur place (saisie, douchette, grille). Il
+     * s'arrêtait à la première page de 500 : chez Media Desk, plus d'un
+     * article sur deux n'était ni affiché ni trouvé au scan. Lu page à page
+     * par adresses fixes (voir chargerParPages) pour que le service worker le
+     * resserve hors ligne ; `offlineFirst` fait partir la lecture même quand
+     * le navigateur se dit hors ligne, pour atteindre ce cache — en mode
+     * `online`, elle restait en pause et la caisse rechargée n'avait rien.
+     */
+    const { data: catalogue } = useQuery({
         queryKey: ['pos-produits'],
         queryFn: async () => {
-            const { data } = await api.get<Paginated<Produit>>('/produits', { params: { per_page: 500 } });
-            return data.data.filter((p) => p.is_active);
+            const lecture = await chargerParPages<Produit>(
+                '/produits',
+                {},
+                CATALOGUE_PAR_PAGE,
+                CATALOGUE_PAGES_MAX,
+                (p) => p.id,
+            );
+            return { produits: lecture.elements.filter((p) => p.is_active), complet: lecture.complet };
         },
+        networkMode: 'offlineFirst',
     });
+    const produits = catalogue?.produits;
 
     const { data: entrepots } = useQuery({
         queryKey: ['pos-entrepots'],
@@ -153,22 +189,16 @@ export default function PosPage() {
      */
     const { data: annuaireClients } = useQuery({
         queryKey: ['pos-annuaire-clients'],
-        queryFn: async () => {
-            const clients: Tiers[] = [];
-            for (let page = 1; page <= ANNUAIRE_PAGES_MAX; page++) {
-                try {
-                    const { data } = await api.get<Paginated<Tiers>>('/tiers', {
-                        params: { type: 'client', per_page: ANNUAIRE_PAR_PAGE, page },
-                    });
-                    clients.push(...data.data);
-                    if (page >= data.meta.last_page) break;
-                } catch (err) {
-                    if (page === 1) throw err;
-                    break;
-                }
-            }
-            return clients;
-        },
+        queryFn: async () =>
+            (
+                await chargerParPages<Tiers>(
+                    '/tiers',
+                    { type: 'client' },
+                    ANNUAIRE_PAR_PAGE,
+                    ANNUAIRE_PAGES_MAX,
+                    (x) => x.id,
+                )
+            ).elements,
         networkMode: 'offlineFirst',
         staleTime: 5 * 60_000,
     });
@@ -207,15 +237,46 @@ export default function PosPage() {
         );
     }, [grille]);
 
+    /*
+     * Stock de chaque tuile. Même troncature que le catalogue, plus sournoise :
+     * un article au-delà des 500 premiers affichait « 0 » en rouge, comme en
+     * rupture. Lu en entier, page à page, pour la même raison hors ligne.
+     *
+     * Pas avant la session : sa clé en dépend (dépôt de la caisse). Partie
+     * plus tôt, la lecture se faisait deux fois — tous dépôts, puis le bon —
+     * et, rechargée hors ligne (session en pause), la caisse affichait le
+     * stock CUMULÉ de tous les dépôts comme celui de son comptoir.
+     */
     const { data: niveaux } = useQuery({
         queryKey: ['pos-niveaux', session?.entrepot_id ?? null],
         queryFn: async () => {
-            const { data } = await api.get<Paginated<StockNiveau>>('/stock/niveaux', {
-                params: { per_page: 500, entrepot_id: session?.entrepot_id ?? undefined },
-            });
-            return new Map(data.data.map((n) => [n.produit_id, parseFloat(n.quantite)]));
+            const lecture = await chargerParPages<StockNiveau>(
+                '/stock/niveaux',
+                { entrepot_id: session?.entrepot_id ?? undefined },
+                CATALOGUE_PAR_PAGE,
+                CATALOGUE_PAGES_MAX,
+                (n) => n.produit_id,
+            );
+            return {
+                carte: new Map(lecture.elements.map((n) => [n.produit_id, parseFloat(n.quantite)])),
+                complet: lecture.complet,
+            };
         },
+        enabled: sessionData !== undefined,
+        networkMode: 'offlineFirst',
     });
+
+    /**
+     * Stock d'une tuile, ou `null` s'il est INCONNU : niveaux pas encore lus,
+     * ou lus en partie et l'article dans une page manquante. Un inconnu
+     * s'affiche « — », jamais « 0 » en rouge : il passerait pour une rupture.
+     * Absent d'une lecture COMPLÈTE, l'article a été créé depuis : 0.
+     */
+    const stockDe = (produitId: number): number | null => {
+        if (niveaux === undefined) return null;
+
+        return niveaux.carte.get(produitId) ?? (niveaux.complet ? 0 : null);
+    };
 
     /* ------------------------------------------------------------------ */
     /* Mutations                                                           */
@@ -459,6 +520,10 @@ export default function PosPage() {
         }
     };
 
+    // La grille montre les premières tuiles ; `filtres` reste entier pour la
+    // douchette et l'Entrée (résultat unique), qui doivent tout voir.
+    const tuiles = filtres.slice(0, GRILLE_MAX);
+
     const totaux = calcTotaux(cart, remiseTicket);
 
     /* ------------------------------------------------------------------ */
@@ -589,9 +654,28 @@ export default function PosPage() {
                         className="h-14 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-base text-white placeholder-slate-500 outline-none backdrop-blur transition focus:border-emerald-400/50 focus:shadow-[0_0_30px_rgba(16,185,129,0.15)]"
                     />
 
+                    {/* Catalogue ou stock lus en partie (page manquante hors
+                        ligne, borne atteinte, catalogue modifié pendant la
+                        lecture) : le dire, sans quoi un article absent
+                        passerait pour inexistant, un stock inconnu pour nul. */}
+                    {((catalogue && !catalogue.complet) || (niveaux && !niveaux.complet)) && (
+                        <div className="mt-3 space-y-1 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs text-amber-300">
+                            {catalogue && !catalogue.complet && (
+                                <p>
+                                    {t('Catalogue incomplet sur ce poste ({n} articles chargés) : certains articles ne seront pas trouvés.', {
+                                        n: produits?.length ?? 0,
+                                    })}
+                                </p>
+                            )}
+                            {niveaux && !niveaux.complet && (
+                                <p>{t("Stock incomplet sur ce poste : « — » signale un article dont le stock n'a pas pu être lu.")}</p>
+                            )}
+                        </div>
+                    )}
+
                     <div className="mt-4 grid flex-1 auto-rows-min grid-cols-2 gap-3 overflow-y-auto pb-4 sm:grid-cols-3 xl:grid-cols-4">
-                        {(filtres ?? []).map((produit) => {
-                            const stock = produit.type === 'product' ? (niveaux?.get(produit.id) ?? 0) : null;
+                        {tuiles.map((produit) => {
+                            const stock = produit.type === 'product' ? stockDe(produit.id) : null;
                             return (
                                 <button
                                     key={produit.id}
@@ -612,16 +696,25 @@ export default function PosPage() {
                                             </span>
                                             <span className="ml-1 text-[10px] text-slate-500">{t('DH TTC')}</span>
                                         </div>
-                                        {stock !== null ? (
-                                            <span
-                                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                                    stock > 0
-                                                        ? 'bg-emerald-400/10 text-emerald-300'
-                                                        : 'bg-red-400/10 text-red-300'
-                                                }`}
-                                            >
-                                                {stock}
-                                            </span>
+                                        {produit.type === 'product' ? (
+                                            stock === null ? (
+                                                <span
+                                                    className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400"
+                                                    title={t('Stock inconnu sur ce poste')}
+                                                >
+                                                    —
+                                                </span>
+                                            ) : (
+                                                <span
+                                                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                                        stock > 0
+                                                            ? 'bg-emerald-400/10 text-emerald-300'
+                                                            : 'bg-red-400/10 text-red-300'
+                                                    }`}
+                                                >
+                                                    {stock}
+                                                </span>
+                                            )
                                         ) : produit.type === 'kit' ? (
                                             <span className="rounded-full bg-indigo-400/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
                                                 {t('kit')}
@@ -635,10 +728,18 @@ export default function PosPage() {
                                 </button>
                             );
                         })}
-                        {(filtres ?? []).length === 0 && (
+                        {filtres.length === 0 && (
                             <div className="col-span-full py-16 text-center text-slate-500">
                                 {t('Aucun produit. Ajoutez vos produits dans le Catalogue.')}
                             </div>
+                        )}
+                        {filtres.length > tuiles.length && (
+                            <p className="col-span-full py-4 text-center text-xs text-slate-500">
+                                {t('{affiches} articles affichés sur {total} : tapez un nom, une référence ou scannez un code-barres pour trouver les autres.', {
+                                    affiches: tuiles.length,
+                                    total: filtres.length,
+                                })}
+                            </p>
                         )}
                     </div>
                 </section>

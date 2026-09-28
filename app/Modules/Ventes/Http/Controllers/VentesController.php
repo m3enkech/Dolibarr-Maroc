@@ -139,7 +139,10 @@ class VentesController extends Controller
 
     public function show(DocumentVente $document): DocumentVenteResource
     {
-        return new DocumentVenteResource($document->load(['lignes', 'tiers', 'paiements', 'source']));
+        // `lignes.produit` : le formulaire de modification affiche l'article de
+        // chaque ligne sans le relire une ligne à la fois (une requête ici,
+        // au lieu d'une par ligne dans le navigateur).
+        return new DocumentVenteResource($document->load(['lignes.produit', 'tiers', 'paiements', 'source']));
     }
 
     public function update(UpdateDocumentVenteRequest $request, DocumentVente $document): DocumentVenteResource

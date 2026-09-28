@@ -111,7 +111,9 @@ class AchatsController extends Controller
 
     public function show(DocumentAchat $document): DocumentAchatResource
     {
-        return new DocumentAchatResource($document->load(['lignes', 'tiers', 'entrepot', 'paiements', 'source']));
+        // `lignes.produit` : voir VentesController::show — l'article de chaque
+        // ligne s'affiche en modification sans une requête par ligne.
+        return new DocumentAchatResource($document->load(['lignes.produit', 'tiers', 'entrepot', 'paiements', 'source']));
     }
 
     public function update(UpdateDocumentAchatRequest $request, DocumentAchat $document): DocumentAchatResource

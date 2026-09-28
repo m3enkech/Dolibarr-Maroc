@@ -110,6 +110,19 @@ export interface DocumentVenteLigne {
     source_ligne_id?: number | null;
     montant_ttc: string;
     position: number;
+    /**
+     * Référence et nom de l'article, pour le sélecteur du formulaire de
+     * modification. Présent seulement dans la réponse de show() ; `null` pour
+     * une ligne libre ou un article supprimé depuis.
+     */
+    produit?: ArticleDeLigne | null;
+}
+
+/** L'article d'une ligne de document, réduit à ce qu'un sélecteur affiche. */
+export interface ArticleDeLigne {
+    id: number;
+    code: string;
+    name: string;
 }
 
 export interface Paiement {
@@ -324,6 +337,8 @@ export interface PreRemplissageAchat {
     lignes: {
         produit_id: number;
         designation: string;
+        /** Référence de l'article : le sélecteur l'affiche sans relire l'article. */
+        code?: string;
         quantite: number;
         prix_unitaire: string | null;
     }[];
@@ -376,6 +391,8 @@ export interface DocumentAchatLigne {
     montant_tva: string;
     montant_ttc: string;
     position: number;
+    /** Voir DocumentVenteLigne.produit : présent seulement dans la réponse de show(). */
+    produit?: ArticleDeLigne | null;
 }
 
 export interface DocumentAchat {

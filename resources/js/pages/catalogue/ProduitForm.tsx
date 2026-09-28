@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import SelecteurProduit, { type ProduitChoisi } from '@/components/SelecteurProduit';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
 import type { CategorieProduit, Paginated, Produit } from '@/types';
@@ -11,6 +12,8 @@ const TVA_RATES = [20, 14, 10, 7, 0] as const;
 interface ComposantRow {
     produit_id: string;
     quantite: string;
+    /** Libellé du composant (référence, nom) : local, jamais envoyé. */
+    connu: ProduitChoisi | null;
 }
 
 interface ProduitFormData {
@@ -91,15 +94,10 @@ export default function ProduitForm() {
         },
     });
 
-    // Options de composition d'un kit : produits et services, jamais un kit.
-    const { data: produitsOptions } = useQuery({
-        queryKey: ['produits-composants-options'],
-        queryFn: async () => {
-            const { data } = await api.get<Paginated<Produit>>('/produits', { params: { per_page: 500 } });
-            return data.data.filter((p) => p.type !== 'kit' && String(p.id) !== id);
-        },
-        enabled: form.type === 'kit',
-    });
+    // Composition d'un kit : produits et services, jamais un kit. Ils se
+    // CHERCHENT désormais (SelecteurProduit, filtre `product,service` côté
+    // serveur) : la liste chargée d'avance s'arrêtait aux 500 premiers
+    // articles. Le kit lui-même est exclu d'office, puisque c'est un kit.
 
     useEffect(() => {
         if (existing) {
@@ -121,6 +119,9 @@ export default function ProduitForm() {
                 (existing.composants ?? []).map((c) => ({
                     produit_id: String(c.produit_id),
                     quantite: String(parseFloat(c.quantite)),
+                    // Nom et référence arrivent avec le kit : aucun composant
+                    // n'est relu un par un.
+                    connu: c.name !== null ? { id: c.produit_id, name: c.name, code: c.code } : null,
                 })),
             );
         }
@@ -132,6 +133,11 @@ export default function ProduitForm() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['produits'] });
             queryClient.invalidateQueries({ queryKey: ['produits-count'] });
+            // Les recherches des sélecteurs d'article (et la fiche relue d'un
+            // article, gardée une minute) : un article créé ou renommé doit y
+            // paraître tout de suite, même dans une liste déjà ouverte.
+            queryClient.invalidateQueries({ queryKey: ['selecteur-produit'] });
+            queryClient.invalidateQueries({ queryKey: ['selecteur-produit-fiche'] });
             navigate('/catalogue');
         },
         onError: (err: any) => {
@@ -339,23 +345,30 @@ export default function ProduitForm() {
                         <div className="space-y-2">
                             {composants.map((composant, index) => (
                                 <div key={index} className="flex flex-wrap items-center gap-3">
-                                    <select
+                                    <SelecteurProduit
                                         required
-                                        value={composant.produit_id}
-                                        onChange={(e) =>
+                                        type={['product', 'service']}
+                                        className="w-full flex-1"
+                                        value={composant.produit_id === '' ? null : Number(composant.produit_id)}
+                                        produitConnu={composant.connu}
+                                        onChange={(choisi, produit) =>
                                             setComposants((list) =>
-                                                list.map((c, i) => (i === index ? { ...c, produit_id: e.target.value } : c)),
+                                                list.map((c, i) =>
+                                                    i === index
+                                                        ? {
+                                                              ...c,
+                                                              produit_id: choisi === null ? '' : String(choisi),
+                                                              connu: produit
+                                                                  ? { id: produit.id, name: produit.name, code: produit.code }
+                                                                  : null,
+                                                          }
+                                                        : c,
+                                                ),
                                             )
                                         }
-                                        className={`${input} w-full min-w-0 flex-1`}
-                                    >
-                                        <option value="">{t('— Choisir un produit ou service —')}</option>
-                                        {produitsOptions?.map((p) => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.name} ({p.code})
-                                            </option>
-                                        ))}
-                                    </select>
+                                        placeholder={t('Rechercher un produit ou un service…')}
+                                        aria-label={t('Composant du kit')}
+                                    />
                                     <input
                                         type="number"
                                         step="0.001"
@@ -388,7 +401,7 @@ export default function ProduitForm() {
                         </div>
                         <button
                             type="button"
-                            onClick={() => setComposants((list) => [...list, { produit_id: '', quantite: '1' }])}
+                            onClick={() => setComposants((list) => [...list, { produit_id: '', quantite: '1', connu: null }])}
                             className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"
                         >
                             {t('+ Ajouter un composant')}

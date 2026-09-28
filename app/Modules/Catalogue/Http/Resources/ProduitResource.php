@@ -2,6 +2,7 @@
 
 namespace App\Modules\Catalogue\Http\Resources;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -37,5 +38,31 @@ class ProduitResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+    }
+
+    /**
+     * L'article d'une ligne de document (vente ou achat), réduit à ce que le
+     * formulaire de modification affiche dans son sélecteur : référence et nom.
+     *
+     * La clé est ABSENTE quand la relation n'a pas été chargée (listes, PDF…) :
+     * la lire ici déclencherait une requête par ligne. Seul show() la charge.
+     * `null` = ligne libre, ou article supprimé depuis — le formulaire le relit
+     * alors et affiche « Article introuvable », que la validation confirmerait.
+     *
+     * @return array{produit?: array{id: int, code: string, name: string}|null}
+     */
+    public static function pourLigne(Model $ligne): array
+    {
+        if (! $ligne->relationLoaded('produit')) {
+            return [];
+        }
+
+        $produit = $ligne->getRelation('produit');
+
+        return ['produit' => $produit === null ? null : [
+            'id' => $produit->id,
+            'code' => $produit->code,
+            'name' => $produit->name,
+        ]];
     }
 }

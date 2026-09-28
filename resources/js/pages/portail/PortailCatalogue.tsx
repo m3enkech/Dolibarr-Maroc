@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formatMAD } from '@/lib/format';
 import { messageErreur, portailApi } from '@/lib/portail-api';
@@ -21,6 +21,12 @@ interface ArticlePortail {
     paliers: Palier[];
     conditionnements: { id: number; nom: string; quantite_base: number }[];
     disponible: boolean;
+}
+
+/** Une page du catalogue (PortailCatalogueService::lister). */
+interface PageCatalogue {
+    data: ArticlePortail[];
+    meta: { total: number; page: number; dernier_page: number; par_page: number };
 }
 
 interface LignePanier {
@@ -50,14 +56,39 @@ export default function PortailCatalogue() {
     const [erreur, setErreur] = useState<string | null>(null);
     const [note, setNote] = useState('');
 
-    const { data, isLoading } = useQuery({
+    /*
+     * Le catalogue page après page. Il ne demandait jamais que la première :
+     * un acheteur qui parcourait sans rien taper voyait 24 articles sur 1 698,
+     * rien ne disait qu'il en existait d'autres, et les suivants ne se
+     * commandaient qu'en devinant leur nom. « Voir plus » ajoute la page
+     * suivante à la suite, le compte dit où l'on en est.
+     */
+    const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
         queryKey: ['portail-catalogue', grossiste, recherche],
-        queryFn: async () =>
-            (await portailApi.get<{ data: ArticlePortail[]; meta: { total: number } }>(
-                `/grossistes/${grossiste}/catalogue`,
-                { params: { search: recherche || undefined } },
-            )).data,
+        queryFn: async ({ pageParam }) =>
+            (await portailApi.get<PageCatalogue>(`/grossistes/${grossiste}/catalogue`, {
+                params: { search: recherche || undefined, page: pageParam },
+            })).data,
+        initialPageParam: 1,
+        getNextPageParam: (derniere) =>
+            derniere.meta.page < derniere.meta.dernier_page ? derniere.meta.page + 1 : undefined,
     });
+
+    // Un article publié ou retiré entre deux pages décale la suite d'un rang :
+    // le même peut alors revenir en tête de la page suivante. Une seule carte
+    // par article (et une clé React unique).
+    const articles = useMemo(() => {
+        const vus = new Set<number>();
+
+        return (data?.pages ?? [])
+            .flatMap((page) => page.data)
+            .filter((article) => {
+                if (vus.has(article.id)) return false;
+                vus.add(article.id);
+                return true;
+            });
+    }, [data]);
+    const total = data?.pages[data.pages.length - 1]?.meta.total ?? 0;
 
     const commander = useMutation({
         mutationFn: () =>
@@ -134,7 +165,7 @@ export default function PortailCatalogue() {
                 {isLoading && <p className="mt-4 text-sm text-slate-400">{t('Chargement du catalogue…')}</p>}
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {(data?.data ?? []).map((article) => (
+                    {articles.map((article) => (
                         <article key={article.id} className="rounded-xl bg-white p-4 shadow-sm">
                             <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
@@ -186,8 +217,24 @@ export default function PortailCatalogue() {
                     ))}
                 </div>
 
-                {!isLoading && (data?.data ?? []).length === 0 && (
+                {!isLoading && articles.length === 0 && (
                     <p className="mt-6 text-center text-sm text-slate-400">{t('Aucun article ne correspond.')}</p>
+                )}
+
+                {articles.length > 0 && hasNextPage && (
+                    <div className="mt-4 flex flex-col items-center gap-2">
+                        <p className="text-xs text-slate-500">
+                            {t('{n} articles affichés sur {total}.', { n: articles.length, total })}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => fetchNextPage()}
+                            disabled={isFetchingNextPage}
+                            className="rounded-lg border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50"
+                        >
+                            {isFetchingNextPage ? t('Chargement…') : t("Voir plus d'articles")}
+                        </button>
+                    </div>
                 )}
             </section>
 
