@@ -105,8 +105,11 @@ export interface DocumentVenteLigne {
     montant_tva: string;
     quantite_livree?: string;
     reste_a_livrer?: string;
+    conditionnement_id?: number | null;
     quantite_colis?: string | null;
     conditionnement?: string | null;
+    /** Unités de stock par colis (« Carton de 12 » → "12.000"). */
+    conditionnement_quantite_base?: string | null;
     source_ligne_id?: number | null;
     montant_ttc: string;
     position: number;

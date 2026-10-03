@@ -44,6 +44,9 @@ class DocumentVenteResource extends JsonResource
                 'conditionnement_id' => $ligne->conditionnement_id,
                 'quantite_colis' => $ligne->quantite_colis,
                 'conditionnement' => $ligne->conditionnement?->nom,
+                // Unités par colis : le formulaire en déduit si une quantité
+                // retouchée tombe encore sur un nombre entier de colis.
+                'conditionnement_quantite_base' => $ligne->conditionnement?->quantite_base,
                 'source_ligne_id' => $ligne->source_ligne_id,
                 'designation' => $ligne->designation,
                 'quantite' => $ligne->quantite,

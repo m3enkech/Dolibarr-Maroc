@@ -13,6 +13,7 @@ use App\Modules\Ventes\Events\PaiementEnregistre;
 use App\Modules\Ventes\Models\DocumentVente;
 use App\Modules\Ventes\Models\DocumentVenteLigne;
 use App\Modules\Ventes\Models\Paiement;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -76,18 +77,103 @@ class VenteService
     {
         $this->assertBrouillon($document);
 
+        // Une pièce issue d'une autre décrit la marchandise de SON client : un
+        // bon de livraison passé à un autre client solderait quand même la
+        // commande du premier (lien ligne à ligne), et la facture de cette
+        // commande ne sortirait plus rien (famille de documents) — le premier
+        // client serait facturé de ce qu'il n'a jamais reçu. Contrôlé ici et
+        // non dans syncLignes : un enregistrement sans « lignes » garde aussi
+        // ses liens.
+        if (array_key_exists('tiers_id', $data)
+            && $document->source_document_id !== null
+            && (int) $data['tiers_id'] !== (int) $document->tiers_id) {
+            throw ValidationException::withMessages([
+                'tiers_id' => 'Une pièce issue d\'une autre garde le client de sa pièce d\'origine. Pour un autre client, créez une nouvelle pièce.',
+            ]);
+        }
+
         return DB::transaction(function () use ($document, $data) {
             $document->update(collect($data)->only([
                 'tiers_id', 'date_document', 'date_echeance', 'notes',
             ])->all());
 
             if (array_key_exists('lignes', $data)) {
+                // Lues AVANT la suppression : les lignes sont recréées à chaque
+                // enregistrement, et ce qu'un écran ne sait pas afficher (le
+                // lien vers la ligne de commande, le colis) n'existerait plus
+                // nulle part une fois le DELETE passé.
+                $anciennes = $document->lignes()->get()->keyBy('id');
+                $lignes = array_map(
+                    fn (array $ligne) => $this->heriterDeLAncienneLigne($ligne, $anciennes),
+                    $data['lignes'],
+                );
+
                 $document->lignes()->delete();
-                $this->syncLignes($document, $data['lignes']);
+                $this->syncLignes($document, $lignes);
             }
 
             return $document->fresh(['lignes', 'tiers']);
         });
+    }
+
+    /**
+     * Ce qu'une ligne existante portait et que la requête n'a pas REDIT.
+     *
+     * Le formulaire renvoie désormais tout ce qu'il a reçu ; ceci est le filet
+     * pour le client qui oublierait un champ. Sans lui, un bon de livraison
+     * retouché perdait son lien vers la ligne de commande : sa validation ne
+     * soldait plus le reliquat, et la commande réclamait une seconde livraison
+     * de ce qui était déjà parti.
+     *
+     * Seule une ligne de CE document peut léguer quoi que ce soit : un `id`
+     * inconnu (ligne d'une autre pièce, d'une autre société, ou brouillon
+     * réenregistré entre-temps par un autre onglet) n'hérite de rien. Un champ
+     * envoyé, même à null, est une décision du client et prime.
+     *
+     * @param  array<string, mixed>  $ligne
+     * @param  Collection<int, DocumentVenteLigne>  $anciennes
+     * @return array<string, mixed>
+     */
+    private function heriterDeLAncienneLigne(array $ligne, Collection $anciennes): array
+    {
+        $ancienne = isset($ligne['id']) ? $anciennes->get((int) $ligne['id']) : null;
+
+        if ($ancienne === null) {
+            return $ligne;
+        }
+
+        $memeArticle = (int) ($ligne['produit_id'] ?? 0) === (int) ($ancienne->produit_id ?? 0);
+
+        // Le lien ne suit que l'article commandé : une ligne passée à un autre
+        // article (ou en ligne libre) ne solde plus la commande — sinon la
+        // commande se dirait livrée d'une marchandise qui n'est jamais partie.
+        // Revérifié par syncLignes comme s'il avait été envoyé : l'héritage
+        // n'ouvre aucun chemin que la saisie directe n'ouvrirait pas.
+        if (! array_key_exists('source_ligne_id', $ligne) && $memeArticle) {
+            $ligne['source_ligne_id'] = $ancienne->source_ligne_id;
+        }
+
+        // Le colis, lui, n'est repris que si la ligne vend TOUJOURS la même
+        // chose : syncLignes recalcule la quantité à partir du colis, donc
+        // hériter d'un colis sous une quantité retouchée écraserait en silence
+        // ce que le vendeur vient de taper. Et seulement un colis COMPTÉ : un
+        // conditionnement sans nombre (bon de livraison partiel d'avant la
+        // correction) donnerait 0 colis, donc une quantité de 0.
+        $memeQuantite = isset($ligne['quantite'])
+            && abs((float) $ligne['quantite'] - (float) $ancienne->quantite) < 0.0005;
+
+        if ($ancienne->conditionnement_id !== null
+            && $ancienne->quantite_colis !== null
+            && (float) $ancienne->quantite_colis > 0
+            && ! array_key_exists('conditionnement_id', $ligne)
+            && ! array_key_exists('quantite_colis', $ligne)
+            && $memeArticle
+            && $memeQuantite) {
+            $ligne['conditionnement_id'] = $ancienne->conditionnement_id;
+            $ligne['quantite_colis'] = (float) $ancienne->quantite_colis;
+        }
+
+        return $ligne;
     }
 
     public function delete(DocumentVente $document): void
@@ -180,11 +266,13 @@ class VenteService
 
                 $montantHt = round($quantite * (float) $source->prix_unitaire * (1 - (float) $source->remise_percent / 100), 2);
                 $montantTva = round($montantHt * (float) $source->tva_rate / 100, 2);
+                [$conditionnementId, $quantiteColis] = $this->colisLivre($source, $quantite);
 
                 $bl->lignes()->create([
                     'produit_id' => $source->produit_id,
                     'source_ligne_id' => $source->id,
-                    'conditionnement_id' => $source->conditionnement_id,
+                    'conditionnement_id' => $conditionnementId,
+                    'quantite_colis' => $quantiteColis,
                     'designation' => $source->designation,
                     'quantite' => $quantite,
                     'prix_unitaire' => $source->prix_unitaire,
@@ -208,6 +296,40 @@ class VenteService
 
             return $bl->fresh(['lignes', 'tiers']);
         });
+    }
+
+    /**
+     * Colis sous lequel part une livraison partielle d'une ligne au colis.
+     *
+     * Le colis ne se recopie pas tel quel : « 5 × Carton de 12 » livré à 24
+     * donnerait un bon portant le carton SANS nombre — rien à imprimer, et un
+     * nombre de 0 dès qu'on en déduit la quantité. Trois cas, comme le
+     * formulaire (colisDeLigne) :
+     * - tout le reliquat d'une ligne jamais entamée : le colis d'origine, même 2,5 ;
+     * - un nombre ENTIER de colis : 24 = 2 cartons de 12 ;
+     * - sinon : à l'unité, la quantité livrée fait foi.
+     *
+     * @return array{0: ?int, 1: ?float} conditionnement et nombre de colis
+     */
+    private function colisLivre(DocumentVenteLigne $source, float $quantite): array
+    {
+        $base = (float) ($source->conditionnement?->quantite_base ?? 0);
+
+        if ($source->conditionnement_id === null || $base <= 0) {
+            return [null, null];
+        }
+
+        if ($source->quantite_colis !== null
+            && (float) $source->quantite_colis > 0
+            && abs($quantite - (float) $source->quantite) < 0.0005) {
+            return [$source->conditionnement_id, (float) $source->quantite_colis];
+        }
+
+        $nombre = round($quantite / $base);
+
+        return $nombre >= 1 && abs($nombre * $base - $quantite) < 0.0005
+            ? [$source->conditionnement_id, $nombre]
+            : [null, null];
     }
 
     /**
@@ -438,13 +560,18 @@ class VenteService
 
         foreach ($lignes as $data) {
             $produit = ! empty($data['produit_id']) ? Produit::find($data['produit_id']) : null;
+            $sourceLigneId = $this->sourceLigneValide($document, $data['source_ligne_id'] ?? null, $data['produit_id'] ?? null);
 
             // Vente au colis : le carton est converti en unité de stock, car
             // c'est en unité de stock que raisonnent le stock et la compta.
             $conditionnement = ! empty($data['conditionnement_id'])
                 ? \App\Modules\Catalogue\Models\ProduitConditionnement::find($data['conditionnement_id'])
                 : null;
-            $quantiteColis = $conditionnement !== null && isset($data['quantite_colis'])
+            // Un nombre de colis nul ou absent n'est pas un colis : on garde la
+            // quantité envoyée plutôt que d'en déduire 0 × 12 = 0 en silence.
+            $quantiteColis = $conditionnement !== null
+                && isset($data['quantite_colis'])
+                && (float) $data['quantite_colis'] > 0
                 ? (float) $data['quantite_colis']
                 : null;
 
@@ -470,6 +597,7 @@ class VenteService
                 'produit_id' => $produit?->id,
                 'conditionnement_id' => $conditionnement?->id,
                 'quantite_colis' => $quantiteColis,
+                'source_ligne_id' => $sourceLigneId,
                 'designation' => $designation,
                 'quantite' => $quantite,
                 'prix_unitaire' => $prixUnitaire,
@@ -490,6 +618,67 @@ class VenteService
             'total_tva' => $totalTva,
             'total_ttc' => round($totalHt + $totalTva, 2),
         ]);
+    }
+
+    /**
+     * Lien vers la ligne de commande qu'une ligne de bon de livraison solde.
+     *
+     * C'est lui qui, à la validation du bon, impute la quantité livrée sur la
+     * commande (reporterLivraison). Le forger permettrait de solder le reliquat
+     * d'une autre commande — voire d'une autre société : les lignes n'ont pas
+     * de tenant propre, un `whereKey` nu les verrait toutes. On n'accepte donc
+     * qu'une ligne de LA commande dont ce bon est issu, seul cas où
+     * transformer() et livrerPartiellement() en posent un. Miroir d'AchatService.
+     *
+     * Et seulement pour l'article commandé (transformer() et
+     * livrerPartiellement() le recopient toujours) : la quantité livrée est
+     * imputée telle quelle sur la ligne de commande. Solder dix sacs de ciment
+     * par dix sacs de chaux — ou par une ligne libre, qui ne sort rien du
+     * stock — marquerait la commande livrée sans que le ciment soit parti. Un
+     * article de remplacement se livre sur une ligne non liée : le reliquat
+     * reste alors ouvert, et visible, sur la commande.
+     */
+    private function sourceLigneValide(DocumentVente $document, mixed $sourceLigneId, mixed $produitId): ?int
+    {
+        if (empty($sourceLigneId)) {
+            return null;
+        }
+
+        // `source` et non un find() : la relation reste en mémoire d'une ligne
+        // à l'autre, un bon de cinquante lignes ne relit pas cinquante fois sa
+        // commande.
+        $commande = $document->source;
+
+        if ($document->type !== DocumentVente::TYPE_BON_LIVRAISON
+            || $commande?->type !== DocumentVente::TYPE_COMMANDE) {
+            throw ValidationException::withMessages([
+                'lignes' => 'Seul un bon de livraison issu d\'une commande peut désigner une ligne de commande.',
+            ]);
+        }
+
+        $ligneCommande = DocumentVenteLigne::whereKey($sourceLigneId)
+            ->where('document_vente_id', $commande->id)
+            ->first(['id', 'produit_id', 'designation']);
+
+        if ($ligneCommande === null) {
+            throw ValidationException::withMessages([
+                'lignes' => 'Ligne de commande source introuvable.',
+            ]);
+        }
+
+        // Identifiants BRUTS : un article supprimé depuis n'est plus lu par
+        // Produit::find(), mais reste celui que la ligne désigne.
+        if ((int) ($produitId ?? 0) !== (int) ($ligneCommande->produit_id ?? 0)) {
+            throw ValidationException::withMessages([
+                'lignes' => sprintf(
+                    '« %s » : une ligne de bon de livraison ne solde la commande qu\'avec l\'article commandé. '
+                    .'Livrez un article de remplacement sur une ligne à part.',
+                    $ligneCommande->designation,
+                ),
+            ]);
+        }
+
+        return (int) $sourceLigneId;
     }
 
     private function assertBrouillon(DocumentVente $document): void

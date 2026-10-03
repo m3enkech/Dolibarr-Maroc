@@ -1,9 +1,15 @@
 <?php
 
+use App\Modules\Ventes\Http\Controllers\PrixController;
 use App\Modules\Ventes\Http\Controllers\VentesController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('ventes')->group(function () {
+    // Tarif du client pour les lignes en cours de saisie. Sous `permission:ventes`
+    // (celle du module) et non `catalogue` comme /tarifs/grille : c'est le
+    // vendeur qui en a besoin, et une seule permission par route.
+    Route::get('prix', [PrixController::class, 'index']);
+
     Route::get('documents', [VentesController::class, 'index']);
     // Déclarée AVANT `documents/{document}`, sinon « annees » serait pris pour
     // un identifiant et la route ne répondrait jamais.

@@ -282,17 +282,26 @@ export default function AchatForm() {
                             <label htmlFor="achat-tiers" className={label}>
                                 Fournisseur *
                             </label>
+                            {/* Pièce issue d'une autre : le serveur refuse un autre
+                                fournisseur (une réception chez B solderait la
+                                commande passée à A). */}
                             <SelecteurTiers
                                 id="achat-tiers"
                                 type="fournisseur"
                                 required
                                 compact
                                 traduire={false}
+                                disabled={isEdit && existing?.source != null}
                                 value={tiersId ? Number(tiersId) : null}
                                 onChange={(choisi) => setTiersId(choisi === null ? '' : String(choisi))}
                                 tiersConnu={existing?.tiers ?? null}
                                 placeholder="Rechercher un fournisseur (nom, code, ICE)…"
                             />
+                            {isEdit && existing?.source && (
+                                <p className="mt-1 text-xs text-slate-500">
+                                    Fournisseur de {existing.source.code} : une pièce issue d’une autre garde son fournisseur.
+                                </p>
+                            )}
                         </div>
                         {(type === 'commande' || type === 'reception' || type === 'facture') && (
                             <div>

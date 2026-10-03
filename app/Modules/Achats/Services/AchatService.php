@@ -51,6 +51,17 @@ class AchatService
     {
         $this->assertBrouillon($document);
 
+        // Même règle qu'à la vente : une réception passée à un autre
+        // fournisseur solderait quand même la commande du premier (lien ligne
+        // à ligne). Une pièce issue d'une autre garde son fournisseur.
+        if (array_key_exists('tiers_id', $data)
+            && $document->source_document_id !== null
+            && (int) $data['tiers_id'] !== (int) $document->tiers_id) {
+            throw ValidationException::withMessages([
+                'tiers_id' => 'Une pièce issue d\'une autre garde le fournisseur de sa pièce d\'origine. Pour un autre fournisseur, créez une nouvelle pièce.',
+            ]);
+        }
+
         return DB::transaction(function () use ($document, $data) {
             $document->update(collect($data)->only([
                 'tiers_id', 'entrepot_id', 'ref_fournisseur',
@@ -340,6 +351,21 @@ class AchatService
                 if ($sourceLigne === null) {
                     throw ValidationException::withMessages([
                         'lignes' => 'Ligne de commande source introuvable.',
+                    ]);
+                }
+
+                // La quantité reçue est imputée telle quelle sur la ligne de
+                // commande : reçue sous un AUTRE article, elle solderait une
+                // marchandise jamais arrivée. Sans article envoyé, la ligne
+                // reprend celui de la commande (plus bas) ; un article
+                // différent, lui, se reçoit sur une ligne non liée.
+                if (! empty($data['produit_id'])
+                    && (int) $data['produit_id'] !== (int) ($sourceLigne->produit_id ?? 0)) {
+                    throw ValidationException::withMessages([
+                        'lignes' => sprintf(
+                            '« %s » : une ligne de réception ne solde la commande qu\'avec l\'article commandé.',
+                            $sourceLigne->designation,
+                        ),
                     ]);
                 }
             }
