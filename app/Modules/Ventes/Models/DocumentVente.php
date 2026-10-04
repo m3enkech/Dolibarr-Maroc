@@ -3,6 +3,7 @@
 namespace App\Modules\Ventes\Models;
 
 use App\Core\Tenancy\BelongsToTenant;
+use App\Modules\Stock\Models\Entrepot;
 use App\Modules\Tiers\Models\Tiers;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
@@ -21,16 +22,25 @@ class DocumentVente extends Model
     use BelongsToTenant, SoftDeletes;
 
     public const TYPE_DEVIS = 'devis';
+
     public const TYPE_COMMANDE = 'commande';
+
     public const TYPE_BON_LIVRAISON = 'bon_livraison';
+
     public const TYPE_FACTURE = 'facture';
+
     public const TYPE_AVOIR = 'avoir';
+
     public const TYPES = [self::TYPE_DEVIS, self::TYPE_COMMANDE, self::TYPE_BON_LIVRAISON, self::TYPE_FACTURE, self::TYPE_AVOIR];
 
     public const STATUT_BROUILLON = 'brouillon';
+
     public const STATUT_VALIDE = 'valide';
+
     public const STATUT_ACCEPTE = 'accepte';
+
     public const STATUT_REFUSE = 'refuse';
+
     public const STATUT_PAYE = 'paye';
 
     protected $table = 'documents_vente';
@@ -44,6 +54,7 @@ class DocumentVente extends Model
             'total_tva' => 'decimal:2',
             'total_ttc' => 'decimal:2',
             'validated_at' => 'datetime',
+            'rang_stock' => 'integer',
         ];
     }
 
@@ -69,7 +80,7 @@ class DocumentVente extends Model
 
     public function entrepot(): BelongsTo
     {
-        return $this->belongsTo(\App\Modules\Stock\Models\Entrepot::class);
+        return $this->belongsTo(Entrepot::class);
     }
 
     /**

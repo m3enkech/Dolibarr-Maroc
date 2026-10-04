@@ -4,6 +4,7 @@ namespace App\Modules\Stock;
 
 use App\Modules\Achats\Events\FactureAchatValidee;
 use App\Modules\Achats\Events\ReceptionValidee;
+use App\Modules\Stock\Console\VerifierFamillesCommand;
 use App\Modules\Stock\Listeners\DecrementerStockSurBonLivraison;
 use App\Modules\Stock\Listeners\DecrementerStockSurFacture;
 use App\Modules\Stock\Listeners\EntreeStockSurFactureDirecte;
@@ -30,5 +31,9 @@ class StockServiceProvider extends ServiceProvider
         Event::listen(AvoirValide::class, RetournerStockSurAvoir::class);
         Event::listen(ReceptionValidee::class, EntreeStockSurReception::class);
         Event::listen(FactureAchatValidee::class, EntreeStockSurFactureDirecte::class);
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([VerifierFamillesCommand::class]);
+        }
     }
 }

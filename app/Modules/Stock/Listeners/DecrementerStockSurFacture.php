@@ -13,7 +13,7 @@ use App\Modules\Ventes\Events\FactureValidee;
  * garde-fou ne regardait que la source DIRECTE de la facture : il laissait donc
  * passer le cas — le plus courant — où le bon de livraison et la facture sont
  * deux FRÈRES issus d'une même commande. C'est désormais StockService qui
- * déduit, pour toute la famille de documents, ce qui est déjà parti.
+ * déduit, pour toute la famille de documents, ce qui reste à sortir.
  */
 class DecrementerStockSurFacture
 {

@@ -3,6 +3,7 @@
 namespace App\Modules\Stock\Services;
 
 use App\Core\Sequences\SequenceService;
+use App\Modules\Achats\Models\DocumentAchat;
 use App\Modules\Catalogue\Models\Produit;
 use App\Modules\Stock\Models\Entrepot;
 use App\Modules\Stock\Models\Inventaire;
@@ -15,10 +16,13 @@ use Illuminate\Validation\ValidationException;
 
 class StockService
 {
-    public function __construct(private SequenceService $sequences) {}
+    public function __construct(
+        private SequenceService $sequences,
+        private FamilleDocuments $familles,
+    ) {}
 
     /* ------------------------------------------------------------------ */
-    /* Entrepôts                                                           */
+    /* Entrepôts */
     /* ------------------------------------------------------------------ */
 
     public function creerEntrepot(array $data): Entrepot
@@ -89,7 +93,7 @@ class StockService
     }
 
     /* ------------------------------------------------------------------ */
-    /* Mouvements                                                          */
+    /* Mouvements */
     /* ------------------------------------------------------------------ */
 
     public function entree(Produit $produit, Entrepot $entrepot, float $quantite, ?string $note = null): MouvementStock
@@ -120,10 +124,12 @@ class StockService
     }
 
     /**
-     * Sortie de stock générée par la validation d'une facture : une ligne de
-     * mouvement par ligne produit physique (les services ne bougent pas), et
-     * pour un kit, une sortie par composant physique (quantité ligne × quantité
-     * du composant). Le stock peut passer en négatif — signalé, pas bloquant.
+     * Sortie de stock générée par la validation d'une facture ou d'un bon de
+     * livraison : une ligne de mouvement par ligne produit physique (les
+     * services ne bougent pas), et pour un kit, une sortie par composant
+     * physique (quantité ligne × quantité du composant), déduction faite de ce
+     * que la famille de la pièce couvre déjà. Le stock peut passer en négatif —
+     * signalé, pas bloquant.
      */
     public function sortieVente(DocumentVente $document): void
     {
@@ -144,27 +150,44 @@ class StockService
         // Entrepôt du document (caisse rattachée à un entrepôt) ; défaut sinon.
         $entrepot = $document->entrepot ?? $this->entrepotParDefaut();
 
-        // Sur une SORTIE seulement : ce que d'autres documents de la même famille
-        // ont déjà fait partir. Un retour d'avoir, lui, rend toujours ce que la
-        // pièce porte — le nettage ne le concerne pas.
-        $reste = $sens < 0 ? $this->dejaSortiParLaFamille($document) : [];
+        $elements = $this->familles->elementsDeStock($document, $this->familles->produitsDe([$document]));
 
-        /**
-         * Écrit la sortie d'un produit en absorbant d'abord ce qui est déjà
-         * parti. Le solde est consommé au fil des lignes : deux lignes du même
-         * article sur une même pièce se partagent le crédit au lieu que la
-         * seconde croie, à tort, que la première l'a déjà couverte.
-         */
-        $bouger = function (Produit $produit, float $quantite, ?string $note) use (&$reste, $document, $entrepot, $sens, $type): void {
-            if ($sens < 0 && ($reste[$produit->id] ?? 0.0) > 0.0) {
-                $absorbe = min($quantite, $reste[$produit->id]);
-                $reste[$produit->id] = round($reste[$produit->id] - $absorbe, 3);
+        // Rien de stocké (que des services) : ni mouvement, ni famille à lire.
+        if ($elements === []) {
+            return;
+        }
+
+        $couvert = [];
+
+        // Un document sans source n'a pas de famille : une transformation exige
+        // une source DÉJÀ VALIDÉE, donc un brouillon n'a jamais de descendant.
+        // Chemin rapide — un ticket de caisse ne paie pas une seule requête.
+        if ($document->source_document_id !== null) {
+            $autres = $this->entrerDansLaFamille($document);
+
+            // Sur une SORTIE seulement : la part de la pièce que sa famille
+            // couvre déjà. Un retour d'avoir, lui, rend toujours ce que la pièce
+            // porte — mais il entre dans le bilan des pièces suivantes, d'où le
+            // verrou et le rang pris pour lui aussi.
+            if ($sens < 0) {
+                $couvert = $this->dejaCouvertParLaFamille($document, $autres, $elements);
+            }
+        }
+
+        foreach ($elements as ['produit' => $produit, 'quantite' => $quantite, 'note' => $note]) {
+            // La part couverte se CONSOMME au fil des lignes : deux lignes du
+            // même article (ou un kit et l'un de ses composants) se la partagent,
+            // au lieu que la seconde croie, à tort, que la première l'a déjà
+            // couverte.
+            if (($couvert[$produit->id] ?? 0.0) > 0.0) {
+                $absorbe = min($quantite, $couvert[$produit->id]);
+                $couvert[$produit->id] = round($couvert[$produit->id] - $absorbe, 3);
                 $quantite = round($quantite - $absorbe, 3);
             }
 
-            // Entièrement couverte par un document frère : rien à écrire.
+            // Entièrement couverte par la famille : rien à écrire.
             if ($quantite < 0.0005) {
-                return;
+                continue;
             }
 
             $this->mouvement(
@@ -176,138 +199,94 @@ class StockService
                 documentVenteId: $document->id,
                 note: $note,
             );
-        };
-
-        foreach ($document->lignes as $ligne) {
-            if ($ligne->produit_id === null) {
-                continue;
-            }
-
-            $produit = Produit::find($ligne->produit_id);
-
-            if ($produit === null) {
-                continue;
-            }
-
-            // Un kit ne stocke rien lui-même : ce sont ses composants qui bougent.
-            if ($produit->isKit()) {
-                foreach ($produit->composants()->with('composant')->get() as $composant) {
-                    if ($composant->composant?->type !== 'product') {
-                        continue;
-                    }
-
-                    $bouger(
-                        $composant->composant,
-                        (float) $ligne->quantite * (float) $composant->quantite,
-                        'Kit '.$produit->name,
-                    );
-                }
-
-                continue;
-            }
-
-            if ($produit->type !== 'product') {
-                continue;
-            }
-
-            $bouger($produit, (float) $ligne->quantite, null);
         }
     }
 
     /**
-     * Marchandise déjà sortie par les AUTRES documents de la même famille, par
-     * produit.
+     * Part de la pièce que sa famille couvre déjà, par produit : ce qu'elle
+     * porte, moins ce dont elle fait monter la sortie DUE de la famille.
      *
-     * Une commande, ses bons de livraison et sa facture décrivent la MÊME
-     * marchandise : elle ne doit quitter le stock qu'une fois, quel que soit
-     * l'ordre des validations. Le garde-fou historique ne regardait que la
-     * source DIRECTE de la facture, et ratait donc le cas — le plus courant —
-     * où le bon de livraison et la facture sont deux FRÈRES issus de la même
-     * commande.
+     * Une commande, ses bons de livraison, ses factures et leurs avoirs
+     * décrivent la même marchandise : elle ne doit quitter le stock qu'une fois,
+     * quel que soit l'ordre des validations — mais deux BL frères sont deux
+     * départs, qui s'additionnent (voir BilanDeSortie).
      *
-     * @return array<int, float>  quantité déjà sortie, indexée par produit_id
+     * La sortie due se déduit des PIÈCES, jamais des mouvements déjà écrits.
+     * L'ancien calcul (« ce que la famille a déjà sorti ») rattrapait en silence
+     * un écart passé à la validation suivante de la famille — après un
+     * inventaire ou un ajustement manuel qui l'avait déjà corrigé, il sortait
+     * deux fois. Chaque pièce sort désormais exactement ce qu'elle ajoute ; un
+     * écart historique se constate (stock:verifier-familles) et se corrige par
+     * décision humaine.
+     *
+     * @param  array<int, int>  $famille  les autres documents de la famille
+     * @param  list<array{produit: Produit, quantite: float, note: ?string}>  $elements
+     * @return array<int, float> quantité couverte, indexée par produit_id
      */
-    private function dejaSortiParLaFamille(DocumentVente $document): array
+    private function dejaCouvertParLaFamille(DocumentVente $document, array $famille, array $elements): array
     {
-        // Un document sans source n'a pas de famille : une transformation exige
-        // une source DÉJÀ VALIDÉE, donc un brouillon n'a jamais de descendant.
-        // Chemin rapide — un ticket de caisse ne paie pas une seule requête.
-        if ($document->source_document_id === null) {
+        $autres = $this->familles->piecesDuBilan($famille);
+
+        if ($autres->isEmpty()) {
             return [];
         }
 
-        $racine = $this->racineDeLaFamille($document);
+        // Les pièces déjà validées, dans leur ordre ; celle qu'on valide passe
+        // en dernier, puisqu'elle est la dernière validée.
+        $bilan = new BilanDeSortie;
+        $produits = $this->familles->produitsDe($autres);
 
-        // Verrou sur la racine : il sérialise les validations d'une même famille,
-        // sans quoi deux validations concurrentes liraient le même « déjà sorti »
-        // avant d'écrire. (Sans effet sous SQLite, qui ignore FOR UPDATE : la
-        // course n'est donc pas couverte par la suite de tests.)
-        DocumentVente::whereKey($racine)->lockForUpdate()->first();
-
-        $famille = array_diff($this->descendance($racine), [$document->id]);
-
-        if ($famille === []) {
-            return [];
+        foreach ($autres as $piece) {
+            $bilan->appliquer($piece->type, $this->familles->quantites($this->familles->elementsDeStock($piece, $produits)));
         }
 
-        return MouvementStock::query()
-            // Uniquement les sorties : compter aussi les retours d'avoir
-            // laisserait croire que la marchandise est encore à sortir.
-            ->where('type', MouvementStock::TYPE_VENTE)
-            ->whereIn('document_vente_id', $famille)
-            ->selectRaw('produit_id, SUM(quantite) as total')
-            ->groupBy('produit_id')
-            ->pluck('total', 'produit_id')
-            ->map(fn ($total) => abs(round((float) $total, 3)))
-            ->all();
-    }
+        $porte = $this->familles->quantites($elements);
+        $dues = $bilan->appliquer($document->type, $porte);
 
-    /** Document le plus haut de la chaîne des sources (devis, commande ou pièce directe). */
-    private function racineDeLaFamille(DocumentVente $document): int
-    {
-        $courant = $document;
+        $couvert = [];
 
-        // Borne de sûreté : une chaîne réelle fait deux ou trois maillons ;
-        // au-delà, la donnée est corrompue et boucler serait pire.
-        for ($i = 0; $i < 10 && $courant->source_document_id !== null; $i++) {
-            $parent = DocumentVente::find($courant->source_document_id);
+        foreach ($porte as $produitId => $quantite) {
+            $part = round($quantite - ($dues[$produitId] ?? 0.0), 3);
 
-            if ($parent === null) {
-                break;
+            if ($part > 0.0005) {
+                $couvert[$produitId] = $part;
             }
-
-            $courant = $parent;
         }
 
-        return $courant->id;
+        return $couvert;
     }
 
     /**
-     * Tous les documents issus de cette racine, elle comprise.
+     * Fait entrer la pièce dans le bilan de sa famille et rend les AUTRES
+     * documents de celle-ci.
+     *
+     * Verrou sur la racine d'abord : il sérialise les validations d'une même
+     * famille, sans quoi deux validations concurrentes établiraient le bilan
+     * chacune sans l'autre, et sortiraient toutes deux. (Sans effet sous
+     * SQLite, qui ignore FOR UPDATE : la course n'est donc pas couverte par la
+     * suite de tests.) Puis, sous ce verrou, le rang de la pièce dans le rejeu :
+     * validated_at, à la seconde et horodaté avant l'attente des verrous, ne
+     * dit pas dans quel ordre deux validations rapprochées sont réellement
+     * passées — et un BL rejoué avant l'avoir qui le précédait fait sortir le
+     * stock deux fois (voir BilanDeSortie).
      *
      * @return array<int, int>
      */
-    private function descendance(int $racine): array
+    private function entrerDansLaFamille(DocumentVente $document): array
     {
-        $ids = [$racine];
-        $frontiere = [$racine];
+        $racine = $this->familles->racine($document);
 
-        for ($i = 0; $i < 10 && $frontiere !== []; $i++) {
-            $enfants = DocumentVente::whereIn('source_document_id', $frontiere)
-                ->pluck('id')
-                ->all();
+        DocumentVente::whereKey($racine)->lockForUpdate()->first();
 
-            $enfants = array_values(array_diff($enfants, $ids));
+        $autres = array_values(array_diff($this->familles->descendance($racine), [$document->id]));
+        $rang = $this->familles->prochainRang($autres);
 
-            if ($enfants === []) {
-                break;
-            }
+        // Par requête plutôt que save() : ne pas réécrire au passage un autre
+        // attribut que l'appelant aurait laissé modifié sur l'instance.
+        DocumentVente::whereKey($document->id)->update(['rang_stock' => $rang]);
+        $document->forceFill(['rang_stock' => $rang])->syncOriginalAttribute('rang_stock');
 
-            $ids = array_merge($ids, $enfants);
-            $frontiere = $enfants;
-        }
-
-        return $ids;
+        return $autres;
     }
 
     /**
@@ -315,7 +294,7 @@ class StockService
      * fournisseur directe (sans document source). Une ligne de mouvement par
      * ligne produit physique, vers l'entrepôt du document (défaut sinon).
      */
-    public function entreeAchat(\App\Modules\Achats\Models\DocumentAchat $document): void
+    public function entreeAchat(DocumentAchat $document): void
     {
         $entrepot = $document->entrepot ?? $this->entrepotParDefaut();
 
@@ -380,7 +359,7 @@ class StockService
     }
 
     /* ------------------------------------------------------------------ */
-    /* Transferts inter-entrepôts                                          */
+    /* Transferts inter-entrepôts */
     /* ------------------------------------------------------------------ */
 
     /**
@@ -434,7 +413,7 @@ class StockService
     }
 
     /* ------------------------------------------------------------------ */
-    /* Inventaire physique                                                 */
+    /* Inventaire physique */
     /* ------------------------------------------------------------------ */
 
     /**
@@ -475,7 +454,7 @@ class StockService
      * Un produit non encore listé (stock trouvé mais jamais recensé) est ajouté,
      * avec une quantité théorique reprise du stock courant de l'entrepôt.
      *
-     * @param array<int, array{produit_id: int, quantite_comptee: float|null}> $comptages
+     * @param  array<int, array{produit_id: int, quantite_comptee: float|null}>  $comptages
      */
     public function enregistrerComptages(Inventaire $inventaire, array $comptages): Inventaire
     {

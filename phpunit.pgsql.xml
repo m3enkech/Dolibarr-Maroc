@@ -4,10 +4,12 @@
     hébergement GCP / Cloud SQL). Identique à phpunit.xml mais pointe sur une
     base Postgres locale dédiée (dolibarr_pgtest). Ne pas committer les
     identifiants d'un vrai environnement : ceci est purement local/dev.
+    La base est partagée : tests/bootstrap.pgsql.php met en file d'attente
+    une seconde suite lancée pendant la première.
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="vendor/autoload.php"
+         bootstrap="tests/bootstrap.pgsql.php"
          colors="true"
 >
     <testsuites>
