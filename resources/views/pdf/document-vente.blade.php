@@ -4,7 +4,14 @@
     <meta charset="utf-8">
     <style>
         @page { margin: 22px 26px 78px 26px; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* Remise à zéro limitée au CONTENU (« body * »), pas « * » : chez DomPDF, le
+           sélecteur universel atteint aussi la boîte de page et y efface les marges
+           de @page. Le texte touchait alors les bords de la feuille (0 à 6 pt sur
+           595) — lettres coupées sur la dernière page —, et le bandeau légal du bas,
+           posé dans la marge basse, tombait hors de la feuille. Pour la même raison,
+           ne jamais remettre html ni body à zéro : DomPDF y reporte les marges de
+           @page (vérifié : « html, body { margin: 0 } » les annule aussi). */
+        body * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 9.5px; color: #1f2937; }
 
         /* --- En-tête : émetteur à gauche, titre et solde à droite. --- */
@@ -59,8 +66,9 @@
         .lettres-valeur { font-weight: bold; color: #0f172a; margin-top: 2px; }
 
         .remarques { margin-top: 16px; color: #334155; line-height: 1.55; }
-        .signature { margin-top: 30px; text-align: right; color: #64748b; }
-        .signature-trait { margin-top: 34px; border-top: 1px solid #94a3b8; width: 180px; margin-left: auto; padding-top: 4px; }
+        .cloture { page-break-inside: avoid; }
+        .signature { margin-top: 18px; text-align: right; color: #64748b; }
+        .signature-trait { margin-top: 28px; border-top: 1px solid #94a3b8; width: 180px; margin-left: auto; padding-top: 4px; }
 
         /* Le bandeau légal se répète sur CHAQUE page : une page détachée d'une
            facture doit rester identifiable et régulière. */
@@ -202,6 +210,11 @@
     </tbody>
 </table>
 
+{{-- Toute la clôture d'un seul tenant : totaux, montant en lettres, remarques,
+     signature. Sans cela, la signature pouvait tomber SEULE sur une dernière
+     page blanche. Si le bloc ne tient plus en bas de page, il passe entier à la
+     suivante (DomPDF ne le coupe que s'il dépasse une page entière). --}}
+<div class="cloture">
 <table class="bas">
     <tr>
         <td style="width: 52%; padding-right: 24px;">
@@ -252,6 +265,7 @@
 
 <div class="signature">
     <div class="signature-trait">Signature autorisée</div>
+</div>
 </div>
 
 <div class="pied">
