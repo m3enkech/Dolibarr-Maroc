@@ -44,7 +44,7 @@ import StockPage from '@/pages/stock/StockPage';
 import Adhesions from '@/pages/tiers/Adhesions';
 import TiersForm from '@/pages/tiers/TiersForm';
 import Tiers360 from '@/pages/tiers/Tiers360';
-import TiersList from '@/pages/tiers/TiersList';
+import TiersEspace, { TiersAucunChoisi } from '@/pages/tiers/TiersEspace';
 import VenteDetail from '@/pages/ventes/VenteDetail';
 import VenteForm from '@/pages/ventes/VenteForm';
 import VentesList from '@/pages/ventes/VentesList';
@@ -122,11 +122,21 @@ function App() {
                         >
                             <Route path="/dashboard" element={<Dashboard />} />
                             <Route path="/pilotage" element={<PilotagePage />} />
-                            <Route path="/tiers" element={<TiersList />} />
+                            {/*
+                             * Liste et fiche côte à côte : `/tiers` et `/tiers/:id`
+                             * partagent la colonne de liste, seule la fiche change.
+                             * Création et édition restent des pages pleine largeur —
+                             * un formulaire de vingt champs n'a rien à faire dans
+                             * une colonne. Les routes statiques l'emportent sur
+                             * `:id` : « nouveau » n'est jamais lu comme un identifiant.
+                             */}
                             <Route path="/tiers/nouveau" element={<TiersForm />} />
-                            {/* La fiche est une CONSULTATION ; l'edition vit derriere un bouton. */}
-                            <Route path="/tiers/:id" element={<Tiers360 />} />
                             <Route path="/tiers/:id/modifier" element={<TiersForm />} />
+                            <Route path="/tiers" element={<TiersEspace />}>
+                                <Route index element={<TiersAucunChoisi />} />
+                                {/* La fiche est une CONSULTATION ; l'edition vit derriere un bouton. */}
+                                <Route path=":id" element={<Tiers360 />} />
+                            </Route>
                             <Route path="/adhesions" element={<Adhesions />} />
                             <Route path="/catalogue" element={<ProduitsList />} />
                             <Route path="/catalogue/categories" element={<CategoriesProduit />} />

@@ -43,6 +43,13 @@ export interface Tiers {
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    /**
+     * Solde client SIGNÉ (« -120.50 » = c'est nous qui devons), servi par la
+     * liste sur `avec_solde=1` seulement — pour TOUT tiers qui a des lignes
+     * ouvertes au compte clients, coché « client » ou non. `null` : aucune
+     * ligne ouverte et pas un client confirmé (fournisseur pur, prospect).
+     */
+    solde?: string | null;
 }
 
 export interface CategorieProduit {

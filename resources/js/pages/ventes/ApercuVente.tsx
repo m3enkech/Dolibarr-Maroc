@@ -1,8 +1,11 @@
+import { useId } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatMAD, formatTva } from '@/lib/format';
 import { etatEcheance } from '@/lib/echeance';
+import Surcouche from '@/components/Surcouche';
 import { statutClasses, statutLabel, TYPE_LABELS } from '@/pages/ventes/common';
 import type { DocumentVente } from '@/types';
 import { useT } from '@/lib/langue';
@@ -25,26 +28,53 @@ import { useT } from '@/lib/langue';
  * 3. SUR TÉLÉPHONE, UNE FEUILLE DU BAS. Un panneau latéral y deviendrait un
  *    piège sous un long tableau. Même composant, conteneur différent — comme
  *    le détail par dépôt de l'écran de suivi.
+ *
+ * `surcouche` : panneau posé par-dessus l'écran à TOUTES les largeurs. C'est
+ * la forme de la fiche tiers, déjà colonne de droite d'une vue liste + fiche :
+ * le panneau latéral y aurait ouvert une troisième colonne de 250 px.
  */
-export default function ApercuVente({ id, onFermer }: { id: number; onFermer: () => void }) {
+export default function ApercuVente({
+    id,
+    onFermer,
+    surcouche = false,
+    lienClient = true,
+}: {
+    id: number;
+    onFermer: () => void;
+    surcouche?: boolean;
+    /** « Voir le client » n'a pas de sens ouvert DEPUIS la fiche de ce client. */
+    lienClient?: boolean;
+}) {
     const t = useT();
+    const titre = useId();
 
-    const { data: doc, isLoading } = useQuery({
+    const { data: doc, isLoading, isError, error, refetch, isFetching } = useQuery({
         queryKey: ['vente', id],
         queryFn: async () => {
             const { data } = await api.get<{ data: DocumentVente }>(`/ventes/documents/${id}`);
             return data.data;
         },
+        // Un refus ou une pièce absente ne changeront pas au second essai :
+        // trois relances par défaut n'auraient fait qu'allonger l'attente.
+        retry: (echecs, err) => (isAxiosError(err) && err.response !== undefined ? false : echecs < 1),
     });
 
-    return (
-        <aside className="fixed inset-x-0 bottom-0 z-40 max-h-[75vh] overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-4 lg:z-auto lg:max-h-none lg:self-start lg:rounded-xl lg:shadow-sm">
+    // Sans ce cas, un échec laissait « Chargement… » et « … » pour toujours —
+    // y compris dans le titre que lit le lecteur d'écran.
+    const enEchec = isError && doc === undefined;
+    const statut = isAxiosError(error) ? error.response?.status : undefined;
+    const definitif = statut !== undefined && statut < 500;
+
+    const contenu = (
+        <>
             <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div id={titre} className="min-w-0">
                     <div className="text-xs uppercase tracking-wide text-slate-500">
-                        {doc ? t(TYPE_LABELS[doc.type]) : t('Chargement…')}
+                        {doc ? t(TYPE_LABELS[doc.type]) : enEchec ? t('Erreur') : t('Chargement…')}
                     </div>
-                    <div className="truncate font-mono text-sm font-semibold text-slate-900">{doc?.code ?? '…'}</div>
+                    <div className="truncate font-mono text-sm font-semibold text-slate-900">
+                        {doc?.code ?? (enEchec ? '—' : '…')}
+                    </div>
                 </div>
                 <button
                     onClick={onFermer}
@@ -56,6 +86,24 @@ export default function ApercuVente({ id, onFermer }: { id: number; onFermer: ()
             </div>
 
             {isLoading && <div className="py-8 text-center text-sm text-slate-400">{t('Chargement…')}</div>}
+
+            {enEchec && (
+                <div role="alert" className="mt-4 rounded-lg bg-amber-50 px-3 py-3 text-sm text-amber-800">
+                    {statut === 403
+                        ? t('Votre rôle ne donne pas accès à ces pièces.')
+                        : t('Impossible de charger cette pièce.')}
+                    {!definitif && (
+                        <button
+                            type="button"
+                            onClick={() => refetch()}
+                            disabled={isFetching}
+                            className="ms-2 font-medium text-amber-900 underline disabled:opacity-50"
+                        >
+                            {t('Réessayer')}
+                        </button>
+                    )}
+                </div>
+            )}
 
             {doc && (
                 <>
@@ -156,7 +204,7 @@ export default function ApercuVente({ id, onFermer }: { id: number; onFermer: ()
                         >
                             {t('Ouvrir la fiche')}
                         </Link>
-                        {doc.tiers && (
+                        {doc.tiers && lienClient && (
                             <Link
                                 to={`/tiers/${doc.tiers.id}`}
                                 className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50"
@@ -167,6 +215,20 @@ export default function ApercuVente({ id, onFermer }: { id: number; onFermer: ()
                     </div>
                 </>
             )}
+        </>
+    );
+
+    if (surcouche) {
+        return (
+            <Surcouche onFermer={onFermer} etiquettePar={titre}>
+                {contenu}
+            </Surcouche>
+        );
+    }
+
+    return (
+        <aside className="fixed inset-x-0 bottom-0 z-40 max-h-[75vh] overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-4 lg:z-auto lg:max-h-none lg:self-start lg:rounded-xl lg:shadow-sm">
+            {contenu}
         </aside>
     );
 }

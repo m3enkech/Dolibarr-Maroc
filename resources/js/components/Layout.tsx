@@ -219,9 +219,16 @@ export default function Layout() {
              * la page : à 390 px elle laisserait sinon 130 px au contenu.
              * `shrink-0` la protège de l'écrasement quand elle est dans le flux —
              * en flex, `w-64` seul se laisse comprimer.
+             *
+             * Au bureau, collante et haute d'un écran, son menu défilant en
+             * dedans : dans le flux sans hauteur, elle s'allongeait avec le
+             * menu (près de 950 px) et imposait cette hauteur à TOUTE page —
+             * sur un portable de 800 px, l'espace tiers, taillé pour tenir
+             * dans l'écran avec ses deux colonnes défilantes, glissait alors
+             * d'un bloc sous l'en-tête.
              */}
             <aside
-                className={`fixed inset-y-0 start-0 z-40 w-64 shrink-0 flex-col bg-slate-900 text-slate-200 lg:static lg:flex ${
+                className={`fixed inset-y-0 start-0 z-40 w-64 shrink-0 flex-col bg-slate-900 text-slate-200 lg:sticky lg:top-0 lg:h-screen lg:flex ${
                     menuMobile ? 'flex' : 'hidden'
                 }`}
             >

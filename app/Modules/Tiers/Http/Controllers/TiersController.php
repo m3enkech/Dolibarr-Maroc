@@ -10,6 +10,7 @@ use App\Modules\Tiers\Http\Requests\StoreTiersRequest;
 use App\Modules\Tiers\Http\Requests\UpdateTiersRequest;
 use App\Modules\Tiers\Http\Resources\TiersResource;
 use App\Modules\Tiers\Models\Tiers;
+use App\Modules\Tiers\Services\EncoursService;
 use App\Modules\Tiers\Services\TiersService;
 use App\Modules\Ventes\Models\DocumentVente;
 use App\Modules\Ventes\Models\DocumentVenteLigne;
@@ -17,12 +18,22 @@ use App\Modules\Ventes\Models\Paiement;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Collection;
 
 class TiersController extends Controller
 {
     public function __construct(private TiersService $service) {}
 
-    public function index(Request $request): AnonymousResourceCollection
+    /**
+     * Plafond de `per_page`. La caisse lit l'annuaire client par pages de 500
+     * (mises en cache une à une pour le hors-ligne) : c'est le plus gros
+     * consommateur légitime. Au-delà, une seule requête pouvait demander les
+     * dix mille tiers d'un gros grossiste — et, avec `avec_solde`, l'agrégat
+     * du grand livre client pour chacun d'eux.
+     */
+    private const PAR_PAGE_MAX = 500;
+
+    public function index(Request $request, EncoursService $encours): AnonymousResourceCollection
     {
         $tiers = Tiers::query()
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
@@ -42,14 +53,66 @@ class TiersController extends Controller
             ->when($request->string('type')->toString() === 'fournisseur', fn ($q) => $q->where('is_supplier', true))
             ->when($request->string('lead_source')->isNotEmpty(),
                 fn ($q) => $q->where('lead_source', $request->string('lead_source')->toString()))
+            // `actif` absent ou vide : tous. Un tiers désactivé garde son
+            // historique et ses impayés — le cacher par défaut ferait oublier
+            // qu'un ancien client doit encore de l'argent.
+            ->when($request->filled('actif'), fn ($q) => $q->where('is_active', $request->boolean('actif')))
             // Départage des homonymes : l'annuaire client de la caisse se lit
             // page à page, et PostgreSQL ne garantit aucun ordre entre deux noms
             // égaux — un client pouvait tomber entre deux pages, absent hors ligne.
             ->orderBy('name')
             ->orderBy('id')
-            ->paginate($request->integer('per_page', 15));
+            ->paginate($this->parPage($request));
+
+        if ($request->boolean('avec_solde')) {
+            $this->joindreSoldes($tiers->getCollection(), $encours);
+        }
 
         return TiersResource::collection($tiers);
+    }
+
+    /**
+     * Taille de page demandée, plafonnée. Une valeur nulle, négative ou non
+     * numérique retombe sur 15, le défaut d'Eloquent : Laravel IGNORE une
+     * limite négative — `per_page=-1` rendait toute la table, plafond
+     * contourné — et un plancher à 1 aurait, lui, servi `per_page=0` ligne à
+     * ligne, quinze fois plus de pages qu'avant sans que rien ne le signale.
+     */
+    private function parPage(Request $request): int
+    {
+        $demande = $request->integer('per_page', 15);
+
+        return $demande > 0 ? min($demande, self::PAR_PAGE_MAX) : 15;
+    }
+
+    /**
+     * Pose sur chaque tiers de la page son solde client signé, calculé pour
+     * toute la page en UN SEUL agrégat du grand livre — pas un par ligne.
+     *
+     * TOUS les tiers de la page sont interrogés, pas seulement ceux cochés
+     * « client » : rien n'interdit de facturer un tiers enregistré comme
+     * fournisseur (la vente ne contrôle que son existence), ni de décocher
+     * « client » sur quelqu'un qui doit encore de l'argent. Filtrer sur la case
+     * cachait alors une dette que /encours, lui, affichait.
+     *
+     * Le drapeau ne sert qu'à lire l'ABSENCE de ligne ouverte : un client
+     * confirmé sans écriture est réellement à zéro et l'affiche ; un
+     * fournisseur pur ou un prospect sans écriture n'ont pas de compte client
+     * — « 0,00 » y laisserait croire qu'on a vérifié, d'où `null`.
+     *
+     * @param  Collection<int, Tiers>  $page
+     */
+    private function joindreSoldes(Collection $page, EncoursService $encours): void
+    {
+        $soldes = $encours->soldesSignes($page->pluck('id')->all());
+
+        foreach ($page as $tiers) {
+            $solde = $soldes[$tiers->id] ?? ($tiers->is_client && ! $tiers->is_prospect ? 0.0 : null);
+
+            // Attribut calculé, comme un `withSum` : jamais sauvegardé (la page
+            // n'est pas réécrite), il n'existe que pour TiersResource.
+            $tiers->setAttribute('solde', $solde !== null ? $this->montant($solde) : null);
+        }
     }
 
     public function store(StoreTiersRequest $request): TiersResource
@@ -184,7 +247,7 @@ class TiersController extends Controller
         return number_format((float) $valeur, 2, '.', '');
     }
 
-    public function encours(Tiers $tiers, \App\Modules\Tiers\Services\EncoursService $service): \Illuminate\Http\JsonResponse
+    public function encours(Tiers $tiers, EncoursService $service): JsonResponse
     {
         $controle = $service->verifier($tiers, 0);
 
@@ -202,7 +265,7 @@ class TiersController extends Controller
         return new TiersResource($this->service->convertirEnClient($tiers));
     }
 
-    public function destroy(Tiers $tiers): \Illuminate\Http\JsonResponse
+    public function destroy(Tiers $tiers): JsonResponse
     {
         $tiers->delete();
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useFeatures } from '@/lib/features';
 import { LEAD_SOURCES, LEAD_SOURCE_LABELS, type Tiers } from '@/types';
@@ -68,6 +68,9 @@ export default function TiersForm() {
     const { id } = useParams();
     const isEdit = id !== undefined;
     const navigate = useNavigate();
+    // Les filtres de la liste des tiers voyagent dans la chaîne de requête : on
+    // la rend telle quelle au retour, pour retrouver la liste comme on l'a laissée.
+    const { search } = useLocation();
     const { features } = useFeatures();
     const queryClient = useQueryClient();
     const [form, setForm] = useState<TiersFormData>(emptyForm);
@@ -121,19 +124,22 @@ export default function TiersForm() {
     const mutation = useMutation({
         mutationFn: (payload: Record<string, unknown>) =>
             isEdit ? api.put(`/tiers/${id}`, payload) : api.post('/tiers', payload),
-        onSuccess: () => {
+        onSuccess: (reponse) => {
             queryClient.invalidateQueries({ queryKey: ['tiers'] });
             queryClient.invalidateQueries({ queryKey: ['tiers-count'] });
-            // On revient a la fiche du tiers qu'on vient de modifier, pas a la
-            // liste : retrouver sa ligne parmi des centaines est une corvee.
-            navigate(isEdit && id ? `/tiers/${id}` : '/tiers');
+            // On revient a la fiche du tiers qu'on vient de modifier — ou de
+            // creer —, pas a la liste nue : retrouver sa ligne parmi des
+            // centaines est une corvee, et la fiche s'ouvre a cote de la liste.
+            const cree = (reponse.data as { data?: { id?: number } } | undefined)?.data?.id;
+            const fiche = isEdit && id ? `/tiers/${id}` : cree ? `/tiers/${cree}` : '/tiers';
+            navigate({ pathname: fiche, search });
         },
         onError: (err: any) => {
             const messages = err?.response?.data?.errors;
             setError(
                 messages
                     ? (Object.values(messages).flat() as string[]).join(' ')
-                    : 'Enregistrement impossible.',
+                    : t('Enregistrement impossible.'),
             );
         },
     });
@@ -145,7 +151,7 @@ export default function TiersForm() {
             queryClient.invalidateQueries({ queryKey: ['tiers'] });
             queryClient.invalidateQueries({ queryKey: ['tiers-detail', id] });
         },
-        onError: () => setError('Conversion impossible.'),
+        onError: () => setError(t('Conversion impossible.')),
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -167,7 +173,7 @@ export default function TiersForm() {
     return (
         <div className="max-w-3xl space-y-4">
             <div>
-                <Link to="/tiers" className="text-sm text-emerald-600 hover:underline">
+                <Link to={{ pathname: '/tiers', search }} className="text-sm text-emerald-600 hover:underline">
                     {t('← Retour à la liste')}
                 </Link>
                 <h1 className="mt-2 text-xl font-semibold text-slate-900">
@@ -197,7 +203,7 @@ export default function TiersForm() {
                             {isEdit && id ? (
                                 <p className="text-sm text-slate-500">
                                     {t('Interlocuteurs :')}{' '}
-                                    <Link to={`/tiers/${id}`} className="text-emerald-700 underline">
+                                    <Link to={{ pathname: `/tiers/${id}`, search }} className="text-emerald-700 underline">
                                         {t('gérés sur la fiche du tiers')}
                                     </Link>
                                 </p>
@@ -319,7 +325,7 @@ export default function TiersForm() {
                                 disabled={convertir.isPending}
                                 className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
                             >
-                                {convertir.isPending ? 'Conversion…' : '✓ Convertir en client'}
+                                {convertir.isPending ? t('Conversion…') : t('✓ Convertir en client')}
                             </button>
                         </div>
                     )}
@@ -408,10 +414,10 @@ export default function TiersForm() {
                         disabled={mutation.isPending}
                         className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
                     >
-                        {mutation.isPending ? 'Enregistrement…' : 'Enregistrer'}
+                        {mutation.isPending ? t('Enregistrement…') : t('Enregistrer')}
                     </button>
                     <Link
-                        to="/tiers"
+                        to={{ pathname: isEdit && id ? `/tiers/${id}` : '/tiers', search }}
                         className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
                     >
                         {t('Annuler')}

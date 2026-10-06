@@ -11,15 +11,21 @@ type Meta = { current_page: number; last_page: number; total: number; per_page?:
  *
  * La fenêtre de numéros reste courte et de LARGEUR CONSTANTE : des boutons qui
  * se déplacent sous le curseur au fil des pages font cliquer à côté.
+ *
+ * `compacte` : pour une colonne étroite (liste des tiers à côté de la fiche).
+ * Trois numéros et sans « première / dernière » — neuf boutons sur 300 px
+ * repliaient la barre sur trois lignes.
  */
 export default function Pagination({
     meta,
     onPage,
     onPerPage,
+    compacte = false,
 }: {
     meta: Meta;
     onPage: (page: number) => void;
     onPerPage?: (taille: number) => void;
+    compacte?: boolean;
 }) {
     const t = useT();
 
@@ -27,12 +33,13 @@ export default function Pagination({
 
     const courante = meta.current_page;
     const derniere = meta.last_page;
+    const largeur = compacte ? 3 : 5;
 
-    // Cinq numéros au plus, recentrés sur la page courante et recollés aux
-    // bords quand on s'en approche — d'où le double clamp.
-    const debut = Math.max(1, Math.min(courante - 2, derniere - 4));
+    // Cinq numéros au plus (trois en compact), recentrés sur la page courante
+    // et recollés aux bords quand on s'en approche — d'où le double clamp.
+    const debut = Math.max(1, Math.min(courante - Math.floor(largeur / 2), derniere - largeur + 1));
     const pages: number[] = [];
-    for (let p = Math.max(1, debut); p <= Math.min(derniere, Math.max(1, debut) + 4); p++) pages.push(p);
+    for (let p = debut; p <= Math.min(derniere, debut + largeur - 1); p++) pages.push(p);
 
     const bouton = 'min-w-[2.25rem] rounded-md border border-slate-300 px-2 py-1 text-sm transition hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white';
 
@@ -60,9 +67,11 @@ export default function Pagination({
 
             {derniere > 1 && (
                 <div className="flex flex-wrap items-center gap-1">
-                    <button className={bouton} disabled={courante <= 1} onClick={() => onPage(1)} aria-label={t('Première page')}>
-                        «
-                    </button>
+                    {!compacte && (
+                        <button className={bouton} disabled={courante <= 1} onClick={() => onPage(1)} aria-label={t('Première page')}>
+                            «
+                        </button>
+                    )}
                     <button className={bouton} disabled={courante <= 1} onClick={() => onPage(courante - 1)} aria-label={t('Page précédente')}>
                         ‹
                     </button>
@@ -85,9 +94,11 @@ export default function Pagination({
                     <button className={bouton} disabled={courante >= derniere} onClick={() => onPage(courante + 1)} aria-label={t('Page suivante')}>
                         ›
                     </button>
-                    <button className={bouton} disabled={courante >= derniere} onClick={() => onPage(derniere)} aria-label={t('Dernière page')}>
-                        »
-                    </button>
+                    {!compacte && (
+                        <button className={bouton} disabled={courante >= derniere} onClick={() => onPage(derniere)} aria-label={t('Dernière page')}>
+                            »
+                        </button>
+                    )}
 
                     <span className="ms-2 text-slate-400">
                         {t('sur')} {derniere}

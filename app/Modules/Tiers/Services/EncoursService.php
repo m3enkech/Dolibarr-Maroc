@@ -5,6 +5,7 @@ namespace App\Modules\Tiers\Services;
 use App\Modules\Compta\Models\Compte;
 use App\Modules\Compta\Models\Ecriture;
 use App\Modules\Compta\Models\EcritureLigne;
+use App\Modules\Compta\Services\ComptaService;
 use App\Modules\Tiers\Models\Tiers;
 
 /**
@@ -33,7 +34,7 @@ class EncoursService
      */
     private const CODE_EFFETS_A_RECEVOIR = '3425';
 
-    public function __construct(private \App\Modules\Compta\Services\ComptaService $compta) {}
+    public function __construct(private ComptaService $compta) {}
 
     /**
      * Comptes portant la créance client : le compte collectif tel qu'il est
@@ -63,10 +64,35 @@ class EncoursService
     /**
      * Encours de plusieurs clients en une seule requête.
      *
+     * Plancher à zéro : c'est la question du PLAFOND (caisse, portail,
+     * /encours) — un client créditeur n'a rien consommé de son crédit, il ne
+     * s'en voit pas accorder davantage pour autant.
+     *
      * @param  array<int, int>  $tiersIds
-     * @return array<int, float>  encours indexé par tiers_id
+     * @return array<int, float> encours indexé par tiers_id
      */
     public function parTiers(array $tiersIds): array
+    {
+        return array_map(fn (float $solde) => max(0.0, $solde), $this->soldesSignes($tiersIds));
+    }
+
+    /**
+     * Solde SIGNÉ de plusieurs clients, en une seule requête groupée : positif
+     * quand le client nous doit, NÉGATIF quand c'est nous qui lui devons (avoir
+     * non remboursé, trop-perçu).
+     *
+     * Même périmètre que parTiers — c'est la même requête, seul le plancher
+     * diffère. La liste des tiers en a besoin parce qu'un « 0,00 » sur un
+     * client créditeur de 1 200 DH ment par omission : on l'appellerait pour
+     * relancer une dette qu'il n'a pas, et on oublierait de le rembourser.
+     *
+     * Un tiers sans aucune ligne ouverte est ABSENT du résultat, pas à zéro :
+     * l'appelant décide si l'absence vaut « 0,00 » ou « sans objet ».
+     *
+     * @param  array<int, int>  $tiersIds
+     * @return array<int, float> solde indexé par tiers_id
+     */
+    public function soldesSignes(array $tiersIds): array
     {
         if ($tiersIds === []) {
             return [];
@@ -90,13 +116,15 @@ class EncoursService
             ->groupBy('tiers_id')
             ->get();
 
-        $encours = [];
+        $soldes = [];
         foreach ($lignes as $ligne) {
             $solde = round((float) $ligne->total_debit - (float) $ligne->total_credit, 2);
-            $encours[(int) $ligne->tiers_id] = max(0.0, $solde);
+            // Un compte soldé peut ressortir en -0.0 de l'arrondi, que
+            // number_format écrit « -0.00 » : un client à jour affiché en négatif.
+            $soldes[(int) $ligne->tiers_id] = abs($solde) < 0.005 ? 0.0 : $solde;
         }
 
-        return $encours;
+        return $soldes;
     }
 
     /**

@@ -38,6 +38,11 @@ class TiersResource extends JsonResource
             'is_active' => $this->is_active,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            // Solde client signé, posé par la liste sur demande (`avec_solde`).
+            // Absent du JSON partout ailleurs plutôt que `null` : `null` y veut
+            // déjà dire « sans objet » : aucune ligne ouverte au compte clients, et
+            // pas un client confirmé (fournisseur pur, prospect sans écriture).
+            'solde' => $this->when($this->resource->hasAttribute('solde'), fn () => $this->resource->getAttribute('solde')),
         ];
     }
 }
