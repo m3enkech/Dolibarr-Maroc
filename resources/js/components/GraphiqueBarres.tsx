@@ -136,8 +136,12 @@ export default function GraphiqueBarres({
         </div>
     );
 
+    // `relative` : le tableau sr-only (position absolue) doit avoir un ancêtre
+    // positionné. Sans lui, il se plaçait par rapport à la page entière et
+    // l'allongeait (1 388 px pour 900 visibles dans l'espace tiers, qui ne
+    // doit défiler que par ses colonnes) — même piège que la liste du lot 1.
     return (
-        <figure>
+        <figure className="relative">
             <div ref={conteneur} className={echelle ? 'overflow-x-auto' : 'min-w-0'}>
                 {W > 0 ? (
                     <svg
