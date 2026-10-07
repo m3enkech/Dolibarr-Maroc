@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useMatch } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useT } from '@/lib/langue';
+import { sansParamsFiche } from '@/pages/tiers/params';
 import TiersList from '@/pages/tiers/TiersList';
 
 /**
@@ -78,7 +79,7 @@ export function TiersAucunChoisi() {
                     à créer, c'était l'envoyer vers un refus. */}
                 {can('tiers', 'write') && (
                     <Link
-                        to={{ pathname: '/tiers/nouveau', search }}
+                        to={{ pathname: '/tiers/nouveau', search: sansParamsFiche(search) }}
                         className="mt-4 inline-block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
                     >
                         {t('+ Nouveau tiers')}

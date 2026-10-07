@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Modules\Achats\Models\DocumentAchat;
 use App\Modules\Achats\Models\DocumentAchatLigne;
 use App\Modules\Catalogue\Models\Produit;
+use App\Modules\Compta\Models\EcritureLigne;
+use App\Modules\Effets\Models\Effet;
 use App\Modules\Tiers\Http\Requests\StoreTiersRequest;
 use App\Modules\Tiers\Http\Requests\UpdateTiersRequest;
 use App\Modules\Tiers\Http\Resources\TiersResource;
@@ -265,10 +267,42 @@ class TiersController extends Controller
         return new TiersResource($this->service->convertirEnClient($tiers));
     }
 
+    /**
+     * Supprimer n'est permis qu'à un tiers SANS TRACE. La suppression est
+     * douce, mais les relations des pièces ne lisent pas la corbeille : un
+     * client effacé avec ses factures faisait tomber leur PDF en erreur 500
+     * (`$document->tiers` nul), un avoir tiré de l'une d'elles plantait la
+     * comptabilisation, et l'impayé disparaissait de la liste avec lui. Celui
+     * qui a des pièces se DÉSACTIVE : il garde son code, ses pièces et ce
+     * qu'il doit.
+     *
+     * Les brouillons supprimés ne comptent pas : personne ne les voit plus,
+     * et refuser au nom d'une pièce invisible ne s'expliquerait pas.
+     */
     public function destroy(Tiers $tiers): JsonResponse
     {
+        if ($this->aDesTraces($tiers)) {
+            return response()->json([
+                'message' => __('Ce tiers a des pièces ou des écritures : désactivez-le plutôt.'),
+            ], 422);
+        }
+
         $tiers->delete();
 
         return response()->json(['message' => 'Tiers supprimé.']);
+    }
+
+    /**
+     * Pièces de vente ou d'achat, effets, lignes d'écriture : tout ce qui
+     * pointe vers ce tiers et se casserait sans lui. Les lignes d'écriture
+     * n'ont pas d'entreprise à elles : on passe par leur écriture, qui en a
+     * une — même règle que partout ailleurs.
+     */
+    private function aDesTraces(Tiers $tiers): bool
+    {
+        return DocumentVente::where('tiers_id', $tiers->id)->exists()
+            || DocumentAchat::where('tiers_id', $tiers->id)->exists()
+            || Effet::where('tiers_id', $tiers->id)->exists()
+            || EcritureLigne::where('tiers_id', $tiers->id)->whereHas('ecriture')->exists();
     }
 }

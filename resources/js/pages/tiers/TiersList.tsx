@@ -8,6 +8,7 @@ import { formatMAD } from '@/lib/format';
 import { useT } from '@/lib/langue';
 import { useDebounce } from '@/lib/useDebounce';
 import Pagination from '@/components/Pagination';
+import { sansParamsFiche, type EtatRetourListe } from '@/pages/tiers/params';
 import type { Paginated, Tiers } from '@/types';
 
 /**
@@ -184,7 +185,8 @@ export default function TiersList({ idActif }: { idActif: number | null }) {
     // était masquée) : le focus est tombé sur <body> avec elle. On le rend à
     // la ligne qu'on venait d'ouvrir — une fois par navigation, pas à chaque
     // rafraîchissement des données.
-    const depuis = (location.state as { depuis?: number } | null)?.depuis;
+    const etat = location.state as EtatRetourListe | null;
+    const depuis = etat?.depuis;
     const focusRendu = useRef<string | null>(null);
     useEffect(() => {
         if (depuis === undefined || focusRendu.current === location.key) return;
@@ -197,24 +199,57 @@ export default function TiersList({ idActif }: { idActif: number | null }) {
         }
     }, [depuis, location.key, data]);
 
+    // Retour d'une fiche SUPPRIMÉE : elle a emporté le focus qu'elle tenait
+    // (le bouton « Plus »), et rien ne disait que c'était fait. Le compte
+    // rendu arrive par l'état de navigation ; le focus va au titre de la
+    // liste, juste au-dessus — mais seulement s'il est PERDU : si la fiche
+    // d'un autre tiers a été ouverte entre-temps, on n'y touche pas.
+    const supprime = etat?.supprime;
+    const titre = useRef<HTMLHeadingElement>(null);
+    const suppressionDite = useRef<string | null>(null);
+    useEffect(() => {
+        if (supprime === undefined || suppressionDite.current === location.key) return;
+
+        suppressionDite.current = location.key;
+        if (document.activeElement === null || document.activeElement === document.body) {
+            titre.current?.focus();
+        }
+    }, [supprime, location.key]);
+
     return (
         <div className="flex min-h-0 flex-1 flex-col rounded-xl bg-white shadow-sm">
             <div ref={tete} className="space-y-3 border-b border-slate-200 p-4">
-                <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                        <h1 className="text-xl font-semibold text-slate-900">{t('Tiers')}</h1>
-                        <p className="truncate text-sm text-slate-500">{t('Clients et fournisseurs')}</p>
+                <div>
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <h1 ref={titre} tabIndex={-1} className="text-xl font-semibold text-slate-900 focus:outline-none">
+                                {t('Tiers')}
+                            </h1>
+                            <p className="truncate text-sm text-slate-500">{t('Clients et fournisseurs')}</p>
+                        </div>
+                        {/* Rien à proposer à un rôle en lecture : le formulaire se
+                            remplirait, l'enregistrement finirait en refus. */}
+                        {peutEcrire && (
+                            <Link
+                                to={{ pathname: '/tiers/nouveau', search: sansParamsFiche(location.search) }}
+                                className="shrink-0 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
+                            >
+                                {t('+ Nouveau tiers')}
+                            </Link>
+                        )}
                     </div>
-                    {/* Rien à proposer à un rôle en lecture : le formulaire se
-                        remplirait, l'enregistrement finirait en refus. */}
-                    {peutEcrire && (
-                        <Link
-                            to={{ pathname: '/tiers/nouveau', search: location.search }}
-                            className="shrink-0 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
-                        >
-                            {t('+ Nouveau tiers')}
-                        </Link>
-                    )}
+
+                    {/* La région polie existe AVANT le message — ajoutée avec lui,
+                        elle ne serait pas lue. Le message vit le temps de cette
+                        entrée d'historique : le premier filtre ou la première
+                        fiche ouverte l'effacent. */}
+                    <div role="status" aria-live="polite">
+                        {supprime && (
+                            <p className="mt-3 break-words rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                                {t('« {nom} » ({code}) a été supprimé.', { nom: supprime.nom, code: supprime.code })}
+                            </p>
+                        )}
+                    </div>
                 </div>
 
                 <input

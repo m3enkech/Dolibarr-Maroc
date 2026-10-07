@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { useFeatures } from '@/lib/features';
 import { LEAD_SOURCES, LEAD_SOURCE_LABELS, type Tiers } from '@/types';
 import { useT } from '@/lib/langue';
+import { sansParamsFiche } from '@/pages/tiers/params';
 
 interface TiersFormData {
     name: string;
@@ -69,8 +70,17 @@ export default function TiersForm() {
     const isEdit = id !== undefined;
     const navigate = useNavigate();
     // Les filtres de la liste des tiers voyagent dans la chaîne de requête : on
-    // la rend telle quelle au retour, pour retrouver la liste comme on l'a laissée.
+    // la rend au retour, pour retrouver la liste comme on l'a laissée. ENTIÈRE
+    // seulement vers la fiche du tiers qu'on modifie — « Modifier » ramène à
+    // l'onglet d'où l'on est parti ; partout ailleurs (liste, tiers qui vient
+    // d'être créé), sans l'onglet de la fiche.
     const { search } = useLocation();
+    const searchListe = sansParamsFiche(search);
+    // « Interlocuteurs : gérés sur la fiche » mène à l'onglet où ils se gèrent,
+    // pas à celui d'où l'on venait.
+    const ongletContacts = new URLSearchParams(searchListe);
+    ongletContacts.set('onglet', 'contacts');
+    const versContacts = `?${ongletContacts}`;
     const { features } = useFeatures();
     const queryClient = useQueryClient();
     const [form, setForm] = useState<TiersFormData>(emptyForm);
@@ -131,8 +141,8 @@ export default function TiersForm() {
             // creer —, pas a la liste nue : retrouver sa ligne parmi des
             // centaines est une corvee, et la fiche s'ouvre a cote de la liste.
             const cree = (reponse.data as { data?: { id?: number } } | undefined)?.data?.id;
-            const fiche = isEdit && id ? `/tiers/${id}` : cree ? `/tiers/${cree}` : '/tiers';
-            navigate({ pathname: fiche, search });
+            if (isEdit && id) navigate({ pathname: `/tiers/${id}`, search });
+            else navigate({ pathname: cree ? `/tiers/${cree}` : '/tiers', search: searchListe });
         },
         onError: (err: any) => {
             const messages = err?.response?.data?.errors;
@@ -173,7 +183,7 @@ export default function TiersForm() {
     return (
         <div className="max-w-3xl space-y-4">
             <div>
-                <Link to={{ pathname: '/tiers', search }} className="text-sm text-emerald-600 hover:underline">
+                <Link to={{ pathname: '/tiers', search: searchListe }} className="text-sm text-emerald-600 hover:underline">
                     {t('← Retour à la liste')}
                 </Link>
                 <h1 className="mt-2 text-xl font-semibold text-slate-900">
@@ -203,7 +213,10 @@ export default function TiersForm() {
                             {isEdit && id ? (
                                 <p className="text-sm text-slate-500">
                                     {t('Interlocuteurs :')}{' '}
-                                    <Link to={{ pathname: `/tiers/${id}`, search }} className="text-emerald-700 underline">
+                                    <Link
+                                        to={{ pathname: `/tiers/${id}`, search: versContacts }}
+                                        className="text-emerald-700 underline"
+                                    >
                                         {t('gérés sur la fiche du tiers')}
                                     </Link>
                                 </p>
@@ -417,7 +430,7 @@ export default function TiersForm() {
                         {mutation.isPending ? t('Enregistrement…') : t('Enregistrer')}
                     </button>
                     <Link
-                        to={{ pathname: isEdit && id ? `/tiers/${id}` : '/tiers', search }}
+                        to={isEdit && id ? { pathname: `/tiers/${id}`, search } : { pathname: '/tiers', search: searchListe }}
                         className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
                     >
                         {t('Annuler')}
