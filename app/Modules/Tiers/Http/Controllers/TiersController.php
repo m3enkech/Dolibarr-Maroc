@@ -14,13 +14,16 @@ use App\Modules\Tiers\Http\Resources\TiersResource;
 use App\Modules\Tiers\Models\Tiers;
 use App\Modules\Tiers\Services\EncoursService;
 use App\Modules\Tiers\Services\TiersService;
+use App\Modules\Tiers\Services\VueEnsembleService;
 use App\Modules\Ventes\Models\DocumentVente;
 use App\Modules\Ventes\Models\DocumentVenteLigne;
 use App\Modules\Ventes\Models\Paiement;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 
 class TiersController extends Controller
 {
@@ -141,9 +144,19 @@ class TiersController extends Controller
      * pièces eux-mêmes, paginées, quand on les ouvre : charger ici les quatre
      * cents factures d'un gros client pour n'en afficher que le nombre serait
      * payer la page entière pour un chiffre.
+     *
+     * UNE garde (`tiers`), des montants filtrés BLOC PAR BLOC, comme la vue
+     * d'ensemble : ce que le tiers nous rapporte (`ca_ttc`, `ca_12_mois`) est
+     * OMIS sans le droit ventes, ce qu'on lui achète (`achats_ttc`) sans le
+     * droit achats. Le caissier lit les tiers pour encaisser, pas pour voir
+     * le chiffre d'affaires : l'écran le lui cachait, la réponse le lui
+     * donnait. Les COMPTES de pièces restent (ils nomment des onglets que
+     * l'écran filtre lui-même), et l'impayé aussi : ce que doit un client, la
+     * caisse le dit déjà au caissier qui lui vend à crédit.
      */
-    public function synthese(Tiers $tiers): JsonResponse
+    public function synthese(Request $request, Tiers $tiers): JsonResponse
     {
+        $utilisateur = $request->user();
         // Un seul balayage des documents de vente pour tous les comptes par
         // type — cinq requêtes séparées diraient la même chose cinq fois.
         $parType = DocumentVente::query()
@@ -168,7 +181,7 @@ class TiersController extends Controller
                 ->where('statut', DocumentVente::STATUT_VALIDE))
             ->sum('montant');
 
-        return response()->json(['data' => [
+        $data = [
             'ventes' => [
                 'devis' => (int) ($parType[DocumentVente::TYPE_DEVIS] ?? 0),
                 'commandes' => (int) ($parType[DocumentVente::TYPE_COMMANDE] ?? 0),
@@ -179,22 +192,60 @@ class TiersController extends Controller
             'achats' => (int) DocumentAchat::where('tiers_id', $tiers->id)->count(),
             'contacts' => (int) $tiers->contacts()->count(),
 
-            'ca_ttc' => $this->montant((clone $facturesEmises)->sum('total_ttc')),
-            'ca_12_mois' => $this->montant(
-                (clone $facturesEmises)->where('date_document', '>=', now()->subYear()->toDateString())->sum('total_ttc'),
-            ),
             'impaye' => $this->montant(max($duesTtc - $acomptes, 0)),
 
-            'achats_ttc' => $this->montant(
+            'premier_document' => DocumentVente::where('tiers_id', $tiers->id)->min('date_document'),
+            'dernier_document' => DocumentVente::where('tiers_id', $tiers->id)->max('date_document'),
+        ];
+
+        if ($utilisateur->hasPermission('ventes')) {
+            // Les douze mois du graphique « 12 derniers mois », au jour près :
+            // du 1er du mois M-11 au dernier jour du mois courant. Un an
+            // glissant depuis aujourd'hui, sans borne haute, mettait sur la
+            // même fiche deux « 12 mois » qui ne comptaient pas les mêmes
+            // factures : celles d'entre J-365 et le 1er du mois M-11, et
+            // celles datées d'avance.
+            [$du, $au] = VueEnsembleService::bornes('12m', CarbonImmutable::now());
+
+            $data['ca_ttc'] = $this->montant((clone $facturesEmises)->sum('total_ttc'));
+            $data['ca_12_mois'] = $this->montant(
+                (clone $facturesEmises)
+                    ->whereBetween('date_document', [$du->toDateString(), $au->toDateString()])
+                    ->sum('total_ttc'),
+            );
+        }
+
+        if ($utilisateur->hasPermission('achats')) {
+            $data['achats_ttc'] = $this->montant(
                 DocumentAchat::where('tiers_id', $tiers->id)
                     ->where('type', DocumentAchat::TYPE_FACTURE)
                     ->whereIn('statut', ['valide', 'paye'])
                     ->sum('total_ttc'),
-            ),
+            );
+        }
 
-            'premier_document' => DocumentVente::where('tiers_id', $tiers->id)->min('date_document'),
-            'dernier_document' => DocumentVente::where('tiers_id', $tiers->id)->max('date_document'),
-        ]]);
+        return response()->json(['data' => $data]);
+    }
+
+    /**
+     * La vue d'ensemble façon Zoho, en un seul appel : contact principal,
+     * accès au portail, conditions de paiement, crédit, compte client et
+     * revenus par mois. Compte et crédit n'y figurent que pour un tiers
+     * client, les revenus en plus qu'avec le droit `ventes` — voir
+     * VueEnsembleService.
+     *
+     * `periode` hors liste : 422, pas un repli silencieux sur six mois. L'écran
+     * ne l'envoie jamais (il valide l'URL avant) ; un appel qui le fait se
+     * trompe, et un graphique « 6 derniers mois » sous une demande « 24m »
+     * mentirait sans rien dire.
+     */
+    public function vueEnsemble(Request $request, Tiers $tiers, VueEnsembleService $service): JsonResponse
+    {
+        $periode = $request->validate([
+            'periode' => ['sometimes', 'string', Rule::in(VueEnsembleService::PERIODES)],
+        ])['periode'] ?? VueEnsembleService::PERIODE_DEFAUT;
+
+        return response()->json($service->pour($tiers, $request->user(), $periode));
     }
 
     /**

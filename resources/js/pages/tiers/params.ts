@@ -9,7 +9,25 @@
  * venait de créer s'affichait sur un « Aucune pièce de ce type » au lieu de
  * sa vue d'ensemble.
  */
-export const PARAMS_FICHE = ['onglet', 'type_piece'] as const;
+export const PARAMS_FICHE = ['onglet', 'type_piece', 'periode'] as const;
+
+/**
+ * La période du graphique des revenus (`?periode=`), comme le serveur
+ * l'accepte. Absente de l'URL : six mois, le défaut — on ne l'y écrit pas,
+ * comme l'onglet « Vue d'ensemble ».
+ */
+export const PERIODES = ['6m', '12m', 'annee'] as const;
+export type Periode = (typeof PERIODES)[number];
+export const PERIODE_DEFAUT: Periode = '6m';
+
+/**
+ * Une valeur tapée ou périmée dans l'URL retombe sur le défaut SANS appel :
+ * le serveur répondrait 422, et la vue d'ensemble entière tomberait pour un
+ * paramètre de graphique.
+ */
+export function lirePeriode(valeur: string | null): Periode {
+    return PERIODES.find((p) => p === valeur) ?? PERIODE_DEFAUT;
+}
 
 /** La chaîne de requête sans les paramètres de la fiche (`?` compris, ou vide). */
 export function sansParamsFiche(search: string): string {

@@ -1,17 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import GraphiqueBarres from '@/components/GraphiqueBarres';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatMAD } from '@/lib/format';
 import type { DashboardData, DashboardKpi } from '@/types';
 import { useT } from '@/lib/langue';
-
-const MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-
-function moisLabel(cle: string): string {
-    const m = parseInt(cle.slice(5, 7), 10);
-    return MOIS_COURTS[m - 1] ?? cle;
-}
 
 /** Carte KPI avec valeur et, optionnellement, la variation vs mois précédent. */
 function KpiCard({
@@ -48,84 +42,6 @@ function KpiCard({
                     </span>
                 )}
                 {sub && <span className="text-slate-400">{sub}</span>}
-            </div>
-        </div>
-    );
-}
-
-/** Graphe en barres du CA sur 12 mois, avec une courbe des achats en surimpression. */
-function BarChart12({ data, withAchats }: { data: DashboardData['ventes_12_mois']; withAchats: boolean }) {
-    const t = useT();
-    const W = 720;
-    const H = 240;
-    const padL = 8;
-    const padB = 22;
-    const padT = 12;
-    const n = data.length || 1;
-    const slot = (W - padL) / n;
-    const bw = slot * 0.55;
-
-    const max = Math.max(1, ...data.map((d) => Math.max(d.ca, d.achats ?? 0)));
-    const y = (val: number) => padT + (H - padT - padB) * (1 - val / max);
-    const x = (i: number) => padL + slot * i + (slot - bw) / 2;
-
-    const achatsPts = data
-        .map((d, i) => `${x(i) + bw / 2},${y(d.achats ?? 0)}`)
-        .join(' ');
-
-    return (
-        <div className="overflow-x-auto">
-            <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[560px]" role="img" aria-label="CA 12 mois">
-                {/* lignes de repère */}
-                {[0.25, 0.5, 0.75, 1].map((t) => (
-                    <line
-                        key={t}
-                        x1={padL}
-                        x2={W}
-                        y1={y(max * t)}
-                        y2={y(max * t)}
-                        stroke="#f1f5f9"
-                        strokeWidth={1}
-                    />
-                ))}
-                {/* barres CA */}
-                {data.map((d, i) => (
-                    <g key={d.mois}>
-                        <rect
-                            x={x(i)}
-                            y={y(d.ca)}
-                            width={bw}
-                            height={Math.max(0, H - padB - y(d.ca))}
-                            rx={3}
-                            fill="#059669"
-                        >
-                            <title>{`${moisLabel(d.mois)} : ${formatMAD(d.ca)}`}</title>
-                        </rect>
-                        <text x={x(i) + bw / 2} y={H - 6} textAnchor="middle" className="fill-slate-400" fontSize={10}>
-                            {moisLabel(d.mois)}
-                        </text>
-                    </g>
-                ))}
-                {/* courbe achats */}
-                {withAchats && (
-                    <polyline points={achatsPts} fill="none" stroke="#f59e0b" strokeWidth={2} strokeLinejoin="round" />
-                )}
-                {withAchats &&
-                    data.map((d, i) => (
-                        <circle key={`a-${d.mois}`} cx={x(i) + bw / 2} cy={y(d.achats ?? 0)} r={2.5} fill="#f59e0b">
-                            <title>{`Achats ${moisLabel(d.mois)} : ${formatMAD(d.achats ?? 0)}`}</title>
-                        </circle>
-                    ))}
-            </svg>
-            <div className="mt-2 flex gap-4 text-xs text-slate-500">
-                <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-600" /> Chiffre d'affaires
-                </span>
-                {withAchats && (
-                    <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-2.5 w-2.5 rounded-sm bg-amber-500" /> Achats
-                    </span>
-                )}
             </div>
         </div>
     );
@@ -305,7 +221,15 @@ export default function Dashboard() {
                     <div className="min-w-0 rounded-xl bg-white p-5 shadow-sm lg:col-span-2">
                         <h2 className="font-medium text-slate-900">{t("Chiffre d'affaires — 12 derniers mois")}</h2>
                         <div className="mt-4">
-                            <BarChart12 data={data.ventes_12_mois} withAchats={data.capabilities.achats} />
+                            {/* À l'échelle, comme avant l'extraction : même boîte
+                                720 × 240 étirée, même plancher de 560 px. */}
+                            <GraphiqueBarres
+                                points={data.ventes_12_mois.map((d) => ({ mois: d.mois, valeur: d.ca, secondaire: d.achats }))}
+                                titre={t("Chiffre d'affaires — 12 derniers mois")}
+                                libelleValeur={t("Chiffre d'affaires")}
+                                libelleSecondaire={data.capabilities.achats ? t('Achats') : undefined}
+                                echelle={{ largeur: 720, hauteur: 240, largeurMin: 560 }}
+                            />
                         </div>
                     </div>
                     {data.repartition_ventes && (

@@ -41,6 +41,11 @@ class Tiers extends Model
             'is_prospect' => 'boolean',
             'is_active' => 'boolean',
             'converti_at' => 'datetime',
+            // Sans cast, la colonne décimale sortait en NOMBRE JSON sous
+            // SQLite (5000) et en CHAÎNE sous PostgreSQL ("5000.00") : le même
+            // écran recevait deux types selon la base. Chaîne à deux décimales
+            // partout, comme tous les montants de l'API.
+            'plafond_credit' => 'decimal:2',
         ];
     }
 

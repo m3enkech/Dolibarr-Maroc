@@ -13,6 +13,11 @@ Route::get('tiers/{tiers}/encours', [TiersController::class, 'encours']);
 Route::get('tiers/{tiers}/synthese', [TiersController::class, 'synthese']);
 Route::get('tiers/{tiers}/produits', [TiersController::class, 'produits']);
 
+// Vue d'ensemble façon Zoho : UNE garde (celle du module, `tiers`), et les
+// blocs de vente filtrés dans le service selon les droits — le précédent est
+// le tableau de bord. Jamais un second `permission:` ici.
+Route::get('tiers/{tiers}/vue-ensemble', [TiersController::class, 'vueEnsemble']);
+
 // Les interlocuteurs, imbriqués sous leur tiers : un contact n'existe pas seul.
 Route::get('tiers/{tiers}/contacts', [ContactsController::class, 'index']);
 Route::post('tiers/{tiers}/contacts', [ContactsController::class, 'store']);

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -27,11 +28,12 @@ class DashboardTest extends TestCase
     }
 
     /** Crée une facture validée d'un montant HT donné et renvoie son id. */
-    private function factureValidee(string $token, int $tiersId, int $produitId, float $prix): void
+    private function factureValidee(string $token, int $tiersId, int $produitId, float $prix, ?string $date = null): void
     {
         $doc = $this->withToken($token)->postJson('/api/v1/ventes/documents', [
             'type' => 'facture',
             'tiers_id' => $tiersId,
+            'date_document' => $date,
             'lignes' => [
                 ['produit_id' => $produitId, 'designation' => 'Ligne', 'quantite' => 1, 'prix_unitaire' => $prix, 'tva_rate' => 20],
             ],
@@ -100,6 +102,44 @@ class DashboardTest extends TestCase
         $this->assertArrayNotHasKey('resultat', $kpis);
         $this->assertArrayNotHasKey('tresorerie', $kpis);
         $this->assertArrayNotHasKey('creances', $kpis);
+    }
+
+    /**
+     * Le 31 du mois, reculer de onze mois PUIS ramener au 1er tombait sur un
+     * mois trop court et débordait : le 31 octobre, la série partait du 1er
+     * décembre, perdait novembre et finissait sur un mois futur à zéro — plus
+     * les mêmes mois que le « 12 derniers mois » de la fiche tiers.
+     */
+    public function test_la_serie_ne_deborde_pas_un_31(): void
+    {
+        Carbon::setTestNow('2026-10-31 12:00:00');
+
+        try {
+            [$token] = $this->register();
+            $tiers = $this->withToken($token)->postJson('/api/v1/tiers', ['name' => 'Client A'])->json('data');
+            $produit = $this->withToken($token)->postJson('/api/v1/produits', [
+                'name' => 'Ciment', 'type' => 'product', 'sell_price' => 100, 'tva_rate' => 20,
+            ])->json('data');
+
+            $this->factureValidee($token, $tiers['id'], $produit['id'], 700, '2025-11-30');
+            // Deux factures le même jour : la série les additionne.
+            $this->factureValidee($token, $tiers['id'], $produit['id'], 100.10, '2026-10-31');
+            $this->factureValidee($token, $tiers['id'], $produit['id'], 0.20, '2026-10-31');
+            // Hors fenêtre des deux côtés.
+            $this->factureValidee($token, $tiers['id'], $produit['id'], 9000, '2025-10-31');
+            $this->factureValidee($token, $tiers['id'], $produit['id'], 9000, '2026-11-01');
+
+            $serie = $this->withToken($token)->getJson('/api/v1/dashboard')->assertOk()->json('data.ventes_12_mois');
+
+            $this->assertCount(12, $serie);
+            $this->assertSame('2025-11', $serie[0]['mois']);
+            $this->assertSame('2026-10', $serie[11]['mois']);
+            $this->assertSame(700.0, (float) $serie[0]['ca']);
+            $this->assertSame(100.3, (float) $serie[11]['ca']);
+            $this->assertSame(800.3, round(array_sum(array_map(fn ($m) => (float) $m['ca'], $serie)), 2));
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_caissier_tableau_minimal(): void

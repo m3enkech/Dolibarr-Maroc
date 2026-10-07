@@ -130,11 +130,16 @@ class EncoursService
     /**
      * Contrôle du plafond avant d'accorder un crédit.
      *
+     * `$encoursConnu` : l'encours que l'appelant vient de lire par parTiers ou
+     * soldesSignes (plancher à zéro appliqué), pour ne pas relire le grand
+     * livre — la vue d'ensemble d'un tiers a déjà son solde en main. La règle
+     * du plafond, elle, reste ici, unique pour la caisse, le portail et la fiche.
+     *
      * @return array{autorise: bool, encours: float, plafond: ?float, disponible: ?float, depassement: float}
      */
-    public function verifier(Tiers $tiers, float $montantCredit): array
+    public function verifier(Tiers $tiers, float $montantCredit, ?float $encoursConnu = null): array
     {
-        $encours = $this->pour($tiers);
+        $encours = $encoursConnu ?? $this->pour($tiers);
         $plafond = $tiers->plafond_credit !== null ? (float) $tiers->plafond_credit : null;
 
         if ($plafond === null) {

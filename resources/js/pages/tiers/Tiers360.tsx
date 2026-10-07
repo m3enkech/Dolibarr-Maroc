@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useFeatures } from '@/lib/features';
 import { formatMAD } from '@/lib/format';
+import { useFormats } from '@/lib/formats-langue';
 import { useT } from '@/lib/langue';
 import MenuDeroulant, { type ElementMenu } from '@/components/MenuDeroulant';
 import Pagination from '@/components/Pagination';
@@ -13,18 +14,24 @@ import { achatStatutClasses, achatStatutLabel } from '@/pages/achats/common';
 import ApercuVente from '@/pages/ventes/ApercuVente';
 import { statutClasses, statutLabel } from '@/pages/ventes/common';
 import ContactsTiers from '@/pages/tiers/ContactsTiers';
-import { sansParamsFiche, type EtatRetourListe } from '@/pages/tiers/params';
+import { lirePeriode, PERIODE_DEFAUT, sansParamsFiche, type EtatRetourListe } from '@/pages/tiers/params';
 import TiersTimeline from '@/pages/tiers/TiersTimeline';
+import VueEnsembleTiers, { type VueEnsembleReponse } from '@/pages/tiers/VueEnsembleTiers';
 import type { DocumentAchat, DocumentType, DocumentVente, Paginated, Tiers } from '@/types';
 
 type Synthese = {
     ventes: { devis: number; commandes: number; bons_livraison: number; factures: number; avoirs: number };
     achats: number;
     contacts: number;
-    ca_ttc: string;
-    ca_12_mois: string;
-    impaye: string;
-    achats_ttc: string;
+    // Absents — pas nuls — sans le droit ventes (chiffre d'affaires) ou
+    // achats (achats facturés) : le serveur les omet bloc par bloc.
+    ca_ttc?: string;
+    /** Les mêmes douze mois entiers que le graphique « 12 derniers mois ». */
+    ca_12_mois?: string;
+    // `impaye` existe aussi dans la réponse, calculé sur les PIÈCES : il
+    // n'est volontairement pas lu. L'impayé affiché est celui du grand
+    // livre, servi par la vue d'ensemble — le même que la liste.
+    achats_ttc?: string;
     premier_document: string | null;
     dernier_document: string | null;
 };
@@ -37,17 +44,6 @@ type ProduitEchange = {
     quantite: string;
     montant_ht: string;
     occurrences: number;
-};
-
-/** Ce que la vue d'ensemble lit des interlocuteurs — même requête, même cache que l'onglet Contacts. */
-type ContactResume = {
-    id: number;
-    nom: string;
-    fonction: string | null;
-    email: string | null;
-    phone: string | null;
-    mobile: string | null;
-    is_principal: boolean;
 };
 
 /** Les onglets, tels qu'ils s'écrivent dans l'URL (`?onglet=`). */
@@ -362,17 +358,24 @@ function FicheTiers({
         retry: reessayerSiPanne,
     });
 
-    // Le contact principal de la vue d'ensemble : la requête de l'onglet
-    // Contacts, même clé — ce qu'on y modifie se voit ici sans relecture.
-    const contacts = useQuery({
-        queryKey: ['tiers-contacts', tiers.id],
+    // La vue d'ensemble entière en UN appel : contact principal, portail,
+    // conditions, crédit, compte client et revenus de la période. La période
+    // est dans l'URL ; une valeur inconnue y retombe sur le défaut AVANT
+    // l'appel. En changer garde le graphique précédent, estompé, le temps
+    // que l'autre arrive — le reste de la vue ne dépend pas de la période.
+    const periode = lirePeriode(params.get('periode'));
+    const vueEnsemble = useQuery({
+        queryKey: ['tiers-vue-ensemble', tiers.id, periode],
         queryFn: async () => {
-            const { data } = await api.get<{ data: ContactResume[] }>(`/tiers/${tiers.id}/contacts`);
-            return data.data;
+            const { data } = await api.get<VueEnsembleReponse>(`/tiers/${tiers.id}/vue-ensemble`, { params: { periode } });
+            return data;
         },
         enabled: onglet === 'apercu',
+        placeholderData: keepPreviousData,
         retry: reessayerSiPanne,
     });
+    const vueIndisponible = vueEnsemble.isError && vueEnsemble.data === undefined;
+    const { montant } = useFormats();
 
     // Sous 1280 px, la liste qu'on vient de quitter est masquée : le focus qui
     // y était retombe sur <body>, et Tab repartait du menu. On le pose sur le
@@ -406,6 +409,9 @@ function FicheTiers({
             predicate: saufLaFiche ? (requete) => requete.queryKey[1] !== id : undefined,
         });
         queryClient.invalidateQueries({ queryKey: ['tiers-detail', id] });
+        // Convertir un prospect ou toucher au tiers peut changer ce qu'il est
+        // (client ou non) : la vue d'ensemble se relit, toutes périodes.
+        queryClient.invalidateQueries({ queryKey: ['tiers-vue-ensemble', tiers.id] });
         queryClient.invalidateQueries({ queryKey: ['selecteur-tiers'] });
         queryClient.invalidateQueries({ queryKey: ['selecteur-tiers-fiche', tiers.id] });
         queryClient.invalidateQueries({ queryKey: ['tiers-count'] });
@@ -615,6 +621,17 @@ function FicheTiers({
     // quand elle a échoué — « … » à vie ne disait pas qu'il fallait réessayer.
     const kpi = (valeur: (s: Synthese) => string) => (synthese ? valeur(synthese) : syntheseIndisponible ? '—' : '…');
 
+    // Le bandeau des chiffres clients : un CLIENT, et un rôle qui voit les
+    // ventes — le caissier voit ce que doit le client (compte et crédit, plus
+    // bas, comme à la caisse), pas ce qu'il rapporte. Client au sens du
+    // serveur dès sa réponse ; avant, sa règle supposée — coché client ou
+    // prospect. Un tiers sans case, supposé client par l'écran et démenti par
+    // le serveur, gardait un « Créances impayées : — » à vie.
+    const clientSuppose = tiers.is_client || tiers.is_prospect;
+    const estClient = vueEnsemble.data ? vueEnsemble.data.data.client : clientSuppose;
+    const bandeClient = estClient && can('ventes');
+    const compte = vueEnsemble.data?.data.compte;
+
     const chiffresIndisponibles = syntheseIndisponible && (
         <p role="alert" className="mt-3 text-sm text-amber-800">
             {t('Chiffres indisponibles.')}
@@ -768,18 +785,55 @@ function FicheTiers({
             {/* ---------------------------- contenu ----------------------------- */}
             {onglet === 'apercu' && (
                 <div className="space-y-4">
-                    {/* Les chiffres CLIENTS — réservés à qui a un compte client.
-                        Les cases sont posées même sans synthèse : leur arrivée ne
-                        décale rien, et « … » ne prétend aucun montant. */}
-                    {!fournisseurPur && (
+                    {/* Les chiffres CLIENTS — réservés à un client ET à qui
+                        voit les ventes : sans ce droit, la synthèse omet le
+                        chiffre d'affaires, et le compte client reste lisible
+                        plus bas. Les cases sont posées même sans données : leur
+                        arrivée ne décale rien, et « … » ne prétend aucun montant.
+
+                        DEUX DÉFINITIONS, DEUX LIBELLÉS. Le facturé vient des
+                        pièces, TTC, avoirs non déduits ; les revenus du
+                        graphique sont hors taxes, avoirs déduits. Écrire
+                        « chiffre d'affaires » sur les deux, c'était afficher
+                        deux montants contradictoires sous le même nom. L'impayé,
+                        lui, est le compte client du GRAND LIVRE, celui de la
+                        liste et du tableau « Compte client » : calculé sur les
+                        pièces, il divergeait au premier effet ou au premier avoir. */}
+                    {bandeClient && (
                         <section aria-label={t('Synthèse')} className="rounded-xl bg-white p-5 shadow-sm">
                             <div className="grid gap-3 @md:grid-cols-2 @3xl:grid-cols-4">
-                                <Kpi libelle={t("Chiffre d'affaires")} valeur={kpi((s) => formatMAD(s.ca_ttc))} />
-                                <Kpi libelle={t('Sur 12 mois')} valeur={kpi((s) => formatMAD(s.ca_12_mois))} />
                                 <Kpi
-                                    libelle={t('Impayé')}
-                                    valeur={kpi((s) => formatMAD(s.impaye))}
-                                    alerte={Number(synthese?.impaye ?? 0) > 0}
+                                    libelle={t('Facturé TTC')}
+                                    valeur={kpi((s) => montant(s.ca_ttc))}
+                                    detail={t('avoirs non déduits')}
+                                />
+                                {/* Les douze mois ENTIERS du graphique « 12 derniers
+                                    mois », pas un an glissant au jour près. */}
+                                <Kpi
+                                    libelle={t('Facturé TTC sur 12 mois')}
+                                    valeur={kpi((s) => montant(s.ca_12_mois))}
+                                    detail={t('avoirs non déduits')}
+                                />
+                                <Kpi
+                                    libelle={t('Créances impayées')}
+                                    valeur={
+                                        vueEnsemble.data
+                                            ? compte
+                                                ? montant(compte.creances)
+                                                : '—'
+                                            : vueIndisponible
+                                              ? '—'
+                                              : '…'
+                                    }
+                                    alerte={Number(compte?.creances ?? 0) > 0}
+                                    // Le montant EN TÊTE : coupé en fin de case, c'est
+                                    // lui qu'on perdait. Et pas « crédit » : la carte
+                                    // Conditions parle de LIMITE de crédit.
+                                    detail={
+                                        Number(compte?.credits ?? 0) > 0
+                                            ? t('{montant} en faveur du client', { montant: montant(compte?.credits) })
+                                            : undefined
+                                    }
                                 />
                                 <Kpi
                                     libelle={t('Relation depuis')}
@@ -800,17 +854,24 @@ function FicheTiers({
                     {achatsVisibles && (
                         <section aria-label={t('Achats')} className="rounded-xl bg-white p-5 shadow-sm">
                             <div className="grid gap-3 @md:grid-cols-2">
-                                <Kpi libelle={t('Achats facturés')} valeur={kpi((s) => formatMAD(s.achats_ttc))} />
+                                <Kpi libelle={t('Achats facturés')} valeur={kpi((s) => montant(s.achats_ttc))} />
                                 <Kpi libelle={t("Pièces d'achat")} valeur={kpi((s) => String(s.achats))} />
                             </div>
-                            {fournisseurPur && chiffresIndisponibles}
+                            {!bandeClient && chiffresIndisponibles}
                         </section>
                     )}
 
-                    <Identite
+                    <VueEnsembleTiers
                         tiers={tiers}
-                        principal={contacts.data?.find((c) => c.is_principal) ?? null}
-                        contactsCharges={contacts.data !== undefined || contacts.isError}
+                        reponse={vueEnsemble.data}
+                        indisponible={vueIndisponible}
+                        onReessayer={() => vueEnsemble.refetch()}
+                        periode={periode}
+                        periodeEnCours={vueEnsemble.isPlaceholderData}
+                        onPeriode={(p) => majParams({ periode: p === PERIODE_DEFAUT ? null : p })}
+                        onVoirContacts={() => majParams({ onglet: 'contacts' })}
+                        lienModifier={{ pathname: `/tiers/${id}/modifier`, search }}
+                        clientSuppose={clientSuppose}
                     />
                 </div>
             )}
@@ -985,112 +1046,6 @@ function FicheTiers({
 
 /* ---------------------------------------------------------------------- */
 
-/**
- * L'identité du tiers : ce qu'on recopie sur un bon de commande ou qu'on
- * vérifie avant une facture. Rien n'est affiché vide — une ligne « RC : — »
- * par champ non saisi noierait les trois qui le sont.
- */
-function Identite({
-    tiers,
-    principal,
-    contactsCharges,
-}: {
-    tiers: Tiers;
-    principal: ContactResume | null;
-    /** Tant que les contacts sont attendus, on ne retombe pas sur l'ancien champ « contact ». */
-    contactsCharges: boolean;
-}) {
-    const t = useT();
-    const titre = useId();
-
-    const ville = [tiers.postal_code, tiers.city].filter(Boolean).join(' ');
-
-    // Le contact principal désigné dans l'onglet Contacts prime ; à défaut, le
-    // nom saisi sur la fiche elle-même (anciens tiers, reprises).
-    const contact = principal ? (
-        <>
-            <bdi>{principal.nom}</bdi>
-            {principal.fonction && <span className="text-slate-500"> — {principal.fonction}</span>}
-            {[principal.mobile, principal.phone, principal.email].filter(Boolean).map((coordonnee) => (
-                <span key={coordonnee} className="block text-slate-600">
-                    <span dir="ltr">{coordonnee}</span>
-                </span>
-            ))}
-        </>
-    ) : contactsCharges && tiers.contact_name ? (
-        <bdi>{tiers.contact_name}</bdi>
-    ) : null;
-
-    // Téléphone, e-mail et site s'écrivent de gauche à droite en toute
-    // langue : `dir="ltr"` garde le « + » de +212 devant, au lieu de le
-    // renvoyer en fin de numéro sur l'écran arabe.
-    const lignes: { cle: string; libelle: string; valeur: React.ReactNode }[] = [
-        { cle: 'ice', libelle: t('ICE'), valeur: tiers.ice && <bdi>{tiers.ice}</bdi> },
-        { cle: 'if', libelle: t('IF'), valeur: tiers.if_number && <bdi>{tiers.if_number}</bdi> },
-        { cle: 'rc', libelle: t('RC'), valeur: tiers.rc && <bdi>{tiers.rc}</bdi> },
-        { cle: 'patente', libelle: t('Patente'), valeur: tiers.patente && <bdi>{tiers.patente}</bdi> },
-        { cle: 'cnss', libelle: t('CNSS'), valeur: tiers.cnss && <bdi>{tiers.cnss}</bdi> },
-        {
-            cle: 'adresse',
-            libelle: t('Adresse'),
-            valeur: (tiers.address || ville) && (
-                <>
-                    {tiers.address && <bdi className="block">{tiers.address}</bdi>}
-                    {ville && <bdi className="block">{ville}</bdi>}
-                </>
-            ),
-        },
-        {
-            cle: 'telephone',
-            libelle: t('Téléphone'),
-            valeur: tiers.phone && (
-                <a href={`tel:${tiers.phone}`} dir="ltr" className="text-emerald-700 hover:underline">
-                    {tiers.phone}
-                </a>
-            ),
-        },
-        {
-            cle: 'email',
-            libelle: t('Email'),
-            valeur: tiers.email && (
-                <a href={`mailto:${tiers.email}`} dir="ltr" className="text-emerald-700 hover:underline">
-                    {tiers.email}
-                </a>
-            ),
-        },
-        {
-            cle: 'site',
-            libelle: t('Site web'),
-            valeur: tiers.website && (
-                <a href={tiers.website} target="_blank" rel="noopener noreferrer" dir="ltr" className="text-emerald-700 hover:underline">
-                    {tiers.website}
-                </a>
-            ),
-        },
-        { cle: 'contact', libelle: t('Contact principal'), valeur: contact },
-    ].filter((ligne) => Boolean(ligne.valeur));
-
-    return (
-        <section aria-labelledby={titre} className="rounded-xl bg-white p-5 shadow-sm">
-            <h2 id={titre} className="font-medium text-slate-900">
-                {t('Identité')}
-            </h2>
-            {lignes.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-400">{t('Aucune information renseignée.')}</p>
-            ) : (
-                <dl className="mt-3 grid gap-x-6 gap-y-3 @md:grid-cols-2">
-                    {lignes.map((ligne) => (
-                        <div key={ligne.cle} className="min-w-0">
-                            <dt className="text-xs uppercase tracking-wide text-slate-500">{ligne.libelle}</dt>
-                            <dd className="mt-0.5 break-words text-sm text-slate-900">{ligne.valeur}</dd>
-                        </div>
-                    ))}
-                </dl>
-            )}
-        </section>
-    );
-}
-
 /** Ce qu'on montre quand la fiche ne PEUT pas s'afficher — et pourquoi. */
 function FicheIndisponible({
     erreur,
@@ -1147,13 +1102,19 @@ function Kpi({
     detail?: string;
     alerte?: boolean;
 }) {
+    // Le détail PASSE À LA LIGNE au lieu d'être coupé : dans une case de
+    // 150 px (quatre colonnes à 1440 px), l'ellipse mangeait le montant, seule
+    // information utile de la ligne.
     return (
         <div className="min-w-0 rounded-lg bg-slate-50 px-4 py-3">
             <div className="text-xs uppercase tracking-wide text-slate-500">{libelle}</div>
-            <div className={`mt-0.5 truncate text-lg font-semibold ${alerte ? 'text-amber-700' : 'text-slate-900'}`}>
+            <div
+                title={valeur}
+                className={`mt-0.5 truncate text-lg font-semibold ${alerte ? 'text-amber-700' : 'text-slate-900'}`}
+            >
                 {valeur}
             </div>
-            {detail && <div className="truncate text-xs text-slate-400">{detail}</div>}
+            {detail && <div className="break-words text-xs text-slate-400">{detail}</div>}
         </div>
     );
 }

@@ -41,6 +41,8 @@ export default function ContactsTiers({ tiersId }: { tiersId: number }) {
     const rafraichir = () => {
         qc.invalidateQueries({ queryKey: ['tiers-contacts', tiersId] });
         qc.invalidateQueries({ queryKey: ['tiers-synthese', String(tiersId)] });
+        // Le contact principal de la vue d'ensemble vient de son propre appel.
+        qc.invalidateQueries({ queryKey: ['tiers-vue-ensemble', tiersId] });
         setFormulaire(null);
         setEditionId(null);
     };

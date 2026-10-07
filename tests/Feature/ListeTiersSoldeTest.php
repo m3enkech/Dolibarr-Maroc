@@ -215,6 +215,29 @@ class ListeTiersSoldeTest extends TestCase
         $this->assertSame('240.00', $this->liste()[$client->id]['solde']);
     }
 
+    /**
+     * Le caissier (tiers en lecture, ventes fermées) lit le solde : c'est
+     * l'encours que la caisse lui montre pour vendre à crédit, et la fiche
+     * le lui répète dans son compte client. Une seule politique, la même sur
+     * la liste, la fiche et la caisse — ce qui lui reste caché, c'est le
+     * chiffre d'affaires (voir VueEnsembleTiersTest).
+     */
+    public function test_le_caissier_lit_le_meme_solde_que_la_fiche_et_la_caisse(): void
+    {
+        $client = $this->tiers('CLIM & COOL');
+        $this->piece($client, DocumentVente::TYPE_FACTURE, 200); // 240 TTC
+
+        $caissier = User::factory()->create([
+            'tenant_id' => $this->entreprise->id, 'role' => 'caissier', 'is_active' => true,
+        ])->createToken('spa')->plainTextToken;
+
+        $this->assertSame('240.00', $this->liste(jeton: $caissier)[$client->id]['solde']);
+        $this->withToken($caissier)->getJson("/api/v1/tiers/{$client->id}/vue-ensemble")
+            ->assertOk()->assertJsonPath('data.compte.creances', '240.00')->assertJsonMissingPath('data.revenus');
+        $this->withToken($caissier)->getJson("/api/v1/tiers/{$client->id}/encours")
+            ->assertOk()->assertJsonPath('data.encours', '240.00');
+    }
+
     public function test_le_solde_n_est_calcule_que_sur_demande(): void
     {
         $this->tiers('CLIM & COOL');

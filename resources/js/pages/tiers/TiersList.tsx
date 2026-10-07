@@ -4,7 +4,7 @@ import { isAxiosError } from 'axios';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { formatMAD } from '@/lib/format';
+import { useFormats } from '@/lib/formats-langue';
 import { useT } from '@/lib/langue';
 import { useDebounce } from '@/lib/useDebounce';
 import Pagination from '@/components/Pagination';
@@ -423,6 +423,9 @@ export default function TiersList({ idActif }: { idActif: number | null }) {
  */
 function MontantDu({ solde }: { solde?: string | null }) {
     const t = useT();
+    // Dans la langue de l'écran, comme la fiche à côté : le même solde ne
+    // doit pas s'écrire « MAD » dans la liste et « د.م. » dans la fiche.
+    const { montant: formater } = useFormats();
 
     if (solde === null || solde === undefined) return null;
 
@@ -431,7 +434,7 @@ function MontantDu({ solde }: { solde?: string | null }) {
     if (montant < 0) {
         return (
             <span className="shrink-0 text-end text-xs font-medium tabular-nums text-sky-700">
-                {t('crédit {montant}', { montant: formatMAD(-montant) })}
+                {t('crédit {montant}', { montant: formater(-montant) })}
             </span>
         );
     }
@@ -445,7 +448,7 @@ function MontantDu({ solde }: { solde?: string | null }) {
             }`}
         >
             <span className="sr-only">{t('Montant dû')} </span>
-            {formatMAD(montant)}
+            {formater(montant)}
         </span>
     );
 }

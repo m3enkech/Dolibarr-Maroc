@@ -7,6 +7,7 @@ use App\Modules\Achats\Models\DocumentAchat;
 use App\Modules\Catalogue\Models\Produit;
 use App\Modules\Compta\Services\ComptaService;
 use App\Modules\Compta\Services\EtatsSyntheseService;
+use App\Modules\Stock\Models\Stock;
 use App\Modules\Ventes\Models\DocumentVente;
 use App\Modules\Ventes\Models\DocumentVenteLigne;
 use App\Modules\Ventes\Models\Paiement;
@@ -120,36 +121,70 @@ class DashboardService
             ->sum('montant'), 2);
     }
 
-    /** Série CA (et achats si autorisé) sur les 12 derniers mois. */
+    /**
+     * Série CA (et achats si autorisé) sur les 12 derniers mois, le mois en
+     * cours compris — les mêmes bornes que le « 12 derniers mois » de la fiche
+     * tiers (VueEnsembleService::bornes), qui dessine avec le même graphique.
+     *
+     * Ramené au 1er du mois AVANT de reculer : reculer de onze mois depuis un
+     * 31 tombait sur un mois trop court et débordait — le 31 octobre partait
+     * du 1er décembre, novembre perdu et un mois futur à zéro au bout.
+     *
+     * Agrégé par JOUR en SQL et regroupé par mois en PHP : une ligne par
+     * pièce, c'était un objet Eloquent par ticket de caisse de l'année, et la
+     * limite mémoire atteinte bien avant la fin d'un exercice chargé. Le
+     * GROUP BY sur la date brute se lit pareil sous SQLite et PostgreSQL ;
+     * le mois, lui, s'extrairait différemment sur chacune. Cumul en centimes.
+     */
     private function serie12Mois(Carbon $now, bool $peutAchats): array
     {
-        $debut = $now->copy()->subMonths(11)->startOfMonth();
+        $debut = $now->copy()->startOfMonth()->subMonthsNoOverflow(11);
+        $fin = $now->copy()->endOfMonth();
+        $periode = [$debut->format('Y-m-d'), $fin->format('Y-m-d')];
 
         $ventes = DocumentVente::query()
             ->whereIn('type', ['facture', 'avoir'])
             ->whereIn('statut', self::STATUTS_VALIDES)
-            ->where('date_document', '>=', $debut->format('Y-m-d'))
-            ->get(['type', 'date_document', 'total_ht']);
+            ->whereBetween('date_document', $periode)
+            ->toBase()
+            ->selectRaw('type, date_document, SUM(total_ht) AS total')
+            ->groupBy('type', 'date_document')
+            ->get();
 
         $achats = $peutAchats
             ? DocumentAchat::query()
                 ->where('type', 'facture')
                 ->whereIn('statut', self::STATUTS_ACHAT)
-                ->where('date_document', '>=', $debut->format('Y-m-d'))
-                ->get(['date_document', 'total_ht'])
+                ->whereBetween('date_document', $periode)
+                ->toBase()
+                ->selectRaw('date_document, SUM(total_ht) AS total')
+                ->groupBy('date_document')
+                ->get()
             : collect();
 
-        $serie = [];
+        $ca = [];
+        $achete = [];
         for ($i = 0; $i < 12; $i++) {
-            $mois = $debut->copy()->addMonths($i);
-            $cle = $mois->format('Y-m');
+            $cle = $debut->copy()->addMonthsNoOverflow($i)->format('Y-m');
+            $ca[$cle] = 0;
+            $achete[$cle] = 0;
+        }
 
-            $ca = $ventes->where('type', 'facture')->filter(fn ($d) => $d->date_document->format('Y-m') === $cle)->sum('total_ht')
-                - $ventes->where('type', 'avoir')->filter(fn ($d) => $d->date_document->format('Y-m') === $cle)->sum('total_ht');
+        // Les sept premiers caractères de la date sont le mois, qu'elle
+        // revienne en `date` PostgreSQL ou en chaîne SQLite.
+        $centimes = fn ($jour) => (int) round((float) $jour->total * 100);
+        foreach ($ventes as $jour) {
+            $ca[substr((string) $jour->date_document, 0, 7)] += $jour->type === 'avoir' ? -$centimes($jour) : $centimes($jour);
+        }
+        foreach ($achats as $jour) {
+            $achete[substr((string) $jour->date_document, 0, 7)] += $centimes($jour);
+        }
 
-            $ligne = ['mois' => $cle, 'ca' => round((float) $ca, 2)];
+        $serie = [];
+        foreach ($ca as $cle => $valeur) {
+            $ligne = ['mois' => $cle, 'ca' => round($valeur / 100, 2)];
             if ($peutAchats) {
-                $ligne['achats'] = round((float) $achats->filter(fn ($d) => $d->date_document->format('Y-m') === $cle)->sum('total_ht'), 2);
+                $ligne['achats'] = round($achete[$cle] / 100, 2);
             }
             $serie[] = $ligne;
         }
@@ -243,7 +278,7 @@ class DashboardService
         return Produit::query()
             ->where('type', 'product')
             ->whereNotNull('stock_min')
-            ->addSelect(['stock_quantite' => \App\Modules\Stock\Models\Stock::query()
+            ->addSelect(['stock_quantite' => Stock::query()
                 ->selectRaw('COALESCE(SUM(quantite), 0)')
                 ->whereColumn('produit_id', 'produits.id'),
             ])
