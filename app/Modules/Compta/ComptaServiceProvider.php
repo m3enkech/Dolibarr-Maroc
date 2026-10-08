@@ -4,6 +4,8 @@ namespace App\Modules\Compta;
 
 use App\Modules\Achats\Events\FactureAchatValidee;
 use App\Modules\Achats\Events\PaiementFournisseurEnregistre;
+use App\Modules\Compta\Console\RenumeroterEcrituresCommand;
+use App\Modules\Compta\Console\VerifierLettrageCommand;
 use App\Modules\Compta\Listeners\CreerImmobilisationsSurAchat;
 use App\Modules\Compta\Listeners\GenererEcritureAchat;
 use App\Modules\Compta\Listeners\GenererEcritureAvoir;
@@ -34,7 +36,10 @@ class ComptaServiceProvider extends ServiceProvider
         Event::listen(PaiementFournisseurEnregistre::class, GenererEcritureDecaissement::class);
 
         if ($this->app->runningInConsole()) {
-            $this->commands([\App\Modules\Compta\Console\RenumeroterEcrituresCommand::class]);
+            $this->commands([
+                RenumeroterEcrituresCommand::class,
+                VerifierLettrageCommand::class,
+            ]);
         }
     }
 }

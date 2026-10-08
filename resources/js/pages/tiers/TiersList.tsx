@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { api } from '@/lib/api';
@@ -8,8 +8,35 @@ import { useFormats } from '@/lib/formats-langue';
 import { useT } from '@/lib/langue';
 import { useDebounce } from '@/lib/useDebounce';
 import Pagination from '@/components/Pagination';
-import { sansParamsFiche, type EtatRetourListe } from '@/pages/tiers/params';
+import { aujourdHui, sansParamsFiche, type EtatRetourListe } from '@/pages/tiers/params';
 import type { Paginated, Tiers } from '@/types';
+
+type ActionGroupee = 'desactiver' | 'reactiver';
+
+type ResultatAction = { action: ActionGroupee; modifies: number; inchanges: number };
+
+/**
+ * Le message d'un refus ou d'une demande invalide, tel que le serveur l'a
+ * écrit — dans la langue de l'écran. Il peut arriver dans un Blob (export
+ * CSV demandé en `responseType: 'blob'`), qu'il faut alors relire.
+ */
+async function messageServeur(err: unknown, defaut: string): Promise<string> {
+    if (!isAxiosError(err) || (err.response?.status !== 403 && err.response?.status !== 422)) return defaut;
+
+    let corps: unknown = err.response.data;
+    if (corps instanceof Blob) {
+        try {
+            corps = JSON.parse(await corps.text());
+        } catch {
+            return defaut;
+        }
+    }
+    const donnees = corps as { message?: string; errors?: Record<string, string[]> } | undefined;
+
+    // Une erreur de validation dit sa raison dans `errors` ; `message` n'en
+    // reprend que la première, suivie de « (and 1 more error) ».
+    return Object.values(donnees?.errors ?? {})[0]?.[0] ?? donnees?.message ?? defaut;
+}
 
 /**
  * Assez pour remplir la colonne d'un écran de bureau sans tourner la page à
@@ -21,6 +48,17 @@ const TYPES = ['client', 'prospect', 'fournisseur'];
 
 const CHAMP =
     'w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500';
+
+/**
+ * Ce qu'un élément focalisable d'une ligne réserve au-dessus de lui quand le
+ * navigateur l'amène en vue : la hauteur de la barre collée (`--barre`,
+ * mesurée), plus un peu d'air.
+ */
+const SOUS_LA_BARRE = 'scroll-mt-[calc(var(--barre,0px)_+_0.5rem)]';
+
+/** Les boutons de la barre de sélection : petits, la colonne n'a que 320 px au bureau. */
+const BOUTON_BARRE =
+    'rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40';
 
 /**
  * La liste des tiers, en colonne étroite à côté de la fiche — ou seule, sous
@@ -113,6 +151,180 @@ export default function TiersList({ idActif }: { idActif: number | null }) {
         retry: (echecs, err) => (isAxiosError(err) && err.response !== undefined ? false : echecs < 1),
     });
 
+    /* ------------------------------------------------------------------ */
+    /* Sélection et actions groupées                                       */
+    /* ------------------------------------------------------------------ */
+
+    const queryClient = useQueryClient();
+
+    // LA SÉLECTION APPARTIENT À CE QU'ON VOIT : la page de CES filtres. Elle
+    // est rangée avec la clé qui l'a vue naître ; un autre filtre ou une autre
+    // page, et elle est vide — sans effet à synchroniser. On n'agit jamais sur
+    // des lignes cochées puis sorties de la vue : « Désactiver » sur dix tiers
+    // dont trois cochés deux pages plus tôt, c'est désactiver ce qu'on ne
+    // voit plus.
+    const cleSelection = `${q}|${type}|${actif}|${page}`;
+    const [selection, setSelection] = useState<{ cle: string; ids: number[] }>({ cle: cleSelection, ids: [] });
+    // Masquée ne suffit pas : gardée sous son ancienne clé, la sélection
+    // RESSUSCITAIT au retour sur le filtre de départ (« Fournisseurs » puis
+    // « Tous » : les deux cases d'avant se recochaient). On l'oublie au
+    // premier rendu sous une autre clé — un état ajusté pendant le rendu,
+    // le motif de React pour « réagir à un changement de props ».
+    if (selection.cle !== cleSelection && selection.ids.length > 0) {
+        setSelection({ cle: cleSelection, ids: [] });
+    }
+    // Les lignes d'une AUTRE requête, estompées le temps que la nouvelle
+    // arrive, ne se cochent pas : elles vont disparaître.
+    const lignesPage = data && !isPlaceholderData ? data.data : [];
+    const idsPage = lignesPage.map((tiers) => tiers.id);
+    // Un tiers supprimé par un collègue disparaît de la page au rafraîchissement :
+    // il quitte la sélection avec elle.
+    const selectionnes = selection.cle === cleSelection ? selection.ids.filter((id) => idsPage.includes(id)) : [];
+    const tousCoches = idsPage.length > 0 && selectionnes.length === idsPage.length;
+    const caseTout = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        // L'état « en partie » n'existe pas en attribut HTML : il se pose à la main.
+        if (caseTout.current) caseTout.current.indeterminate = selectionnes.length > 0 && !tousCoches;
+    });
+
+    // Maj + clic coche (ou décoche) toute la plage depuis la dernière case
+    // touchée, comme dans une messagerie.
+    const derniereCase = useRef<number | null>(null);
+    const basculer = (id: number, coche: boolean, plage: boolean) => {
+        let cibles = [id];
+        const depuis = derniereCase.current !== null ? idsPage.indexOf(derniereCase.current) : -1;
+        const jusqua = idsPage.indexOf(id);
+        if (plage && depuis !== -1 && jusqua !== -1) {
+            cibles = idsPage.slice(Math.min(depuis, jusqua), Math.max(depuis, jusqua) + 1);
+        }
+        derniereCase.current = id;
+
+        const suivante = new Set(selectionnes);
+        for (const cible of cibles) {
+            if (coche) suivante.add(cible);
+            else suivante.delete(cible);
+        }
+        // Dans l'ordre de la page : l'export et les messages suivent la liste.
+        setSelection({ cle: cleSelection, ids: idsPage.filter((x) => suivante.has(x)) });
+    };
+    const viderSelection = () => setSelection({ cle: cleSelection, ids: [] });
+
+    // Vider la sélection démonte la rangée d'actions, et le bouton qui avait
+    // le focus avec elle : il tombait sur <body>, et Tab repartait du menu.
+    // On le rend à la case « Tout cocher (page) », juste au-dessus. Après une
+    // action, elle est encore désactivée (`occupe`) au moment du succès : le
+    // focus attend donc le rendu qui la réactive, et seulement s'il est perdu.
+    const focusARendre = useRef(false);
+    useEffect(() => {
+        if (!focusARendre.current || caseTout.current === null || caseTout.current.disabled) return;
+        focusARendre.current = false;
+        if (document.activeElement === null || document.activeElement === document.body) caseTout.current.focus();
+    });
+
+    // Le compte rendu de la dernière action, rangé avec les FILTRES qui l'ont
+    // vu naître : il parle de lignes qu'un autre filtre ne montre plus. Pas
+    // avec la page : désactiver toute la dernière page des actifs la vide, la
+    // liste recule d'une page — et le compte rendu disparaissait avec elle.
+    const cleFiltres = `${q}|${type}|${actif}`;
+    const [retour, setRetour] = useState<{ cle: string; ok: boolean; texte: string } | null>(null);
+    // Oublié, pas seulement masqué : même raison que la sélection.
+    if (retour !== null && retour.cle !== cleFiltres) {
+        setRetour(null);
+    }
+    const retourVisible = retour !== null && retour.cle === cleFiltres ? retour : null;
+
+    const lignesSelection = lignesPage.filter((tiers) => selectionnes.includes(tiers.id));
+    const desactivables = lignesSelection.some((tiers) => tiers.is_active);
+    const reactivables = lignesSelection.some((tiers) => !tiers.is_active);
+
+    const texteResultat = ({ action, modifies, inchanges }: ResultatAction): string => {
+        const fait =
+            action === 'desactiver'
+                ? modifies === 1
+                    ? t('1 tiers désactivé.')
+                    : t('{n} tiers désactivés.', { n: modifies })
+                : modifies === 1
+                  ? t('1 tiers réactivé.')
+                  : t('{n} tiers réactivés.', { n: modifies });
+        if (inchanges === 0) return fait;
+
+        const deja = inchanges === 1 ? t("1 l'était déjà.") : t("{n} l'étaient déjà.", { n: inchanges });
+
+        return `${fait} ${deja}`;
+    };
+
+    const actionGroupee = useMutation({
+        mutationFn: async ({ ids, action }: { ids: number[]; action: ActionGroupee }) =>
+            (await api.post<{ data: ResultatAction }>('/tiers/actions', { ids, action })).data.data,
+        onSuccess: (resultat) => {
+            focusARendre.current = true;
+            viderSelection();
+            setRetour({ cle: cleFiltres, ok: true, texte: texteResultat(resultat) });
+            // La liste (étiquettes, filtre « actifs »), la fiche ouverte à côté
+            // si elle était cochée, et les sélecteurs de tiers des pièces.
+            queryClient.invalidateQueries({ queryKey: ['tiers'] });
+            queryClient.invalidateQueries({ queryKey: ['selecteur-tiers'] });
+            queryClient.invalidateQueries({ queryKey: ['tiers-count'] });
+        },
+        onError: async (err) => {
+            // Le bouton désactivé pendant l'envoi a pu perdre le focus : il
+            // revient sur la case du haut s'il est tombé sur <body>.
+            focusARendre.current = true;
+            setRetour({ cle: cleFiltres, ok: false, texte: await messageServeur(err, t("L'action n'a pas pu être appliquée.")) });
+            // Un refus pour « tiers introuvables » : un collègue en a supprimé.
+            // La liste relue, ils quittent la page — et la sélection avec elle.
+            queryClient.invalidateQueries({ queryKey: ['tiers', 'liste'] });
+        },
+    });
+
+    const agir = (action: ActionGroupee) => {
+        setRetour(null);
+        // Désactiver se défait, mais les lignes sortent alors d'une liste
+        // filtrée sur les actifs : on ne le fait pas sur un clic égaré.
+        if (
+            action === 'desactiver' &&
+            !window.confirm(
+                selectionnes.length === 1
+                    ? t('Désactiver 1 tiers ? Sa fiche, ses pièces et ses impayés restent consultables.')
+                    : t('Désactiver {n} tiers ? Leurs fiches, pièces et impayés restent consultables.', {
+                          n: selectionnes.length,
+                      }),
+            )
+        ) {
+            return;
+        }
+        actionGroupee.mutate({ ids: selectionnes, action });
+    };
+
+    /**
+     * L'export arrive en Blob, y compris quand le serveur le REFUSE : son
+     * message est alors dans le Blob. `ids` : la sélection ; sinon toute la
+     * liste avec ses filtres — ce que le serveur sort dans le même ordre.
+     */
+    const [exportEnCours, setExportEnCours] = useState(false);
+    const exporter = async (ids: number[] | null) => {
+        setRetour(null);
+        setExportEnCours(true);
+        try {
+            const reponse = await api.get<Blob>('/tiers/export', {
+                params: ids ? { ids } : { search: q || undefined, type: type || undefined, actif: actif || undefined },
+                responseType: 'blob',
+            });
+            const url = URL.createObjectURL(reponse.data);
+            const lien = document.createElement('a');
+            lien.href = url;
+            lien.download = `tiers-${aujourdHui()}.csv`;
+            lien.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            setRetour({ cle: cleFiltres, ok: false, texte: await messageServeur(err, t("L'export n'a pas pu être généré.")) });
+        } finally {
+            setExportEnCours(false);
+        }
+    };
+
+    const occupe = actionGroupee.isPending || exportEnCours;
+
     const refuse = isError && isAxiosError(error) && error.response?.status === 403;
     // L'erreur ne masque la liste que s'il n'y a rien à montrer : un
     // rafraîchissement raté (après une suppression, au retour du réseau) garde
@@ -149,6 +361,38 @@ export default function TiersList({ idActif }: { idActif: number | null }) {
               : data.meta.total === 1
                 ? t('1 tiers trouvé')
                 : t('{n} tiers trouvés', { n: data.meta.total.toLocaleString('fr-MA') });
+
+    // La barre des cases est COLLÉE en haut de ce qui défile : une ligne que
+    // le focus (Maj+Tab) ou un scrollIntoView amène au bord haut passait
+    // dessous, entièrement cachée quand la barre tient sur deux rangées. Sa
+    // hauteur, mesurée — elle varie avec la sélection et la largeur —, est
+    // réservée par `scroll-margin-top` sur les éléments focalisables des
+    // lignes : ce sont eux que le navigateur amène en vue, au bureau dans la
+    // zone qui défile comme sur téléphone dans la page.
+    const barre = useRef<HTMLDivElement>(null);
+    const [hauteurBarre, setHauteurBarre] = useState(0);
+    const barreAffichee = data !== undefined && data.data.length > 0;
+    useEffect(() => {
+        const element = barre.current;
+        if (element === null) return;
+
+        const mesurer = () => setHauteurBarre(element.offsetHeight);
+        mesurer();
+        const observateur = new ResizeObserver(mesurer);
+        observateur.observe(element);
+
+        return () => observateur.disconnect();
+    }, [barreAffichee]);
+
+    // Le nombre de lignes cochées, lu par la région polie du bas — hors de la
+    // zone `aria-busy`. Cocher ne disait rien : ni combien, ni que des
+    // actions venaient d'apparaître en haut de la liste.
+    const annonceSelection =
+        selectionnes.length === 0
+            ? ''
+            : selectionnes.length === 1
+              ? t('1 sélectionné')
+              : t('{n} sélectionnés', { n: selectionnes.length });
 
     // Changer de page ramène en haut de la liste. Deux défilements à remettre :
     // au bureau, celui de la zone des lignes — l'en-tête est HORS d'elle, le
@@ -249,7 +493,17 @@ export default function TiersList({ idActif }: { idActif: number | null }) {
                                 {t('« {nom} » ({code}) a été supprimé.', { nom: supprime.nom, code: supprime.code })}
                             </p>
                         )}
+                        {retourVisible?.ok && (
+                            <p className="mt-3 break-words rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                                {retourVisible.texte}
+                            </p>
+                        )}
                     </div>
+                    {retourVisible && !retourVisible.ok && (
+                        <p role="alert" className="mt-3 break-words rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                            {retourVisible.texte}
+                        </p>
+                    )}
                 </div>
 
                 <input
@@ -284,6 +538,25 @@ export default function TiersList({ idActif }: { idActif: number | null }) {
                         <option value="0">{t('Inactifs')}</option>
                     </select>
                 </div>
+
+                {/* Toute la liste, avec ses filtres — la sélection a son propre
+                    export, dans la barre des cases cochées. */}
+                {data && data.meta.total > 0 && (
+                    <div className="flex justify-end">
+                        <button
+                            type="button"
+                            onClick={() => exporter(null)}
+                            disabled={occupe}
+                            className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
+                        >
+                            {exportEnCours && selectionnes.length === 0
+                                ? t('Export…')
+                                : data.meta.total === 1
+                                  ? t('Exporter 1 tiers (CSV)')
+                                  : t('Exporter les {n} tiers (CSV)', { n: data.meta.total.toLocaleString('fr-MA') })}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* La seule zone qui défile : en-tête et pagination restent en place.
@@ -292,7 +565,12 @@ export default function TiersList({ idActif }: { idActif: number | null }) {
                 sans être positionné ne les retient pas — ceux des lignes du
                 bas allongeaient la PAGE jusqu'à 3 000 px, qui défilait alors
                 sous la liste censée être seule à bouger. */}
-            <div ref={zone} className="relative min-h-0 flex-1 xl:overflow-y-auto" aria-busy={isFetching}>
+            <div
+                ref={zone}
+                className="relative min-h-0 flex-1 xl:overflow-y-auto"
+                style={{ '--barre': `${hauteurBarre}px` } as CSSProperties}
+                aria-busy={isFetching}
+            >
                 {isLoading && <p className="px-4 py-8 text-center text-sm text-slate-400">{t('Chargement…')}</p>}
 
                 {/* Une erreur n'est PAS une liste vide : « aucun tiers » ferait
@@ -340,6 +618,101 @@ export default function TiersList({ idActif }: { idActif: number | null }) {
                     </div>
                 )}
 
+                {/* La barre des cases : « tout cocher » de la page, puis les
+                    actions dès qu'une ligne est cochée. COLLÉE en haut de la zone
+                    qui défile (au bureau) ou de l'écran (téléphone) : on coche
+                    en descendant, l'action reste à portée. */}
+                {data && data.data.length > 0 && (
+                    <div ref={barre} className="sticky top-0 z-10 space-y-2 border-b border-slate-200 bg-white px-4 py-2">
+                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                            <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+                                <input
+                                    ref={caseTout}
+                                    type="checkbox"
+                                    checked={tousCoches}
+                                    disabled={isPlaceholderData || occupe}
+                                    onChange={() => setSelection({ cle: cleSelection, ids: tousCoches ? [] : idsPage })}
+                                    className="size-4 shrink-0 accent-emerald-600"
+                                />
+                                {t('Tout cocher (page)')}
+                            </label>
+                            {selectionnes.length > 0 && (
+                                <span className="text-xs font-medium text-slate-700">
+                                    {selectionnes.length === 1
+                                        ? t('1 sélectionné')
+                                        : t('{n} sélectionnés', { n: selectionnes.length })}
+                                </span>
+                            )}
+                        </div>
+
+                        {selectionnes.length > 0 && (
+                            <div role="group" aria-label={t('Actions sur la sélection')} className="flex flex-wrap gap-1.5">
+                                {/* Proposées à qui peut écrire, et seulement quand
+                                    elles changent quelque chose : désactiver des
+                                    tiers déjà inactifs ne ferait rien. */}
+                                {peutEcrire && (
+                                    <button
+                                        type="button"
+                                        onClick={() => agir('desactiver')}
+                                        disabled={occupe || !desactivables}
+                                        className={BOUTON_BARRE}
+                                    >
+                                        {t('Désactiver')}
+                                    </button>
+                                )}
+                                {peutEcrire && (
+                                    <button
+                                        type="button"
+                                        onClick={() => agir('reactiver')}
+                                        disabled={occupe || !reactivables}
+                                        className={BOUTON_BARRE}
+                                    >
+                                        {t('Réactiver')}
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => exporter(selectionnes)}
+                                    disabled={occupe}
+                                    className={BOUTON_BARRE}
+                                >
+                                    {exportEnCours ? t('Export…') : t('Exporter la sélection (CSV)')}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        // Le bouton va disparaître : le focus part d'abord.
+                                        caseTout.current?.focus();
+                                        viderSelection();
+                                    }}
+                                    disabled={occupe}
+                                    className="rounded-md px-2 py-1 text-xs text-slate-500 underline hover:text-slate-800 disabled:opacity-50"
+                                >
+                                    {t('Tout décocher')}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Sous 1280 px, c'est la PAGE qui défile : l'en-tête où
+                            s'écrit le compte rendu est alors loin au-dessus, et un
+                            échec ne changeait rien là où l'on avait cliqué. Une
+                            copie VISUELLE ici, dans la barre collée sous les yeux ;
+                            les lecteurs d'écran ont déjà l'original (region
+                            polie ou alerte de l'en-tête), d'où `aria-hidden`. Au
+                            bureau, l'en-tête reste visible : pas de doublon. */}
+                        {retourVisible && (
+                            <p
+                                aria-hidden
+                                className={`break-words rounded-md px-2 py-1 text-xs xl:hidden ${
+                                    retourVisible.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
+                                }`}
+                            >
+                                {retourVisible.texte}
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {data && data.data.length > 0 && (
                     <ul
                         ref={liste}
@@ -347,18 +720,41 @@ export default function TiersList({ idActif }: { idActif: number | null }) {
                     >
                         {data.data.map((tiers) => {
                             const courant = tiers.id === idActif;
+                            const coche = selectionnes.includes(tiers.id);
 
+                            // La case est À CÔTÉ du lien, jamais dedans : un contrôle
+                            // dans un lien est du HTML invalide, et le clic sur la case
+                            // ouvrait la fiche. Le liseré et le fond de la ligne active
+                            // sont donc portés par la ligne entière.
                             return (
-                                <li key={tiers.id}>
+                                <li
+                                    key={tiers.id}
+                                    className={`flex items-stretch border-s-4 transition ${
+                                        courant
+                                            ? 'border-emerald-600 bg-emerald-50'
+                                            : coche
+                                              ? 'border-transparent bg-sky-50'
+                                              : 'border-transparent hover:bg-slate-50'
+                                    }`}
+                                >
+                                    {/* Le <label> élargit la cible à toute la marge de la ligne. */}
+                                    <label className="flex shrink-0 cursor-pointer items-start py-3 ps-3 pe-1">
+                                        <input
+                                            type="checkbox"
+                                            checked={coche}
+                                            disabled={isPlaceholderData || occupe}
+                                            onChange={(e) =>
+                                                basculer(tiers.id, e.target.checked, (e.nativeEvent as MouseEvent).shiftKey === true)
+                                            }
+                                            aria-label={t('Sélectionner {nom}', { nom: tiers.name })}
+                                            className={`size-4 accent-emerald-600 ${SOUS_LA_BARRE}`}
+                                        />
+                                    </label>
                                     <Link
                                         to={{ pathname: `/tiers/${tiers.id}`, search: location.search }}
                                         data-tiers={tiers.id}
                                         aria-current={courant ? 'page' : undefined}
-                                        className={`flex items-start justify-between gap-3 border-s-4 px-4 py-2.5 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${
-                                            courant
-                                                ? 'border-emerald-600 bg-emerald-50'
-                                                : 'border-transparent hover:bg-slate-50'
-                                        }`}
+                                        className={`flex min-w-0 flex-1 items-start justify-between gap-3 py-2.5 ps-2 pe-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${SOUS_LA_BARRE}`}
                                     >
                                         <span className="min-w-0">
                                             {/* Le nom suit SA langue, pas celle de l'écran
@@ -408,9 +804,12 @@ export default function TiersList({ idActif }: { idActif: number | null }) {
                 <Pagination meta={data.meta} onPage={(p) => majParams({ page: p > 1 ? String(p) : null })} compacte />
             )}
 
-            {/* HORS de la zone `aria-busy` : un lecteur d'écran y tairait tout. */}
+            {/* HORS de la zone `aria-busy` : un lecteur d'écran y tairait tout.
+                Deux nœuds dans la même région : seul celui qui change est lu
+                — la sélection sans le résultat de la recherche, et
+                inversement. */}
             <div role="status" aria-live="polite" className="sr-only">
-                {annonce}
+                <span>{annonce}</span> <span>{annonceSelection}</span>
             </div>
         </div>
     );

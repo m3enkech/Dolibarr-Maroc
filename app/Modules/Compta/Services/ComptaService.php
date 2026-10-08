@@ -3,6 +3,8 @@
 namespace App\Modules\Compta\Services;
 
 use App\Core\Sequences\SequenceService;
+use App\Modules\Achats\Models\DocumentAchat;
+use App\Modules\Achats\Models\PaiementFournisseur;
 use App\Modules\Compta\Models\ComptaMapping;
 use App\Modules\Compta\Models\Compte;
 use App\Modules\Compta\Models\Ecriture;
@@ -11,6 +13,7 @@ use App\Modules\Compta\Models\Exercice;
 use App\Modules\Compta\PlanComptableMarocain;
 use App\Modules\Ventes\Models\DocumentVente;
 use App\Modules\Ventes\Models\Paiement;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -37,7 +40,17 @@ class ComptaService
         // Rattrapage inclus : un tenant existant dont le plan est déjà seedé
         // reçoit les comptes système ET les mappings ajoutés par les versions
         // suivantes (achats, immobilisations…).
-        $comptesComplets = Compte::where('is_system', true)->count() >= count(PlanComptableMarocain::COMPTES);
+        //
+        // Complet = chaque CODE du plan est présent, système ou non. Compter
+        // les seuls comptes système ne finissait jamais chez une entreprise
+        // qui avait déjà créé l'un de ces codes à la main (un 4497 d'attente,
+        // un compte importé par la balance d'ouverture) : la boucle ne le
+        // recréait pas, le compte restait court d'un, et les 87 requêtes du
+        // rattrapage se rejouaient à CHAQUE appel — liste, caisse, relevé,
+        // chaque écriture. Mesuré : 11 requêtes pour lister les tiers, 98
+        // chez cette entreprise-là.
+        $codes = array_column(PlanComptableMarocain::COMPTES, 0);
+        $comptesComplets = Compte::whereIn('code', $codes)->count() >= count($codes);
         $mappingsComplets = ComptaMapping::count() >= count(PlanComptableMarocain::MAPPINGS_DEFAUT);
 
         if ($comptesComplets && $mappingsComplets) {
@@ -101,7 +114,7 @@ class ComptaService
 
         $compte = $this->compteParDefaut($type === 'fournisseurs' ? 'fournisseurs' : 'clients');
         $sensCreance = $type !== 'fournisseurs'; // clients : débiteur ; fournisseurs : créditeur
-        $dateRef = $dateReference !== null ? \Illuminate\Support\Carbon::parse($dateReference) : now();
+        $dateRef = $dateReference !== null ? Carbon::parse($dateReference) : now();
 
         $lignes = EcritureLigne::query()
             ->where('compte_id', $compte->id)
@@ -289,7 +302,7 @@ class ComptaService
      *   Débit  3442 TVA récupérable sur charges
      *   Crédit 4411 Fournisseurs (TTC)
      */
-    public function ecrireAchat(\App\Modules\Achats\Models\DocumentAchat $document): Ecriture
+    public function ecrireAchat(DocumentAchat $document): Ecriture
     {
         $document->loadMissing(['lignes.produit.categorieProduit', 'tiers']);
 
@@ -345,8 +358,8 @@ class ComptaService
      *   Crédit 5141/5161/5111 selon le mode de paiement
      */
     public function ecrireDecaissement(
-        \App\Modules\Achats\Models\PaiementFournisseur $paiement,
-        \App\Modules\Achats\Models\DocumentAchat $document,
+        PaiementFournisseur $paiement,
+        DocumentAchat $document,
     ): Ecriture {
         $cle = self::MODE_VERS_MAPPING[$paiement->mode] ?? 'banque';
 

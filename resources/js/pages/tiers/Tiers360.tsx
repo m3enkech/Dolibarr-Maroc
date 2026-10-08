@@ -13,8 +13,11 @@ import Pagination from '@/components/Pagination';
 import { achatStatutClasses, achatStatutLabel } from '@/pages/achats/common';
 import ApercuVente from '@/pages/ventes/ApercuVente';
 import { statutClasses, statutLabel } from '@/pages/ventes/common';
+import CommentairesTiers from '@/pages/tiers/CommentairesTiers';
 import ContactsTiers from '@/pages/tiers/ContactsTiers';
-import { lirePeriode, PERIODE_DEFAUT, sansParamsFiche, type EtatRetourListe } from '@/pages/tiers/params';
+import { aujourdHui, lireDate, lirePeriode, PERIODE_DEFAUT, sansParamsFiche, type EtatRetourListe } from '@/pages/tiers/params';
+import ReleveTiers from '@/pages/tiers/ReleveTiers';
+import SoldeOuverture, { type CompteTiers } from '@/pages/tiers/SoldeOuverture';
 import TiersTimeline from '@/pages/tiers/TiersTimeline';
 import VueEnsembleTiers, { type VueEnsembleReponse } from '@/pages/tiers/VueEnsembleTiers';
 import type { DocumentAchat, DocumentType, DocumentVente, Paginated, Tiers } from '@/types';
@@ -23,6 +26,8 @@ type Synthese = {
     ventes: { devis: number; commandes: number; bons_livraison: number; factures: number; avoirs: number };
     achats: number;
     contacts: number;
+    /** Le compteur de l'onglet Commentaires ; le fil se charge à l'ouverture. */
+    commentaires: number;
     // Absents — pas nuls — sans le droit ventes (chiffre d'affaires) ou
     // achats (achats facturés) : le serveur les omet bloc par bloc.
     ca_ttc?: string;
@@ -47,7 +52,7 @@ type ProduitEchange = {
 };
 
 /** Les onglets, tels qu'ils s'écrivent dans l'URL (`?onglet=`). */
-type Onglet = 'apercu' | 'transactions' | 'articles' | 'contacts' | 'historique';
+type Onglet = 'apercu' | 'commentaires' | 'transactions' | 'articles' | 'releve' | 'contacts' | 'historique';
 
 /** Le sous-filtre des transactions (`?type_piece=`) : un type de pièce de vente, toutes, ou les achats. */
 type TypePiece = 'toutes' | DocumentType | 'achats';
@@ -252,6 +257,44 @@ function FicheTiers({
     const ventesListees = can('ventes') && (!fournisseurPur || (totalVentes ?? 0) > 0);
     const transactionsVisibles = ventesListees || achatsVisibles;
 
+    // Le RELEVÉ, compte par compte, avec les règles du serveur. Le compte
+    // CLIENT se lit avec les tiers — ce que doit le client, comme la carte du
+    // compte et la liste ; un fournisseur pur n'en a pas, sauf s'il a reçu
+    // des factures (même règle que ses ventes ci-dessus). Le compte
+    // FOURNISSEUR dit ce qu'on lui achète : il faut le droit achats, comme
+    // pour le résumé des achats. Un fournisseur pur ouvre sur le sien.
+    const ventesFacturees = (synthese?.ventes.factures ?? 0) + (synthese?.ventes.avoirs ?? 0) > 0;
+    const comptesReleve: CompteTiers[] = fournisseurPur
+        ? [...(achatsVisibles ? (['fournisseur'] as const) : []), ...(ventesFacturees ? (['client'] as const) : [])]
+        : ['client', ...(achatsVisibles ? (['fournisseur'] as const) : [])];
+    const releveVisible = comptesReleve.length > 0;
+
+    // Le solde d'ouverture est une ÉCRITURE : la garde de la compta, celle de
+    // sa route. Les comptes proposés sont ceux que le tiers A — pas ceux
+    // qu'on peut lire : le comptable sans droit achats saisit quand même la
+    // dette d'ouverture d'un fournisseur.
+    const peutSaisirOuverture = can('compta', 'write');
+    const comptesOuverture: CompteTiers[] = fournisseurPur
+        ? ['fournisseur']
+        : tiers.is_supplier
+          ? ['client', 'fournisseur']
+          : ['client'];
+    // Le compte par lequel la saisie est ouverte passe en premier (défaut).
+    const [saisieOuverture, setSaisieOuverture] = useState<CompteTiers | null>(null);
+
+    // Après une saisie, la surcouche rend le focus au lien « Saisir le solde
+    // d'ouverture »… que la relecture fait disparaître dès que le solde
+    // arrive : le focus tombait sur <body>. On le pose sur le titre de la
+    // carte ou du relevé d'où l'on venait (`data-retour-ouverture`), APRÈS le
+    // nettoyage de la surcouche — un effet du parent passe après lui.
+    const focusApresOuverture = useRef(false);
+    useEffect(() => {
+        if (saisieOuverture !== null || !focusApresOuverture.current) return;
+        focusApresOuverture.current = false;
+        const cible = document.querySelector<HTMLElement>('[data-retour-ouverture]') ?? titre.current;
+        cible?.focus();
+    }, [saisieOuverture]);
+
     // Qu'il en existe, on ne le sait qu'à l'arrivée de la synthèse. D'ici là,
     // une URL qui demande une pièce de VENTE à un fournisseur pur (venue d'un
     // client, où l'on lisait ses factures) ATTEND au lieu de trancher :
@@ -266,19 +309,51 @@ function FicheTiers({
         params.get('onglet') === 'transactions' &&
         (!achatsVisibles || TYPES_VENTE.some((type) => type === typeDemande));
 
+    // La même attente pour le RELEVÉ, dont les comptes d'un fournisseur pur
+    // dépendent aussi de ses ventes (`ventesFacturees`). Sans elle, un rôle
+    // sans achats retombait sur la vue d'ensemble (et la chargeait) avant
+    // que l'onglet Relevé n'apparaisse et ne s'active sous ses yeux ; un
+    // comptable venu avec ?compte=client voyait le relevé FOURNISSEUR se
+    // charger, puis basculer sur le relevé client.
+    const releveInconnu = fournisseurPur && synthese === undefined && !syntheseIndisponible;
+    const attenteReleve =
+        releveInconnu && params.get('onglet') === 'releve' && (!achatsVisibles || params.get('compte') === 'client');
+
     // Onglet et sous-filtre LUS dans l'URL. Une valeur qui ne vaut pas pour CE
     // tiers (les achats d'un client, l'historique sans le CRM) retombe sur le
     // défaut SANS réécrire l'URL : le fournisseur suivant retrouvera ses achats.
+    // Les commentaires juste après la vue d'ensemble, comme chez Zoho, et pour
+    // TOUS : leur garde est celle de la fiche (`tiers`), pas le CRM.
     const ongletsOuverts: Onglet[] = [
         'apercu',
+        'commentaires',
         ...(transactionsVisibles ? (['transactions'] as const) : []),
         'articles',
+        ...(releveVisible ? (['releve'] as const) : []),
         'contacts',
         ...(historiqueVisible ? (['historique'] as const) : []),
     ];
+
+    // Compte et période du relevé, LUS dans l'URL. Absents ou invalides : le
+    // premier compte offert, et du 1er janvier de l'année de « au » à « au »,
+    // « au » valant aujourd'hui — les défauts du serveur.
+    const compteReleve = comptesReleve.find((c) => c === params.get('compte')) ?? comptesReleve[0] ?? 'client';
+    const auReleve = lireDate(params.get('au')) ?? aujourdHui();
+    const duReleve = lireDate(params.get('du')) ?? `${auReleve.slice(0, 4)}-01-01`;
+    // Une date égale à son défaut ne s'écrit pas dans l'URL : un lien gardé
+    // reste « jusqu'à aujourd'hui » au lieu de se figer sur le jour du clic.
+    const majPeriode = ({ du, au }: { du: string | null; au: string | null }) => {
+        const auRetenu = au ?? aujourdHui();
+        majParams({
+            au: au === null || au === aujourdHui() ? null : au,
+            du: du === null || du === `${auRetenu.slice(0, 4)}-01-01` ? null : du,
+        });
+    };
     const onglet: Onglet = attenteVentes
         ? 'transactions'
-        : (ongletsOuverts.find((o) => o === params.get('onglet')) ?? 'apercu');
+        : attenteReleve
+          ? 'releve'
+          : (ongletsOuverts.find((o) => o === params.get('onglet')) ?? 'apercu');
 
     const typesOuverts: TypePiece[] = fournisseurPur
         ? [...(achatsVisibles ? (['achats'] as const) : []), ...(ventesListees ? TYPES_VENTE : [])]
@@ -567,6 +642,7 @@ function FicheTiers({
     // ainsi en français dans la fiche en arabe.
     const ONGLETS: { cle: Onglet; label: string; compte?: number }[] = [
         { cle: 'apercu', label: t("Vue d'ensemble") },
+        { cle: 'commentaires', label: t('Commentaires'), compte: synthese?.commentaires },
         ...(transactionsVisibles
             ? [
                   {
@@ -580,6 +656,7 @@ function FicheTiers({
               ]
             : []),
         { cle: 'articles', label: t('Articles') },
+        ...(releveVisible || attenteReleve ? [{ cle: 'releve' as Onglet, label: t('Relevé') }] : []),
         { cle: 'contacts', label: t('Contacts'), compte: synthese?.contacts },
         ...(historiqueVisible ? [{ cle: 'historique' as Onglet, label: t('Historique') }] : []),
     ];
@@ -872,9 +949,33 @@ function FicheTiers({
                         onVoirContacts={() => majParams({ onglet: 'contacts' })}
                         lienModifier={{ pathname: `/tiers/${id}/modifier`, search }}
                         clientSuppose={clientSuppose}
+                        onSaisirOuverture={peutSaisirOuverture ? () => setSaisieOuverture('client') : undefined}
                     />
                 </div>
             )}
+
+            {/* Ni onglet ni compte tranchés avant la synthèse : rien ne se charge. */}
+            {onglet === 'releve' && attenteReleve && (
+                <p role="status" className="rounded-xl bg-white p-5 py-8 text-center text-sm text-slate-400 shadow-sm">
+                    {t('Chargement…')}
+                </p>
+            )}
+
+            {onglet === 'releve' && releveVisible && !attenteReleve && (
+                <ReleveTiers
+                    tiers={tiers}
+                    comptes={comptesReleve}
+                    compte={compteReleve}
+                    du={duReleve}
+                    au={auReleve}
+                    onPeriode={majPeriode}
+                    onCompte={(c) => majParams({ compte: c === comptesReleve[0] ? null : c })}
+                    onApercu={can('ventes') ? (documentId) => setApercu(documentId) : undefined}
+                    onSaisirOuverture={peutSaisirOuverture ? () => setSaisieOuverture(compteReleve) : undefined}
+                />
+            )}
+
+            {onglet === 'commentaires' && <CommentairesTiers tiersId={tiers.id} />}
 
             {onglet === 'historique' && historiqueVisible && <TiersTimeline tiersId={String(tiers.id)} />}
 
@@ -1039,6 +1140,29 @@ function FicheTiers({
 
             {apercu !== null && (
                 <ApercuVente id={apercu} onFermer={() => setApercu(null)} surcouche lienClient={false} />
+            )}
+
+            {saisieOuverture !== null && (
+                <SoldeOuverture
+                    tiers={tiers}
+                    comptes={[saisieOuverture, ...comptesOuverture.filter((c) => c !== saisieOuverture)].filter((c) =>
+                        comptesOuverture.includes(c),
+                    )}
+                    onFermer={() => setSaisieOuverture(null)}
+                    onSaisi={(_saisi, avertissement) => {
+                        focusApresOuverture.current = true;
+                        setSaisieOuverture(null);
+                        // Enregistré quoi qu'il arrive ; l'avertissement du
+                        // serveur (série OD à renuméroter) suit dans le même
+                        // compte rendu, pour qu'il soit lu avec lui.
+                        setCompteRendu({
+                            ok: true,
+                            texte: avertissement
+                                ? `${t("Solde d'ouverture enregistré.")} ${avertissement}`
+                                : t("Solde d'ouverture enregistré."),
+                        });
+                    }}
+                />
             )}
         </div>
     );

@@ -94,6 +94,8 @@ class ClotureService
             }
         }
 
+        $this->exigerAttentesSoldees($annee);
+
         return DB::transaction(function () use ($annee) {
             $finExercice = "{$annee}-12-31";
             $ouvertureSuivant = ($annee + 1).'-01-01';
@@ -172,6 +174,47 @@ class ClotureService
                 'cloture_at' => now(),
             ]);
         });
+    }
+
+    /**
+     * Les comptes d'attente 3497 / 4497 doivent être NULS au 31/12 : c'est la
+     * contrepartie des soldes d'ouverture saisis tiers par tiers
+     * (SoldeOuvertureService), que le comptable solde contre le collectif ou
+     * le compte qui convient. Non soldés, la clôture les reportait en
+     * à-nouveaux sans rien dire, et l'écart d'attente devenait permanent au
+     * bilan. On refuse, montants et écriture attendue à l'appui.
+     *
+     * Les seuls 3497 et 4497 (et leurs sous-comptes), pas toute la classe
+     * 349/449 : 3491 et 4491 (charges et produits constatés d'avance) ont,
+     * eux, vocation à porter un solde à la clôture.
+     */
+    private function exigerAttentesSoldees(int $annee): void
+    {
+        $restes = [];
+
+        foreach ($this->soldesParCompte("{$annee}-12-31") as $solde) {
+            $code = $solde['compte']->code;
+
+            if ((str_starts_with($code, '3497') || str_starts_with($code, '4497')) && abs($solde['solde']) >= self::EPSILON) {
+                $restes[] = sprintf(
+                    '%s %s de %s',
+                    $code,
+                    $solde['solde'] > 0 ? 'débiteur' : 'créditeur',
+                    number_format(abs($solde['solde']), 2, ',', ' '),
+                );
+            }
+        }
+
+        if ($restes !== []) {
+            throw ValidationException::withMessages([
+                'annee' => sprintf(
+                    'Les comptes d\'attente doivent être soldés avant de clôturer %d : %s. Passez une écriture '
+                    .'de régularisation (OD au 31/12) qui les ramène à zéro, contre le compte collectif ou le compte qui convient.',
+                    $annee,
+                    implode(' ; ', $restes),
+                ),
+            ]);
+        }
     }
 
     /**

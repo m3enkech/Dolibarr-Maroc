@@ -147,6 +147,17 @@
             @if ($document->tiers->city || $document->tiers->postal_code)
                 <div class="client-ligne">{{ trim(($document->tiers->postal_code ?? '').' '.($document->tiers->city ?? '')) }}</div>
             @endif
+
+            {{-- Le bon de livraison dit OÙ livrer quand ce n'est pas l'adresse de
+                 facturation : c'est la feuille que le livreur a en main. Rien
+                 sinon — répéter l'adresse ci-dessus n'apprendrait rien. --}}
+            @if ($document->type === 'bon_livraison' && ! $document->tiers->livraison_identique && ($document->tiers->adresse_livraison || $document->tiers->ville_livraison))
+                <div class="bloc-titre" style="margin-top: 12px;">Livrer à</div>
+                @if ($document->tiers->adresse_livraison)<div class="client-ligne">{{ $document->tiers->adresse_livraison }}</div>@endif
+                @if ($document->tiers->ville_livraison || $document->tiers->code_postal_livraison)
+                    <div class="client-ligne">{{ trim(($document->tiers->code_postal_livraison ?? '').' '.($document->tiers->ville_livraison ?? '')) }}</div>
+                @endif
+            @endif
         </td>
         <td>
             <table class="meta">

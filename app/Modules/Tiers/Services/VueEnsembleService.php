@@ -4,6 +4,7 @@ namespace App\Modules\Tiers\Services;
 
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
+use App\Modules\Compta\Services\SoldeOuvertureService;
 use App\Modules\Portail\Models\AcheteurTiers;
 use App\Modules\Tiers\Models\Contact;
 use App\Modules\Tiers\Models\Tiers;
@@ -55,6 +56,7 @@ class VueEnsembleService
     public function __construct(
         private readonly EncoursService $encours,
         private readonly TenantContext $contexte,
+        private readonly SoldeOuvertureService $ouverture,
     ) {}
 
     /**
@@ -85,6 +87,13 @@ class VueEnsembleService
             // caisse retombe sur le jour même pour dater un ticket (PosService),
             // ce qui ne fait pas de ce repli une condition commerciale.
             'delai_paiement_jours' => $tiers->delai_paiement_jours !== null ? (int) $tiers->delai_paiement_jours : null,
+            // Le solde d'ouverture déjà saisi, ou null : la carte du compte
+            // propose de le saisir quand il manque. Celui d'un compte CLIENT se
+            // lit avec les tiers, comme le reste du compte ; celui d'un compte
+            // FOURNISSEUR exige le droit achats (ou compta), comme le relevé
+            // fournisseur — sans quoi le commercial lisait ici le chiffre que
+            // ce relevé lui refuse. La règle est dans le service.
+            'solde_ouverture' => $this->ouverture->existantPour($tiers, $user),
         ];
 
         if ($peutPortail) {

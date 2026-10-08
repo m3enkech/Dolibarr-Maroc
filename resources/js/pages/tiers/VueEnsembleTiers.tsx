@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useFormats } from '@/lib/formats-langue';
 import { useLangue, useT } from '@/lib/langue';
 import { PERIODES, type Periode } from '@/pages/tiers/params';
+import type { SoldeOuvertureSaisi } from '@/pages/tiers/SoldeOuverture';
 import type { AdhesionStatut, Tiers } from '@/types';
 
 /**
@@ -26,6 +27,8 @@ export type VueEnsemble = {
         mobile: string | null;
     } | null;
     delai_paiement_jours: number | null;
+    /** Le solde d'ouverture déjà saisi (client ou fournisseur), ou null. */
+    solde_ouverture: SoldeOuvertureSaisi | null;
     portail?: {
         statut: AdhesionStatut;
         acheteur: { name: string | null; email: string | null };
@@ -83,6 +86,7 @@ export default function VueEnsembleTiers({
     onVoirContacts,
     lienModifier,
     clientSuppose,
+    onSaisirOuverture,
 }: {
     tiers: Tiers;
     reponse?: VueEnsembleReponse;
@@ -98,6 +102,8 @@ export default function VueEnsembleTiers({
     lienModifier: { pathname: string; search: string };
     /** Ce qu'on suppose AVANT la réponse : client ou prospect, la règle du serveur. */
     clientSuppose: boolean;
+    /** Proposé seulement à qui peut écrire en compta. */
+    onSaisirOuverture?: () => void;
 }) {
     const t = useT();
     const vue = reponse?.data;
@@ -133,7 +139,13 @@ export default function VueEnsembleTiers({
                         ) : (
                             <>
                                 <CarteConditions vue={vue} lienModifier={lienModifier} />
-                                {vue.compte && <CarteCompte compte={vue.compte} />}
+                                {vue.compte && (
+                                    <CarteCompte
+                                        compte={vue.compte}
+                                        ouverture={vue.solde_ouverture}
+                                        onSaisirOuverture={onSaisirOuverture}
+                                    />
+                                )}
                                 {vue.revenus && (
                                     <CarteRevenus
                                         revenus={vue.revenus}
@@ -289,15 +301,27 @@ function CarteContact({
     );
 }
 
-/** Où livrer et quoi écrire sur l'enveloppe. Le pays seul ne fait pas une adresse. */
+/**
+ * Où facturer, où livrer. Le pays seul ne fait pas une adresse.
+ *
+ * Deux blocs côte à côte dès que la carte a la place, comme chez Zoho. La
+ * livraison « identique » le DIT au lieu de recopier l'adresse : deux blocs
+ * semblables feraient chercher la différence.
+ */
 function CarteAdresse({ tiers, lienModifier }: { tiers: Tiers; lienModifier: { pathname: string; search: string } }) {
     const t = useT();
     const { can } = useAuth();
     const { langue } = useLangue();
     const titre = useId();
+    const titreFacturation = useId();
+    const titreLivraison = useId();
 
     const ville = [tiers.postal_code, tiers.city].filter(Boolean).join(' ');
     const renseignee = Boolean(tiers.address || ville);
+    const villeLivraison = [tiers.code_postal_livraison, tiers.ville_livraison].filter(Boolean).join(' ');
+    // Une livraison « ailleurs » sans rien de saisi (donnée ancienne, saisie
+    // directe en base) ne se présente pas comme une adresse vide.
+    const livraisonDistincte = !tiers.livraison_identique && Boolean(tiers.adresse_livraison || villeLivraison);
 
     // Le pays est un code (« MA ») : son nom vient d'Intl, dans la langue de l'écran.
     let pays = tiers.country;
@@ -312,22 +336,44 @@ function CarteAdresse({ tiers, lienModifier }: { tiers: Tiers; lienModifier: { p
             <h2 id={titre} className="font-medium text-slate-900">
                 {t('Adresse')}
             </h2>
-            {renseignee ? (
-                <address className="mt-3 text-sm not-italic text-slate-900">
-                    {tiers.address && <bdi className="block whitespace-pre-line">{tiers.address}</bdi>}
-                    {ville && <bdi className="block">{ville}</bdi>}
-                    {pays && <span className="block text-slate-500">{pays}</span>}
-                </address>
-            ) : (
-                <div className="mt-3 text-sm text-slate-500">
-                    <p>{t('Aucune adresse renseignée.')}</p>
-                    {can('tiers', 'write') && (
-                        <Link to={lienModifier} className={`mt-1 inline-block ${LIEN}`}>
-                            {t('Ajouter une adresse')}
-                        </Link>
+            <div className="mt-3 grid gap-4 @md:grid-cols-2">
+                <div className="min-w-0">
+                    <h3 id={titreFacturation} className="text-xs uppercase tracking-wide text-slate-500">
+                        {t('Facturation')}
+                    </h3>
+                    {renseignee ? (
+                        <address aria-labelledby={titreFacturation} className="mt-1 text-sm not-italic text-slate-900">
+                            {tiers.address && <bdi className="block whitespace-pre-line break-words">{tiers.address}</bdi>}
+                            {ville && <bdi className="block">{ville}</bdi>}
+                            {pays && <span className="block text-slate-500">{pays}</span>}
+                        </address>
+                    ) : (
+                        <div className="mt-1 text-sm text-slate-500">
+                            <p>{t('Aucune adresse renseignée.')}</p>
+                            {can('tiers', 'write') && (
+                                <Link to={lienModifier} className={`mt-1 inline-block ${LIEN}`}>
+                                    {t('Ajouter une adresse')}
+                                </Link>
+                            )}
+                        </div>
                     )}
                 </div>
-            )}
+                <div className="min-w-0">
+                    <h3 id={titreLivraison} className="text-xs uppercase tracking-wide text-slate-500">
+                        {t('Livraison')}
+                    </h3>
+                    {livraisonDistincte ? (
+                        <address aria-labelledby={titreLivraison} className="mt-1 text-sm not-italic text-slate-900">
+                            {tiers.adresse_livraison && (
+                                <bdi className="block whitespace-pre-line break-words">{tiers.adresse_livraison}</bdi>
+                            )}
+                            {villeLivraison && <bdi className="block">{villeLivraison}</bdi>}
+                        </address>
+                    ) : (
+                        <p className="mt-1 text-sm text-slate-500">{t("À l'adresse de facturation")}</p>
+                    )}
+                </div>
+            </div>
         </section>
     );
 }
@@ -342,6 +388,11 @@ function CarteIdentite({ tiers }: { tiers: Tiers }) {
     const titre = useId();
 
     const lignes: { cle: string; libelle: string; valeur: React.ReactNode }[] = [
+        // Toujours renseignée (entreprise par défaut) : la seule ligne qui ne
+        // disparaît jamais, et la première — elle dit comment lire les autres.
+        // « Forme », pas « Type » : partout ailleurs (liste, export CSV),
+        // « Type » désigne le rôle — client, prospect, fournisseur.
+        { cle: 'forme', libelle: t('Forme'), valeur: tiers.forme === 'particulier' ? t('Particulier') : t('Entreprise') },
         { cle: 'ice', libelle: t('ICE'), valeur: tiers.ice && <bdi>{tiers.ice}</bdi> },
         { cle: 'if', libelle: t('IF'), valeur: tiers.if_number && <bdi>{tiers.if_number}</bdi> },
         { cle: 'rc', libelle: t('RC'), valeur: tiers.rc && <bdi>{tiers.rc}</bdi> },
@@ -503,15 +554,28 @@ function Jauge({ credit }: { credit: { plafond: string; encours: string; disponi
  * la carte voisine parle de LIMITE de crédit : un avoir qu'on doit au client
  * n'a rien à voir avec ce qu'il peut encore acheter à terme.
  */
-function CarteCompte({ compte }: { compte: NonNullable<VueEnsemble['compte']> }) {
+function CarteCompte({
+    compte,
+    ouverture,
+    onSaisirOuverture,
+}: {
+    compte: NonNullable<VueEnsemble['compte']>;
+    ouverture: SoldeOuvertureSaisi | null;
+    onSaisirOuverture?: () => void;
+}) {
     const t = useT();
     const { montant } = useFormats();
     const titre = useId();
     const doit = parseFloat(compte.creances) > 0;
+    // Le solde d'ouverture qui concerne CETTE carte : celui du compte client.
+    // Celui d'un compte fournisseur se lit dans le relevé.
+    const ouvertureClient = ouverture?.compte === 'client' ? ouverture : null;
 
     return (
         <section aria-labelledby={titre} className={CARTE}>
-            <h2 id={titre} className="font-medium text-slate-900">
+            {/* Focalisable par script : la fiche y pose le focus après un
+                solde d'ouverture, dont le lien vient de disparaître. */}
+            <h2 id={titre} tabIndex={-1} data-retour-ouverture className="font-medium text-slate-900 focus:outline-none">
                 {t('Compte client')}
             </h2>
             <div className="mt-3 overflow-x-auto">
@@ -548,6 +612,32 @@ function CarteCompte({ compte }: { compte: NonNullable<VueEnsemble['compte']> })
                     </tbody>
                 </table>
             </div>
+
+            {/* Le solde d'ouverture : rappelé une fois saisi, proposé tant qu'il
+                n'y en a AUCUN (un par tiers, client ou fournisseur) — et
+                seulement à qui peut écrire en compta. */}
+            {ouvertureClient ? (
+                <p className="mt-3 border-t border-slate-100 pt-3 text-sm text-slate-600">
+                    {ouvertureClient.sens === 'debit'
+                        ? t("Solde d'ouverture au {date} : {montant} dus par le client", {
+                              date: ouvertureClient.date,
+                              montant: montant(ouvertureClient.montant),
+                          })
+                        : t("Solde d'ouverture au {date} : {montant} en faveur du client", {
+                              date: ouvertureClient.date,
+                              montant: montant(ouvertureClient.montant),
+                          })}
+                </p>
+            ) : (
+                ouverture === null &&
+                onSaisirOuverture && (
+                    <div className="mt-3 border-t border-slate-100 pt-3">
+                        <button type="button" onClick={onSaisirOuverture} className={LIEN}>
+                            {t("Saisir le solde d'ouverture")}
+                        </button>
+                    </div>
+                )
+            )}
         </section>
     );
 }

@@ -3,12 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useFeatures } from '@/lib/features';
-import { LEAD_SOURCES, LEAD_SOURCE_LABELS, type Tiers } from '@/types';
+import { LEAD_SOURCES, LEAD_SOURCE_LABELS, type Tiers, type TiersForme } from '@/types';
 import { useT } from '@/lib/langue';
 import { sansParamsFiche } from '@/pages/tiers/params';
 
 interface TiersFormData {
     name: string;
+    forme: TiersForme;
     is_client: boolean;
     is_supplier: boolean;
     is_prospect: boolean;
@@ -24,6 +25,10 @@ interface TiersFormData {
     address: string;
     city: string;
     postal_code: string;
+    livraison_identique: boolean;
+    adresse_livraison: string;
+    ville_livraison: string;
+    code_postal_livraison: string;
     phone: string;
     email: string;
     website: string;
@@ -34,6 +39,7 @@ interface TiersFormData {
 
 const emptyForm: TiersFormData = {
     name: '',
+    forme: 'entreprise',
     is_client: true,
     is_supplier: false,
     is_prospect: false,
@@ -49,6 +55,10 @@ const emptyForm: TiersFormData = {
     address: '',
     city: '',
     postal_code: '',
+    livraison_identique: true,
+    adresse_livraison: '',
+    ville_livraison: '',
+    code_postal_livraison: '',
     phone: '',
     email: '',
     website: '',
@@ -106,6 +116,7 @@ export default function TiersForm() {
         if (existing) {
             setForm({
                 name: existing.name,
+                forme: existing.forme ?? 'entreprise',
                 is_client: existing.is_client,
                 is_supplier: existing.is_supplier,
                 is_prospect: existing.is_prospect,
@@ -121,6 +132,10 @@ export default function TiersForm() {
                 address: existing.address ?? '',
                 city: existing.city ?? '',
                 postal_code: existing.postal_code ?? '',
+                livraison_identique: existing.livraison_identique ?? true,
+                adresse_livraison: existing.adresse_livraison ?? '',
+                ville_livraison: existing.ville_livraison ?? '',
+                code_postal_livraison: existing.code_postal_livraison ?? '',
                 phone: existing.phone ?? '',
                 email: existing.email ?? '',
                 website: existing.website ?? '',
@@ -201,9 +216,40 @@ export default function TiersForm() {
                     <legend className="sr-only">{t('Identité')}</legend>
                     <h2 className="mb-4 font-medium text-slate-900">{t('Identité')}</h2>
                     <div className="grid gap-4 sm:grid-cols-2">
+                        {/* La forme d'abord : elle dit comment lire le reste —
+                            une raison sociale et des identifiants légaux, ou le
+                            nom d'une personne. Elle n'exige rien : l'ICE reste
+                            facultatif dans les deux cas. « Forme », et non
+                            « Type » : la liste et l'export CSV appellent
+                            « Type » le rôle (client, prospect, fournisseur). */}
+                        <fieldset className="min-w-0 sm:col-span-2">
+                            <legend className={label}>{t('Forme')}</legend>
+                            <div className="flex flex-wrap gap-x-6 gap-y-2">
+                                {(
+                                    [
+                                        ['entreprise', t('Entreprise')],
+                                        ['particulier', t('Particulier')],
+                                    ] as const
+                                ).map(([valeur, libelle]) => (
+                                    <label key={valeur} className="flex items-center gap-2 text-sm text-slate-700">
+                                        <input
+                                            type="radio"
+                                            name="forme"
+                                            value={valeur}
+                                            checked={form.forme === valeur}
+                                            onChange={() => setForm((f) => ({ ...f, forme: valeur }))}
+                                            className="border-slate-300"
+                                        />
+                                        {libelle}
+                                    </label>
+                                ))}
+                            </div>
+                        </fieldset>
                         <div className="sm:col-span-2">
-                            <label className={label}>{t('Nom / Raison sociale *')}</label>
-                            <input required value={form.name} onChange={text('name')} className={input} />
+                            <label htmlFor="tiers-nom" className={label}>
+                                {form.forme === 'particulier' ? t('Nom complet *') : t('Nom / Raison sociale *')}
+                            </label>
+                            <input id="tiers-nom" required value={form.name} onChange={text('name')} className={input} />
                         </div>
                         {/* Les interlocuteurs vivent dans leur propre table
                             depuis qu'un tiers peut en avoir plusieurs : les
@@ -396,6 +442,59 @@ export default function TiersForm() {
                             <label className={label}>{t('Code postal')}</label>
                             <input value={form.postal_code} onChange={text('postal_code')} className={input} />
                         </div>
+
+                        {/* Livraison : identique à la facturation par défaut —
+                            c'était le cas implicite de tout l'existant. Décochée,
+                            l'adresse est obligatoire (le serveur le redit). */}
+                        <div className="min-w-0 sm:col-span-2">
+                            <label className="flex items-center gap-2 text-sm text-slate-700">
+                                <input
+                                    type="checkbox"
+                                    checked={form.livraison_identique}
+                                    onChange={check('livraison_identique')}
+                                    className="rounded border-slate-300"
+                                />
+                                {t("Livraison à l'adresse de facturation")}
+                            </label>
+                        </div>
+                        {!form.livraison_identique && (
+                            <>
+                                <div className="sm:col-span-2">
+                                    <label htmlFor="tiers-adresse-livraison" className={label}>
+                                        {t('Adresse de livraison *')}
+                                    </label>
+                                    <input
+                                        id="tiers-adresse-livraison"
+                                        required
+                                        value={form.adresse_livraison}
+                                        onChange={text('adresse_livraison')}
+                                        className={input}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="tiers-ville-livraison" className={label}>
+                                        {t('Ville de livraison')}
+                                    </label>
+                                    <input
+                                        id="tiers-ville-livraison"
+                                        value={form.ville_livraison}
+                                        onChange={text('ville_livraison')}
+                                        className={input}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="tiers-cp-livraison" className={label}>
+                                        {t('Code postal de livraison')}
+                                    </label>
+                                    <input
+                                        id="tiers-cp-livraison"
+                                        value={form.code_postal_livraison}
+                                        onChange={text('code_postal_livraison')}
+                                        className={input}
+                                    />
+                                </div>
+                            </>
+                        )}
                         <div>
                             <label className={label}>{t('Téléphone')}</label>
                             <input value={form.phone} onChange={text('phone')} className={input} />

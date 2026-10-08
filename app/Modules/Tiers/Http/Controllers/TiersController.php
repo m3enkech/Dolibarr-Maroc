@@ -2,28 +2,38 @@
 
 namespace App\Modules\Tiers\Http\Controllers;
 
+use App\Core\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Modules\Achats\Models\DocumentAchat;
 use App\Modules\Achats\Models\DocumentAchatLigne;
 use App\Modules\Catalogue\Models\Produit;
 use App\Modules\Compta\Models\EcritureLigne;
+use App\Modules\Compta\Services\SoldeOuvertureService;
 use App\Modules\Effets\Models\Effet;
 use App\Modules\Tiers\Http\Requests\StoreTiersRequest;
 use App\Modules\Tiers\Http\Requests\UpdateTiersRequest;
 use App\Modules\Tiers\Http\Resources\TiersResource;
 use App\Modules\Tiers\Models\Tiers;
 use App\Modules\Tiers\Services\EncoursService;
+use App\Modules\Tiers\Services\ExportTiersService;
+use App\Modules\Tiers\Services\ReleveService;
 use App\Modules\Tiers\Services\TiersService;
 use App\Modules\Tiers\Services\VueEnsembleService;
 use App\Modules\Ventes\Models\DocumentVente;
 use App\Modules\Ventes\Models\DocumentVenteLigne;
 use App\Modules\Ventes\Models\Paiement;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TiersController extends Controller
 {
@@ -40,7 +50,24 @@ class TiersController extends Controller
 
     public function index(Request $request, EncoursService $encours): AnonymousResourceCollection
     {
-        $tiers = Tiers::query()
+        $tiers = $this->requeteListe($request)->paginate($this->parPage($request));
+
+        if ($request->boolean('avec_solde')) {
+            $this->joindreSoldes($tiers->getCollection(), $encours);
+        }
+
+        return TiersResource::collection($tiers);
+    }
+
+    /**
+     * Les tiers que montre la liste, filtrés et triés comme elle — partagé
+     * avec l'export, qui doit sortir EXACTEMENT ce que l'écran énumère.
+     *
+     * @return Builder<Tiers>
+     */
+    private function requeteListe(Request $request): Builder
+    {
+        return Tiers::query()
             ->when($request->string('search')->isNotEmpty(), function ($query) use ($request) {
                 // whereLike : `LIKE` est sensible à la casse sur PostgreSQL et
                 // insensible sur SQLite — voir ProduitsController pour le détail.
@@ -66,14 +93,106 @@ class TiersController extends Controller
             // page à page, et PostgreSQL ne garantit aucun ordre entre deux noms
             // égaux — un client pouvait tomber entre deux pages, absent hors ligne.
             ->orderBy('name')
-            ->orderBy('id')
-            ->paginate($this->parPage($request));
+            ->orderBy('id');
+    }
 
-        if ($request->boolean('avec_solde')) {
-            $this->joindreSoldes($tiers->getCollection(), $encours);
-        }
+    /**
+     * Actions groupées de la liste : désactiver ou réactiver les tiers cochés.
+     *
+     * TOUT OU RIEN, DANS UNE TRANSACTION. Un id inconnu de l'entreprise
+     * courante — supprimé entre-temps, ou forgé — fait échouer la requête
+     * ENTIÈRE (422), rien n'est modifié. L'ignorer aurait affiché « 12 tiers
+     * désactivés » quand onze l'étaient, sur une sélection que l'utilisateur
+     * croit avoir appliquée telle quelle. Le message est le même pour un id
+     * qui n'existe pas et pour celui d'une autre entreprise : la réponse ne
+     * dit rien de ce qui existe ailleurs.
+     *
+     * Un tiers déjà dans l'état demandé n'est pas une erreur : il est compté
+     * à part (`inchanges`), l'écran le dit.
+     *
+     * Le plafond d'ids est celui d'une page de la liste : on agit sur ce
+     * qu'on voit, et une requête n'emporte pas tout l'annuaire.
+     */
+    public function actions(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:'.self::PAR_PAGE_MAX],
+            'ids.*' => ['required', 'integer', 'distinct'],
+            'action' => ['required', Rule::in(['desactiver', 'reactiver'])],
+        ]);
 
-        return TiersResource::collection($tiers);
+        $ids = array_map('intval', $data['ids']);
+        $actif = $data['action'] === 'reactiver';
+
+        return DB::transaction(function () use ($ids, $actif, $data) {
+            // Lus SOUS le scope d'entreprise et verrouillés : ce qu'on compte
+            // ici est ce qu'on modifiera.
+            $etats = Tiers::query()->whereIn('id', $ids)->lockForUpdate()->pluck('is_active', 'id');
+
+            $inconnus = array_diff($ids, $etats->keys()->map(fn ($id) => (int) $id)->all());
+            if ($inconnus !== []) {
+                throw ValidationException::withMessages([
+                    'ids' => __("Tiers introuvables dans la sélection (:n) : supprimés entre-temps, ou d'une autre entreprise. Rien n'a été modifié.", [
+                        'n' => count($inconnus),
+                    ]),
+                ]);
+            }
+
+            $aChanger = $etats->filter(fn ($etat) => (bool) $etat !== $actif)->keys()->all();
+            if ($aChanger !== []) {
+                Tiers::query()->whereIn('id', $aChanger)->update(['is_active' => $actif]);
+            }
+
+            return response()->json(['data' => [
+                'action' => $data['action'],
+                'modifies' => count($aChanger),
+                'inchanges' => count($ids) - count($aChanger),
+            ]]);
+        });
+    }
+
+    /**
+     * L'annuaire en CSV : les tiers COCHÉS (`ids[]`), sinon tous ceux que la
+     * liste montre avec les mêmes filtres (recherche, type, origine, actif).
+     *
+     * Avec `ids[]`, les filtres sont IGNORÉS : on exporte ce qu'on a coché,
+     * et l'écran vide la sélection à chaque changement de filtre — les deux ne
+     * peuvent pas diverger. Un id hors de l'entreprise courante disparaît
+     * simplement sous le scope : c'est une lecture, il n'y a rien à refuser
+     * qu'on puisse dire sans révéler ce qui existe ailleurs, et un tiers
+     * supprimé par un collègue entre-temps ne doit pas faire échouer l'export
+     * des autres.
+     *
+     * Le solde est celui de la liste (EncoursService::soldesAffiches), lu par
+     * quiconque lit les tiers — la liste le montre déjà au même public.
+     */
+    public function export(Request $request, ExportTiersService $export): StreamedResponse
+    {
+        $data = $request->validate([
+            'ids' => ['sometimes', 'array', 'min:1', 'max:'.self::PAR_PAGE_MAX],
+            'ids.*' => ['required', 'integer'],
+        ]);
+
+        $requete = isset($data['ids'])
+            ? Tiers::query()->whereIn('id', array_map('intval', $data['ids']))->orderBy('name')->orderBy('id')
+            : $this->requeteListe($request);
+
+        // Le corps s'écrit APRÈS la sortie du contrôleur, pendant l'envoi : on
+        // y repose l'entreprise de la requête au lieu de compter sur un
+        // contexte qu'aucun middleware ne garantit encore à ce moment-là.
+        $entreprise = app(TenantContext::class)->get();
+
+        return response()->streamDownload(
+            function () use ($export, $requete, $entreprise) {
+                app(TenantContext::class)->runAs($entreprise, function () use ($export, $requete) {
+                    $flux = fopen('php://output', 'w');
+                    $export->ecrire($flux, $requete);
+                    fclose($flux);
+                });
+            },
+            sprintf('tiers-%s.csv', CarbonImmutable::now()->format('Y-m-d')),
+            ['Content-Type' => 'text/csv; charset=UTF-8'],
+        );
     }
 
     /**
@@ -92,27 +211,18 @@ class TiersController extends Controller
 
     /**
      * Pose sur chaque tiers de la page son solde client signé, calculé pour
-     * toute la page en UN SEUL agrégat du grand livre — pas un par ligne.
-     *
-     * TOUS les tiers de la page sont interrogés, pas seulement ceux cochés
-     * « client » : rien n'interdit de facturer un tiers enregistré comme
-     * fournisseur (la vente ne contrôle que son existence), ni de décocher
-     * « client » sur quelqu'un qui doit encore de l'argent. Filtrer sur la case
-     * cachait alors une dette que /encours, lui, affichait.
-     *
-     * Le drapeau ne sert qu'à lire l'ABSENCE de ligne ouverte : un client
-     * confirmé sans écriture est réellement à zéro et l'affiche ; un
-     * fournisseur pur ou un prospect sans écriture n'ont pas de compte client
-     * — « 0,00 » y laisserait croire qu'on a vérifié, d'où `null`.
+     * toute la page en UN SEUL agrégat du grand livre — pas un par ligne. La
+     * règle (quels tiers, et quand `null`) est dans
+     * EncoursService::soldesAffiches, partagée avec l'export CSV.
      *
      * @param  Collection<int, Tiers>  $page
      */
     private function joindreSoldes(Collection $page, EncoursService $encours): void
     {
-        $soldes = $encours->soldesSignes($page->pluck('id')->all());
+        $soldes = $encours->soldesAffiches($page);
 
         foreach ($page as $tiers) {
-            $solde = $soldes[$tiers->id] ?? ($tiers->is_client && ! $tiers->is_prospect ? 0.0 : null);
+            $solde = $soldes[$tiers->id];
 
             // Attribut calculé, comme un `withSum` : jamais sauvegardé (la page
             // n'est pas réécrite), il n'existe que pour TiersResource.
@@ -191,6 +301,9 @@ class TiersController extends Controller
             ],
             'achats' => (int) DocumentAchat::where('tiers_id', $tiers->id)->count(),
             'contacts' => (int) $tiers->contacts()->count(),
+            // Le compteur de l'onglet Commentaires, lu avec les autres : le
+            // fil lui-même ne se charge qu'à l'ouverture de l'onglet.
+            'commentaires' => (int) $tiers->commentaires()->count(),
 
             'impaye' => $this->montant(max($duesTtc - $acomptes, 0)),
 
@@ -246,6 +359,73 @@ class TiersController extends Controller
         ])['periode'] ?? VueEnsembleService::PERIODE_DEFAUT;
 
         return response()->json($service->pour($tiers, $request->user(), $periode));
+    }
+
+    /**
+     * Relevé de compte d'un tiers, à l'écran (JSON) ou en PDF (`format=pdf`).
+     *
+     * Période par défaut : du 1er janvier de l'année de « au » à « au », et
+     * « au » vaut aujourd'hui — le défaut de Zoho, « cette année ». Les
+     * bornes sont INCLUSES. Une borne inversée est refusée (422) plutôt
+     * qu'échangée : un relevé « du 31 au 1er » est une faute de saisie.
+     *
+     * Le compte FOURNISSEUR dit ce qu'on achète au tiers : le droit achats est
+     * exigé, comme pour le résumé des achats de la fiche. Le compte client,
+     * ce que le client doit, se lit avec les tiers (voir VueEnsembleService).
+     */
+    public function releve(Request $request, Tiers $tiers, ReleveService $service, SoldeOuvertureService $ouverture): JsonResponse|Response
+    {
+        $data = $request->validate([
+            'du' => ['sometimes', 'date_format:Y-m-d'],
+            'au' => ['sometimes', 'date_format:Y-m-d'],
+            'compte' => ['sometimes', Rule::in([ReleveService::COMPTE_CLIENT, ReleveService::COMPTE_FOURNISSEUR])],
+            'format' => ['sometimes', Rule::in(['json', 'pdf'])],
+        ]);
+
+        $au = isset($data['au']) ? CarbonImmutable::createFromFormat('!Y-m-d', $data['au']) : CarbonImmutable::today();
+        $du = isset($data['du']) ? CarbonImmutable::createFromFormat('!Y-m-d', $data['du']) : $au->startOfYear();
+
+        if ($du->greaterThan($au)) {
+            throw ValidationException::withMessages([
+                'du' => __('La date de début doit précéder la date de fin.'),
+            ]);
+        }
+
+        $compte = $data['compte'] ?? ReleveService::compteParDefaut($tiers);
+
+        if ($compte === ReleveService::COMPTE_FOURNISSEUR) {
+            if (! $tiers->is_supplier) {
+                throw ValidationException::withMessages([
+                    'compte' => __("Ce tiers n'est pas fournisseur."),
+                ]);
+            }
+            abort_unless($request->user()->hasPermission('achats'), 403, __('Votre rôle ne donne pas accès aux achats de ce fournisseur.'));
+        }
+
+        $releve = $service->pour($tiers, $compte, $du, $au);
+
+        if (($data['format'] ?? 'json') !== 'pdf') {
+            // L'état du solde d'ouverture voyage avec le relevé : l'onglet
+            // propose de le saisir quand il manque, sans second appel. Sous la
+            // règle de lecture du service : le relevé CLIENT d'un tiers dont
+            // l'ouverture est au compte fournisseur ne la sert pas à qui n'a
+            // ni achats ni compta. Pas de filtre sur le compte demandé, en
+            // revanche : un comptable qui lit le relevé client d'un tiers mixte
+            // ouvert côté fournisseur se verrait proposer une seconde saisie,
+            // que le service refuserait (une par tiers).
+            return response()->json(['data' => [...$releve, 'solde_ouverture' => $ouverture->existantPour($tiers, $request->user())]]);
+        }
+
+        if ($releve['trop_de_lignes']) {
+            throw ValidationException::withMessages([
+                'du' => __('Trop de mouvements sur la période (:n) : réduisez-la pour imprimer le relevé.', ['n' => $releve['nb_lignes']]),
+            ]);
+        }
+
+        $tiers->loadMissing('tenant');
+
+        return Pdf::loadView('pdf.releve-client', ['tiers' => $tiers, 'releve' => $releve, 'edite' => CarbonImmutable::now()])
+            ->download(sprintf('releve-%s-%s-%s.pdf', $tiers->code, $releve['du'], $releve['au']));
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace App\Modules\Compta\Services;
 
+use App\Modules\Compta\Models\Compte;
+use App\Modules\Compta\Models\Ecriture;
 use App\Modules\Compta\Models\EcritureLigne;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +13,16 @@ use Illuminate\Validation\ValidationException;
  * Lettrage : rapprocher les débits et crédits d'un compte de tiers
  * (3421 clients, 4411 fournisseurs…). Un groupe lettré porte un code
  * (AAA, AAB…) et doit être parfaitement équilibré.
+ *
+ * ÉQUILIBRÉ PAR TIERS, PAS SEULEMENT PAR COMPTE. Un groupe ne réunit que des
+ * lignes d'UN même tiers (ou, sur un compte sans tiers, que des lignes sans
+ * tiers). EncoursService lit le solde d'un client sur ses lignes NON lettrées,
+ * le relevé sur toutes : les deux ne disent la même chose que si ce qu'on
+ * lettre s'annule chez CE client. Lettrer la facture de E avec le règlement
+ * de F soldait E et F dans la liste quand leurs relevés disaient +1 200 et
+ * −1 200 ; lettrer le règlement de D avec une ligne d'à-nouveau sans tiers
+ * effaçait sa dette de la liste quand son relevé imprimait « Solde en votre
+ * faveur 5 000,00 DH ».
  */
 class LettrageService
 {
@@ -45,6 +57,19 @@ class LettrageService
                 ]);
             }
 
+            // NULL compris dans la comparaison : une ligne sans tiers face à
+            // celle d'un client est un mélange, pas un « même tiers ». Des
+            // messages en français, comme le reste de l'écran de lettrage : la
+            // comptabilité ne se traduit pas, par décision.
+            if ($lignes->map(fn ($l) => $l->tiers_id === null ? null : (int) $l->tiers_id)->unique()->count() > 1) {
+                throw ValidationException::withMessages([
+                    'lignes' => $lignes->contains(fn ($l) => $l->tiers_id === null)
+                        ? 'Une ligne sans tiers (un à-nouveau global, par exemple) ne se lettre pas avec celle d\'un tiers : '
+                            .'saisissez d\'abord le solde d\'ouverture du tiers depuis sa fiche, puis lettrez-le.'
+                        : 'Toutes les lignes doivent concerner le même tiers.',
+                ]);
+            }
+
             if ($lignes->contains(fn ($l) => $l->lettrage !== null)) {
                 throw ValidationException::withMessages([
                     'lignes' => 'Certaines lignes sont déjà lettrées — délettrez-les d\'abord.',
@@ -75,9 +100,11 @@ class LettrageService
 
     /**
      * Lettrage automatique : regroupe les lignes non lettrées du compte par
-     * référence d'écriture (FA-…, FF-…) et lettre chaque groupe équilibré.
-     * Nos écritures automatiques partagent la référence entre la facture et
-     * ses règlements — le matching est donc exact.
+     * référence d'écriture (FA-…, FF-…) ET par tiers, et lettre chaque groupe
+     * équilibré. Nos écritures automatiques partagent la référence entre la
+     * facture et ses règlements — le matching est donc exact. Le tiers dans la
+     * clé : une référence saisie à la main (OD, reprise) peut se retrouver
+     * chez deux tiers, et la même règle que le lettrage manuel s'applique.
      */
     public function lettrageAuto(int $compteId): array
     {
@@ -89,7 +116,7 @@ class LettrageService
                 ->with('ecriture:id,reference')
                 ->get();
 
-            $groupes = $lignes->groupBy(fn ($l) => $l->ecriture->reference);
+            $groupes = $lignes->groupBy(fn ($l) => $l->ecriture->reference.'|'.($l->tiers_id ?? ''));
             $lettres = 0;
             $lignesLettrees = 0;
 
@@ -131,6 +158,60 @@ class LettrageService
         }
 
         return EcritureLigne::whereIn('id', $ids)->update(['lettrage' => null]);
+    }
+
+    /**
+     * Les groupes lettrés qui mêlent plusieurs tiers — une ligne sans tiers
+     * comptant pour un tiers à part —, posés avant que `lettrer()` ne les
+     * refuse. Pour chacun, l'écart que porte chaque tiers : ce dont la liste
+     * (lignes non lettrées) et le relevé (toutes) divergent chez lui.
+     *
+     * Lecture seule, sous le scope d'entreprise du modèle Ecriture : les
+     * lignes n'ont pas d'entreprise à elles.
+     *
+     * @return list<array{compte: string, code: string, lignes: int, tiers: list<array{tiers_id: ?int, nom: ?string, ecart: float}>}>
+     */
+    public function groupesMelanges(): array
+    {
+        $groupes = Ecriture::query()
+            ->join('ecriture_lignes', 'ecriture_lignes.ecriture_id', '=', 'ecritures.id')
+            ->whereNotNull('ecriture_lignes.lettrage')
+            ->toBase()
+            ->select(['ecriture_lignes.compte_id', 'ecriture_lignes.lettrage'])
+            ->selectRaw('COUNT(*) AS lignes')
+            ->groupBy('ecriture_lignes.compte_id', 'ecriture_lignes.lettrage')
+            ->havingRaw('COUNT(DISTINCT COALESCE(ecriture_lignes.tiers_id, 0)) > 1')
+            ->get();
+
+        $codes = Compte::whereIn('id', $groupes->pluck('compte_id')->unique())->pluck('code', 'id');
+
+        return $groupes
+            ->map(function ($groupe) use ($codes) {
+                $parTiers = EcritureLigne::query()
+                    ->where('compte_id', $groupe->compte_id)
+                    ->where('lettrage', $groupe->lettrage)
+                    ->whereHas('ecriture')
+                    ->with('tiers:id,name')
+                    ->get()
+                    ->groupBy(fn ($l) => $l->tiers_id ?? 0)
+                    ->map(fn ($lignes) => [
+                        'tiers_id' => $lignes->first()->tiers_id,
+                        'nom' => $lignes->first()->tiers?->name,
+                        'ecart' => round($lignes->sum(fn ($l) => (float) $l->debit - (float) $l->credit), 2),
+                    ])
+                    ->values()
+                    ->all();
+
+                return [
+                    'compte' => (string) ($codes[$groupe->compte_id] ?? $groupe->compte_id),
+                    'code' => $groupe->lettrage,
+                    'lignes' => (int) $groupe->lignes,
+                    'tiers' => $parTiers,
+                ];
+            })
+            ->sortBy(fn ($g) => $g['compte'].'|'.str_pad($g['code'], 8, ' ', STR_PAD_LEFT))
+            ->values()
+            ->all();
     }
 
     /** Lignes lettrables d'un compte, avec leur contexte d'écriture. */

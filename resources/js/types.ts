@@ -14,10 +14,14 @@ export interface User {
     tenant_id: number;
 }
 
+export type TiersForme = 'entreprise' | 'particulier';
+
 export interface Tiers {
     id: number;
     code: string;
     name: string;
+    /** Entreprise (défaut de tout l'existant) ou particulier — jamais déduite de l'ICE. */
+    forme: TiersForme;
     is_client: boolean;
     is_supplier: boolean;
     is_prospect: boolean;
@@ -35,6 +39,14 @@ export interface Tiers {
     city: string | null;
     postal_code: string | null;
     country: string;
+    /**
+     * Vrai : on livre à l'adresse de facturation, et les trois champs qui
+     * suivent sont vides (le serveur les vide). Faux : ils disent où livrer.
+     */
+    livraison_identique: boolean;
+    adresse_livraison: string | null;
+    ville_livraison: string | null;
+    code_postal_livraison: string | null;
     phone: string | null;
     email: string | null;
     website: string | null;

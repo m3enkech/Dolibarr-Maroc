@@ -41,9 +41,13 @@ class EncoursService
      * réellement mappé (c'est là que ComptaService écrit), plus les effets à
      * recevoir quand ils existent.
      *
+     * Publique pour le relevé du client (ReleveService) : son solde de
+     * clôture doit être CE solde, et le seul moyen sûr d'avoir le même
+     * périmètre est de lire la même liste de comptes.
+     *
      * @return array<int, int>
      */
-    private function comptesCreance(): array
+    public function comptesCreance(): array
     {
         $ids = [$this->compta->compteParDefaut('clients')->id];
 
@@ -125,6 +129,34 @@ class EncoursService
         }
 
         return $soldes;
+    }
+
+    /**
+     * Le solde tel que la LISTE des tiers l'affiche — et l'export CSV, qui
+     * doit dire la même chose : signé, et `null` quand il est sans objet.
+     *
+     * TOUS les tiers sont interrogés, pas seulement ceux cochés « client » :
+     * rien n'interdit de facturer un tiers enregistré comme fournisseur (la
+     * vente ne contrôle que son existence), ni de décocher « client » sur
+     * quelqu'un qui doit encore de l'argent. Filtrer sur la case cachait alors
+     * une dette que /encours, lui, affichait.
+     *
+     * Le drapeau ne sert qu'à lire l'ABSENCE de ligne ouverte : un client
+     * confirmé sans écriture est réellement à zéro ; un fournisseur pur ou un
+     * prospect sans écriture n'ont pas de compte client — « 0,00 » y
+     * laisserait croire qu'on a vérifié, d'où `null`.
+     *
+     * @param  iterable<Tiers>  $tiers
+     * @return array<int, ?float> solde indexé par id de tiers
+     */
+    public function soldesAffiches(iterable $tiers): array
+    {
+        $liste = collect($tiers);
+        $soldes = $this->soldesSignes($liste->pluck('id')->all());
+
+        return $liste->mapWithKeys(fn (Tiers $t) => [
+            $t->id => $soldes[$t->id] ?? ($t->is_client && ! $t->is_prospect ? 0.0 : null),
+        ])->all();
     }
 
     /**

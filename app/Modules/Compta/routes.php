@@ -6,9 +6,17 @@ use App\Modules\Compta\Http\Controllers\EcrituresController;
 use App\Modules\Compta\Http\Controllers\ImmobilisationsController;
 use App\Modules\Compta\Http\Controllers\LettrageController;
 use App\Modules\Compta\Http\Controllers\OuvertureController;
-use App\Modules\Compta\Http\Controllers\RapprochementController;
 use App\Modules\Compta\Http\Controllers\RapportsController;
+use App\Modules\Compta\Http\Controllers\RapprochementController;
+use App\Modules\Compta\Http\Controllers\SoldeOuvertureController;
 use Illuminate\Support\Facades\Route;
+
+// Solde d'ouverture d'un tiers : l'URL est celle de la fiche (/tiers/{id}/…),
+// la GARDE celle de la compta — c'est une écriture au grand livre. Déclarée
+// ici, hors du préfixe `compta`, pour n'avoir qu'UNE permission : posée dans
+// le module Tiers, elle hériterait de `permission:tiers` en plus.
+Route::get('tiers/{tiers}/solde-ouverture', [SoldeOuvertureController::class, 'show']);
+Route::post('tiers/{tiers}/solde-ouverture', [SoldeOuvertureController::class, 'store']);
 
 Route::prefix('compta')->group(function () {
     Route::get('lettrage', [LettrageController::class, 'index']);

@@ -92,6 +92,11 @@ class PlanComptableMarocain
         ['34552', 'État — TVA récupérable sur charges'],
         ['3453', 'État — Acomptes sur impôts sur les résultats'],
         ['3488', 'Autres débiteurs divers'],
+        // Comptes d'attente : contrepartie d'un solde d'ouverture saisi tiers
+        // par tiers (SoldeOuvertureService). Débiteur à l'actif, créditeur au
+        // passif — le bilan les range chacun de son côté ; à solder par le
+        // comptable avant la clôture.
+        ['3497', 'Comptes transitoires ou d\'attente — débiteurs'],
         ['3942', 'Provisions pour dépréciation des clients et comptes rattachés'],
 
         // Classe 4 — Passif circulant
@@ -107,6 +112,7 @@ class PlanComptableMarocain
         ['4463', 'Associés — comptes courants créditeurs'],
         ['4488', 'Autres créanciers divers'],
         ['4491', 'Produits constatés d\'avance'],
+        ['4497', 'Comptes transitoires ou d\'attente — créditeurs'],
 
         // Classe 5 — Trésorerie
         ['5111', 'Chèques à encaisser'],
