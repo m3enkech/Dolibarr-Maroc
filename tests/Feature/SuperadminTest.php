@@ -109,4 +109,50 @@ class SuperadminTest extends TestCase
         $res = $this->withToken($superToken)->getJson("/api/v1/superadmin/tenants/{$tenant->id}")->assertOk();
         $this->assertCount(2, $res->json('data.users'));
     }
+
+    public function test_console_montre_les_coordonnees_de_chaque_abonne(): void
+    {
+        [$superToken] = $this->superadminToken();
+        [$acmeToken, $acme] = $this->entreprise('Acme', 'a@acme.ma');
+        [, $globex] = $this->entreprise('Globex', 'b@globex.ma');
+
+        // Acme remplit sa fiche « Identité de la société » ; Globex non.
+        $this->withToken($acmeToken)->putJson('/api/v1/parametres/societe', [
+            'email' => 'compta@acme.ma',
+            'phone' => '+212 5 22 00 00 00',
+            'address' => '12 rue de Fès',
+            'postal_code' => '20000',
+            'city' => 'Casablanca',
+            'ice' => '001234567000089',
+        ])->assertOk();
+        $this->app['auth']->forgetGuards();
+
+        $res = $this->withToken($superToken)->getJson('/api/v1/superadmin/tenants')->assertOk();
+        $parId = collect($res->json('data.tenants'))->keyBy('id');
+
+        $this->assertSame([
+            'email' => 'compta@acme.ma',
+            'phone' => '+212 5 22 00 00 00',
+            'address' => '12 rue de Fès',
+            'postal_code' => '20000',
+            'city' => 'Casablanca',
+            'website' => null,
+            'ice' => '001234567000089',
+            'if' => null,
+            'rc' => null,
+            'admin_name' => 'Admin Acme',
+            'admin_email' => 'a@acme.ma',
+        ], $parId[$acme->id]['contact']);
+
+        // Fiche vide : seul l'administrateur inscrit est connu.
+        $this->assertSame('b@globex.ma', $parId[$globex->id]['contact']['admin_email']);
+        $this->assertNull($parId[$globex->id]['contact']['phone']);
+        $this->assertNull($parId[$globex->id]['contact']['address']);
+
+        // Le détail porte les mêmes coordonnées.
+        $this->withToken($superToken)->getJson("/api/v1/superadmin/tenants/{$acme->id}")
+            ->assertOk()
+            ->assertJsonPath('data.tenant.contact.city', 'Casablanca')
+            ->assertJsonPath('data.tenant.contact.admin_email', 'a@acme.ma');
+    }
 }

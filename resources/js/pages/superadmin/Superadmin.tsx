@@ -4,7 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatMAD } from '@/lib/format';
-import type { EquipeUser, SuperadminData, SuperadminPayment, SuperadminTenant } from '@/types';
+import type { EquipeUser, SuperadminContact, SuperadminData, SuperadminPayment, SuperadminTenant } from '@/types';
 import { useT } from '@/lib/langue';
 
 const STATUT: Record<string, { label: string; cls: string }> = {
@@ -24,6 +24,72 @@ function StatCard({ label, value, tone = 'slate' }: { label: string; value: stri
         <div className="rounded-xl bg-white p-4 shadow-sm">
             <div className="text-xs text-slate-500">{label}</div>
             <div className={`mt-1 text-2xl font-semibold text-${tone}-700`}>{value}</div>
+        </div>
+    );
+}
+
+/** Coordonnées de l'abonné, reprises de sa fiche « Identité de la société ». */
+function Coordonnees({ contact }: { contact: SuperadminContact }) {
+    const t = useT();
+    const vide = <span className="text-slate-400">{t('Non renseigné')}</span>;
+    const adresse = [contact.address, [contact.postal_code, contact.city].filter(Boolean).join(' ')].filter(Boolean) as string[];
+    const legal = [
+        contact.ice && `ICE ${contact.ice}`,
+        contact.if && `IF ${contact.if}`,
+        contact.rc && `RC ${contact.rc}`,
+    ].filter(Boolean) as string[];
+    const ficheVide = !contact.email && !contact.phone && adresse.length === 0 && legal.length === 0;
+
+    return (
+        <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('Coordonnées')}</div>
+            <dl className="mt-2 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                <div className="min-w-0">
+                    <dt className="text-xs text-slate-400">{t('Administrateur')}</dt>
+                    <dd className="text-slate-700">
+                        {contact.admin_name ?? vide}
+                        {contact.admin_email && (
+                            <a href={`mailto:${contact.admin_email}`} className="block break-all text-emerald-700 hover:underline">
+                                {contact.admin_email}
+                            </a>
+                        )}
+                    </dd>
+                </div>
+                <div className="min-w-0">
+                    <dt className="text-xs text-slate-400">{t('E-mail de la société')}</dt>
+                    <dd>
+                        {contact.email ? (
+                            <a href={`mailto:${contact.email}`} className="break-all text-emerald-700 hover:underline">{contact.email}</a>
+                        ) : vide}
+                    </dd>
+                </div>
+                <div className="min-w-0">
+                    <dt className="text-xs text-slate-400">{t('Téléphone')}</dt>
+                    <dd>
+                        {contact.phone ? (
+                            <a href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`} dir="ltr" className="text-emerald-700 hover:underline">
+                                {contact.phone}
+                            </a>
+                        ) : vide}
+                    </dd>
+                </div>
+                <div className="min-w-0">
+                    <dt className="text-xs text-slate-400">{t('Adresse de facturation')}</dt>
+                    <dd className="text-slate-700">
+                        {adresse.length ? adresse.map((ligne) => <div key={ligne}><bdi>{ligne}</bdi></div>) : vide}
+                    </dd>
+                </div>
+                {(legal.length > 0 || contact.website) && (
+                    <div className="min-w-0 text-xs text-slate-500 sm:col-span-2 xl:col-span-4">
+                        <bdi className="break-all">{[...legal, contact.website].filter(Boolean).join(' · ')}</bdi>
+                    </div>
+                )}
+            </dl>
+            {ficheVide && (
+                <p className="mt-2 text-xs text-slate-400">
+                    {t('L’abonné n’a pas encore rempli sa fiche « Identité de la société » dans ses paramètres.')}
+                </p>
+            )}
         </div>
     );
 }
@@ -82,110 +148,115 @@ function TenantDetail({ tenant, methods, colSpan }: { tenant: SuperadminTenant; 
     return (
         <tr className="bg-slate-50/60">
             <td colSpan={colSpan} className="px-4 py-4">
-                <div className="grid gap-6 lg:grid-cols-3">
-                    {/* Enregistrer un paiement */}
-                    <div>
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            {t('Enregistrer un paiement')}
-                        </div>
-                        <div className="mt-2 space-y-2">
-                            <div className="flex gap-2">
+                {/* Sur téléphone, le tableau défile en largeur : le détail reste
+                    calé sur la partie visible au lieu de s'étaler sur toutes les colonnes. */}
+                <div className="sticky start-4 max-w-[calc(100vw-4rem)] space-y-6 lg:static lg:max-w-none">
+                    <Coordonnees contact={tenant.contact} />
+                    <div className="grid gap-6 lg:grid-cols-3">
+                        {/* Enregistrer un paiement */}
+                        <div>
+                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                {t('Enregistrer un paiement')}
+                            </div>
+                            <div className="mt-2 space-y-2">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="number"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        className="w-28 rounded border border-slate-300 px-2 py-1 text-sm"
+                                        placeholder={t('Montant')}
+                                    />
+                                    <select
+                                        value={method}
+                                        onChange={(e) => setMethod(e.target.value)}
+                                        className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm"
+                                    >
+                                        {methods.map((m) => (
+                                            <option key={m} value={m}>{METHOD_LABEL[m] ?? m}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <input
+                                    value={reference}
+                                    onChange={(e) => setReference(e.target.value)}
+                                    className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                                    placeholder={t('Référence (n° virement, chèque…)')}
+                                />
+                                <button
+                                    onClick={() => payer.mutate()}
+                                    disabled={payer.isPending || !amount}
+                                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                    Encaisser ({tenant.billing_cycle})
+                                </button>
+                                {msg && <div className="text-xs text-emerald-600">{msg}</div>}
+                            </div>
+                            <div className="mt-3 text-xs text-slate-500">
+                                Sièges extra :{' '}
                                 <input
                                     type="number"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                    className="w-28 rounded border border-slate-300 px-2 py-1 text-sm"
-                                    placeholder={t('Montant')}
+                                    min={0}
+                                    defaultValue={tenant.extra_seats}
+                                    onBlur={(e) => {
+                                        const v = Number(e.target.value);
+                                        if (v !== tenant.extra_seats) majSeats.mutate(v);
+                                    }}
+                                    className="w-16 rounded border border-slate-200 px-2 py-0.5 text-xs"
                                 />
-                                <select
-                                    value={method}
-                                    onChange={(e) => setMethod(e.target.value)}
-                                    className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm"
-                                >
-                                    {methods.map((m) => (
-                                        <option key={m} value={m}>{METHOD_LABEL[m] ?? m}</option>
-                                    ))}
-                                </select>
                             </div>
-                            <input
-                                value={reference}
-                                onChange={(e) => setReference(e.target.value)}
-                                className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
-                                placeholder={t('Référence (n° virement, chèque…)')}
-                            />
-                            <button
-                                onClick={() => payer.mutate()}
-                                disabled={payer.isPending || !amount}
-                                className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                            >
-                                Encaisser ({tenant.billing_cycle})
-                            </button>
-                            {msg && <div className="text-xs text-emerald-600">{msg}</div>}
                         </div>
-                        <div className="mt-3 text-xs text-slate-500">
-                            Sièges extra :{' '}
-                            <input
-                                type="number"
-                                min={0}
-                                defaultValue={tenant.extra_seats}
-                                onBlur={(e) => {
-                                    const v = Number(e.target.value);
-                                    if (v !== tenant.extra_seats) majSeats.mutate(v);
-                                }}
-                                className="w-16 rounded border border-slate-200 px-2 py-0.5 text-xs"
-                            />
+    
+                        {/* Historique des paiements */}
+                        <div>
+                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                {t('Historique des paiements')}
+                            </div>
+                            {!data?.payments.length ? (
+                                <div className="mt-2 text-xs text-slate-400">{t('Aucun paiement enregistré.')}</div>
+                            ) : (
+                                <ul className="mt-2 space-y-1 text-xs">
+                                    {data.payments.map((p) => (
+                                        <li key={p.id} className="flex justify-between border-b border-slate-100 pb-1">
+                                            <span>
+                                                {new Date(p.paid_at).toLocaleDateString('fr-MA')} · {METHOD_LABEL[p.method] ?? p.method}
+                                                {p.reference && <span className="text-slate-400"> · {p.reference}</span>}
+                                            </span>
+                                            <span className="flex items-center gap-2">
+                                                <span className="font-medium text-slate-700">{formatMAD(p.amount)}</span>
+                                                {p.has_invoice && (
+                                                    <button
+                                                        onClick={() => telechargerFacture(p.id)}
+                                                        className="text-emerald-600 hover:underline"
+                                                        title={t('Télécharger la facture')}
+                                                    >
+                                                        PDF
+                                                    </button>
+                                                )}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
-                    </div>
-
-                    {/* Historique des paiements */}
-                    <div>
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            {t('Historique des paiements')}
-                        </div>
-                        {!data?.payments.length ? (
-                            <div className="mt-2 text-xs text-slate-400">{t('Aucun paiement enregistré.')}</div>
-                        ) : (
-                            <ul className="mt-2 space-y-1 text-xs">
-                                {data.payments.map((p) => (
-                                    <li key={p.id} className="flex justify-between border-b border-slate-100 pb-1">
-                                        <span>
-                                            {new Date(p.paid_at).toLocaleDateString('fr-MA')} · {METHOD_LABEL[p.method] ?? p.method}
-                                            {p.reference && <span className="text-slate-400"> · {p.reference}</span>}
-                                        </span>
-                                        <span className="flex items-center gap-2">
-                                            <span className="font-medium text-slate-700">{formatMAD(p.amount)}</span>
-                                            {p.has_invoice && (
-                                                <button
-                                                    onClick={() => telechargerFacture(p.id)}
-                                                    className="text-emerald-600 hover:underline"
-                                                    title={t('Télécharger la facture')}
-                                                >
-                                                    PDF
-                                                </button>
-                                            )}
-                                        </span>
-                                    </li>
+    
+                        {/* Utilisateurs */}
+                        <div>
+                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Utilisateurs ({data?.users.length ?? tenant.users_count})
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                {data?.users.map((u) => (
+                                    <span
+                                        key={u.id}
+                                        className={`rounded-full border border-slate-200 px-2 py-0.5 text-xs ${
+                                            u.is_active ? 'bg-white text-slate-600' : 'bg-slate-200 text-slate-400 line-through'
+                                        }`}
+                                    >
+                                        {u.name} · {u.role_label}{u.is_superadmin && ' ⭐'}
+                                    </span>
                                 ))}
-                            </ul>
-                        )}
-                    </div>
-
-                    {/* Utilisateurs */}
-                    <div>
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Utilisateurs ({data?.users.length ?? tenant.users_count})
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                            {data?.users.map((u) => (
-                                <span
-                                    key={u.id}
-                                    className={`rounded-full border border-slate-200 px-2 py-0.5 text-xs ${
-                                        u.is_active ? 'bg-white text-slate-600' : 'bg-slate-200 text-slate-400 line-through'
-                                    }`}
-                                >
-                                    {u.name} · {u.role_label}{u.is_superadmin && ' ⭐'}
-                                </span>
-                            ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -258,6 +329,9 @@ export default function Superadmin() {
                         <tbody className="divide-y divide-slate-50">
                             {data.tenants.map((entreprise) => {
                                 const st = STATUT[entreprise.effective_status] ?? STATUT.actif;
+                                // E-mail de la société, à défaut celui de l'administrateur inscrit.
+                                const contact = entreprise.contact;
+                                const email = contact.email ?? contact.admin_email;
                                 return (
                                     <Fragment key={entreprise.id}>
                                         <tr className={entreprise.effective_status === 'en_retard' ? 'bg-red-50/40' : ''}>
@@ -268,6 +342,18 @@ export default function Superadmin() {
                                                 >
                                                     {expanded === entreprise.id ? '▾' : '▸'} {entreprise.name}
                                                 </button>
+                                                {email && (
+                                                    <a href={`mailto:${email}`} className="block max-w-52 truncate text-xs text-slate-600 hover:text-emerald-600" title={email}>
+                                                        {email}
+                                                    </a>
+                                                )}
+                                                {(contact.phone || contact.city) && (
+                                                    <div className="text-xs text-slate-500">
+                                                        {contact.phone && <span dir="ltr">{contact.phone}</span>}
+                                                        {contact.phone && contact.city && ' · '}
+                                                        {contact.city}
+                                                    </div>
+                                                )}
                                                 <div className="text-xs text-slate-400">{entreprise.users_count} utilisateur(s)</div>
                                             </td>
                                             <td className="px-4 py-3">

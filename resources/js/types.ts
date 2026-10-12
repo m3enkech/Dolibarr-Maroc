@@ -781,6 +781,22 @@ export interface SuperadminTenant {
     payments_count: number;
     last_payment: { amount: number; paid_at: string } | null;
     created_at: string;
+    contact: SuperadminContact;
+}
+
+/** Coordonnées saisies par l'abonné dans « Identité de la société ». */
+export interface SuperadminContact {
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+    postal_code: string | null;
+    city: string | null;
+    website: string | null;
+    ice: string | null;
+    if: string | null;
+    rc: string | null;
+    admin_name: string | null;
+    admin_email: string | null;
 }
 
 export interface SuperadminPayment {

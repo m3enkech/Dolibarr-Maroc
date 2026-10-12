@@ -27,9 +27,20 @@ class SuperadminController extends Controller
     {
         $tenants = Tenant::query()->withCount('payments')->orderByDesc('created_at')->get();
 
+        // Administrateurs de toutes les entreprises en une seule requête : la
+        // liste affiche le contact de chaque abonné sans requête par ligne.
+        $admins = User::query()
+            ->whereIn('tenant_id', $tenants->pluck('id'))
+            ->where('role', Roles::ADMIN)
+            ->orderByDesc('is_active')->orderBy('id')
+            ->get(['id', 'tenant_id', 'name', 'email', 'is_active'])
+            ->groupBy('tenant_id');
+
         return response()->json([
             'data' => [
-                'tenants' => $tenants->map(fn (Tenant $t) => $this->tenantItem($t))->values(),
+                'tenants' => $tenants
+                    ->map(fn (Tenant $t) => $this->tenantItem($t, $admins->get($t->id)?->first()))
+                    ->values(),
                 'stats' => $this->stats($tenants),
                 'plans' => collect(config('plans.plans'))
                     ->map(fn ($p, $cle) => ['value' => $cle, 'label' => $p['label'], 'price' => $p['price'], 'price_annual' => $p['price_annual']])
@@ -159,15 +170,17 @@ class SuperadminController extends Controller
     }
 
     /** PDF de la facture d'abonnement liée à un paiement. */
-    public function pdfPaiement(\App\Models\SubscriptionPayment $payment)
+    public function pdfPaiement(SubscriptionPayment $payment)
     {
         return $this->billing->pdf($payment);
     }
 
-    private function tenantItem(Tenant $tenant): array
+    private function tenantItem(Tenant $tenant, ?User $admin = null): array
     {
         $plans = config('plans.plans');
         $dernier = $tenant->payments()->latest('paid_at')->latest('id')->first();
+        $admin ??= $tenant->users()->where('role', Roles::ADMIN)
+            ->orderByDesc('is_active')->orderBy('id')->first();
 
         return [
             'id' => $tenant->id,
@@ -195,6 +208,37 @@ class SuperadminController extends Controller
             'payments_count' => (int) ($tenant->payments_count ?? $tenant->payments()->count()),
             'last_payment' => $dernier ? ['amount' => (float) $dernier->amount, 'paid_at' => $dernier->paid_at->toDateString()] : null,
             'created_at' => $tenant->created_at,
+            'contact' => $this->contact($tenant, $admin),
+        ];
+    }
+
+    /**
+     * Coordonnées de l'abonné, telles qu'il les a saisies dans « Identité de
+     * la société » (Paramètres). L'inscription ne demande que le nom de
+     * l'entreprise et l'e-mail de l'administrateur : le reste peut être vide.
+     * L'adresse est celle qui figure sur ses factures d'abonnement.
+     */
+    private function contact(Tenant $tenant, ?User $admin): array
+    {
+        $settings = $tenant->settings ?? [];
+        $champ = function (string $cle) use ($settings): ?string {
+            $valeur = trim((string) ($settings[$cle] ?? ''));
+
+            return $valeur === '' ? null : $valeur;
+        };
+
+        return [
+            'email' => $champ('email'),
+            'phone' => $champ('phone'),
+            'address' => $champ('address'),
+            'postal_code' => $champ('postal_code'),
+            'city' => $champ('city'),
+            'website' => $champ('website'),
+            'ice' => $champ('ice'),
+            'if' => $champ('if'),
+            'rc' => $champ('rc'),
+            'admin_name' => $admin?->name,
+            'admin_email' => $admin?->email,
         ];
     }
 
