@@ -3,6 +3,7 @@
 namespace App\Modules\Stock\Services;
 
 use App\Modules\Achats\Models\DocumentAchatLigne;
+use App\Modules\Catalogue\Models\Produit;
 use App\Modules\Stock\Models\MouvementStock;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -54,9 +55,10 @@ class ReapproService
     private const PART_MIN_JOURS_VENDABLES = 0.25;
 
     /**
-     * @param  Collection<int, \App\Modules\Catalogue\Models\Produit>  $produits
-     *         chargés avec les attributs calculés `stock_quantite` et `en_commande`
-     * @return array<int, array<string, mixed>>  indexé par produit_id
+     * Produits chargés avec les attributs calculés `stock_quantite` et `en_commande`.
+     *
+     * @param  Collection<int, Produit>  $produits
+     * @return array<int, array<string, mixed>> indexé par produit_id
      */
     public function pour(Collection $produits, ?int $entrepotId = null): array
     {
@@ -163,7 +165,15 @@ class ReapproService
             ->sum(fn (MouvementStock $m) => (float) $m->quantite);
         $demande = round($demande, 3);
 
-        $joursRupture = $this->joursDeRupture($mouvements, $stock, $depuis);
+        // Ni être en rupture avant d'exister : pour un article créé pendant la
+        // fenêtre, la reconstitution s'arrête à sa création. Sinon les jours
+        // d'avant — niveau zéro, faute d'article — passent pour des jours de
+        // rupture, écrasent les jours vendables et gonflent la commande.
+        $debut = $produit->created_at !== null && $produit->created_at->greaterThan($depuis)
+            ? $produit->created_at
+            : $depuis;
+
+        $joursRupture = $this->joursDeRupture($mouvements, $stock, $debut);
 
         // Un article créé pendant la fenêtre n'a pas pu vendre avant d'exister.
         $ageJours = $produit->created_at !== null
@@ -235,27 +245,36 @@ class ReapproService
      * `quantite_apres` : elle ne vaut que pour un entrepôt, alors que la vue par
      * défaut agrège tous les dépôts.
      *
+     * Rien n'est compté avant `$debut` (début de la fenêtre, ou création de
+     * l'article si elle est plus récente). Chaque tranche y est rognée : un
+     * mouvement daté d'avant la création — reprise de données — ne doit pas
+     * faire compter, ni décompter, des heures où l'article n'existait pas.
+     *
      * @param  Collection<int, MouvementStock>  $mouvements  du plus récent au plus ancien
      */
-    private function joursDeRupture(Collection $mouvements, float $stockActuel, Carbon $depuis): int
+    private function joursDeRupture(Collection $mouvements, float $stockActuel, Carbon $debut): int
     {
         $niveau = $stockActuel;
         $borneHaute = now();
         $heuresEnRupture = 0.0;
 
+        // Heures de [de, à] postérieures à $debut ; jamais négatif (diffInHours
+        // est signé depuis Carbon 3).
+        $tranche = fn (Carbon $de, Carbon $a): float => max(0.0, ($de->greaterThan($debut) ? $de : $debut)->diffInHours($a));
+
         foreach ($mouvements as $mouvement) {
             // Entre ce mouvement et le suivant, le niveau n'a pas bougé.
             if ($niveau <= 0.0005) {
-                $heuresEnRupture += $mouvement->created_at->diffInHours($borneHaute);
+                $heuresEnRupture += $tranche($mouvement->created_at, $borneHaute);
             }
 
             $niveau = round($niveau - (float) $mouvement->quantite, 3);
             $borneHaute = $mouvement->created_at;
         }
 
-        // Depuis le début de la fenêtre jusqu'au premier mouvement observé.
+        // Depuis le début de la fenêtre (ou la création) jusqu'au premier mouvement observé.
         if ($niveau <= 0.0005) {
-            $heuresEnRupture += $depuis->diffInHours($borneHaute);
+            $heuresEnRupture += $tranche($debut, $borneHaute);
         }
 
         return (int) floor($heuresEnRupture / 24);

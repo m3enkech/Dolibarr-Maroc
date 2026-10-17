@@ -1,13 +1,21 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import SelecteurProduit, { type ProduitChoisi } from '@/components/SelecteurProduit';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { formatMAD } from '@/lib/format';
-import type { CategorieProduit, Paginated, Produit } from '@/types';
+import type { CategorieProduit, Entrepot, Paginated, Produit, ProduitDepots } from '@/types';
 import { useT } from '@/lib/langue';
 
 const TVA_RATES = [20, 14, 10, 7, 0] as const;
+
+/**
+ * Champs du stock initial : leurs refus s'affichent sous eux, juste au-dessus
+ * du bouton qu'on vient de presser, et non dans le bandeau du haut de page —
+ * hors de vue sur un téléphone.
+ */
+const CHAMPS_STOCK = ['stock_initial', 'entrepot_id'];
 
 interface ComposantRow {
     produit_id: string;
@@ -76,6 +84,64 @@ export default function ProduitForm() {
     const [form, setForm] = useState<ProduitFormData>(emptyForm);
     const [composants, setComposants] = useState<ComposantRow[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [erreursChamps, setErreursChamps] = useState<Record<string, string[]>>({});
+    const { can } = useAuth();
+
+    // Stock de départ : à la création seulement — ensuite, le stock se corrige
+    // par un mouvement ou un inventaire, qui laissent une trace — et pour qui
+    // peut écrire le stock. Le serveur refuse la quantité aux autres : autant
+    // ne pas leur proposer un champ voué au refus.
+    const peutAlimenter = !isEdit && can('stock', 'write');
+    const [stockInitial, setStockInitial] = useState('');
+    const [depotChoisi, setDepotChoisi] = useState('');
+    /** Enregistrement retenu faute de liste des dépôts (voir handleSubmit). */
+    const [envoiRetenu, setEnvoiRetenu] = useState(false);
+    const idAideStock = useId();
+    const idQuantite = useId();
+    const idUnite = useId();
+    const idErreurQuantite = useId();
+    const idDepot = useId();
+    const idErreurDepot = useId();
+    const refQuantite = useRef<HTMLInputElement>(null);
+    const refDepot = useRef<HTMLSelectElement>(null);
+
+    // Même clé que l'écran Stock : la liste des dépôts y est déjà en cache.
+    const {
+        data: entrepots,
+        isError: depotsEnEchec,
+        isFetching: depotsEnLecture,
+        refetch: relireDepots,
+    } = useQuery({
+        queryKey: ['entrepots'],
+        queryFn: async () => {
+            const { data } = await api.get<{ data: Entrepot[] }>('/stock/entrepots');
+            return data.data;
+        },
+        enabled: peutAlimenter,
+    });
+
+    const depotsActifs = (entrepots ?? []).filter((e) => e.is_active);
+    // Présélection : le dépôt par défaut s'il est actif, sinon le premier actif.
+    // Le dépôt affiché est TOUJOURS envoyé : laissé au serveur, un dépôt par
+    // défaut désactivé serait refusé alors que l'écran en proposait un autre.
+    const depotPropose = depotsActifs.find((e) => e.is_default) ?? depotsActifs[0] ?? null;
+    const depotRetenu = depotChoisi !== '' ? depotChoisi : depotPropose ? String(depotPropose.id) : '';
+    // Des dépôts, tous désactivés : le champ de quantité cède la place à une
+    // consigne. Seul ce qui est à l'écran part au serveur — une quantité tapée
+    // avant que la liste ne bascule ne doit pas partir en cachette.
+    const tousDepotsInactifs = entrepots !== undefined && entrepots.length > 0 && depotsActifs.length === 0;
+    const champStockAffiche = peutAlimenter && form.type === 'product' && !tousDepotsInactifs;
+
+    // Une erreur du stock initial s'affiche sous son champ, en bas de page :
+    // le focus y va, pour qu'un lecteur d'écran lise le champ et son message
+    // (aria-describedby, posé par le rendu qui précède cet effet).
+    useEffect(() => {
+        if (erreursChamps.stock_initial) {
+            refQuantite.current?.focus();
+        } else if (erreursChamps.entrepot_id) {
+            refDepot.current?.focus();
+        }
+    }, [erreursChamps]);
 
     const { data: existing } = useQuery({
         queryKey: ['produit-detail', id],
@@ -84,6 +150,18 @@ export default function ProduitForm() {
             return data.data;
         },
         enabled: isEdit,
+    });
+
+    // En modification, le stock se lit sans se saisir. Même clé que le détail
+    // par dépôt de l'écran de suivi, qui lit la même route.
+    const { data: stockActuel } = useQuery({
+        queryKey: ['pilotage', 'depots', Number(id)],
+        queryFn: async () => {
+            const { data } = await api.get<{ data: ProduitDepots }>(`/stock/produits/${id}/depots`);
+            return data.data;
+        },
+        enabled: isEdit && existing?.type === 'product' && can('stock', 'read'),
+        staleTime: 30_000,
     });
 
     const { data: categories } = useQuery({
@@ -130,7 +208,7 @@ export default function ProduitForm() {
     const mutation = useMutation({
         mutationFn: (payload: Record<string, unknown>) =>
             isEdit ? api.put(`/produits/${id}`, payload) : api.post('/produits', payload),
-        onSuccess: () => {
+        onSuccess: (_reponse, payload) => {
             queryClient.invalidateQueries({ queryKey: ['produits'] });
             queryClient.invalidateQueries({ queryKey: ['produits-count'] });
             // Les recherches des sélecteurs d'article (et la fiche relue d'un
@@ -138,29 +216,82 @@ export default function ProduitForm() {
             // paraître tout de suite, même dans une liste déjà ouverte.
             queryClient.invalidateQueries({ queryKey: ['selecteur-produit'] });
             queryClient.invalidateQueries({ queryKey: ['selecteur-produit-fiche'] });
+            // Un stock initial a bougé les niveaux, l'historique, le suivi — et
+            // peut-être créé le dépôt principal d'une entreprise qui n'en avait pas.
+            if ('stock_initial' in payload) {
+                for (const cle of ['stock-niveaux', 'stock-mouvements', 'stock-alertes', 'pilotage', 'entrepots']) {
+                    queryClient.invalidateQueries({ queryKey: [cle] });
+                }
+            }
             navigate('/catalogue');
         },
         onError: (err: any) => {
-            const messages = err?.response?.data?.errors;
-            setError(
-                messages
-                    ? (Object.values(messages).flat() as string[]).join(' ')
-                    : 'Enregistrement impossible.',
-            );
+            const erreurs: Record<string, string[]> = err?.response?.data?.errors ?? {};
+            setErreursChamps(erreurs);
+            // Un refus du stock dont le champ n'est plus à l'écran (la liste
+            // des dépôts a basculé pendant l'envoi) revient au bandeau : un
+            // message qui ne s'affiche nulle part serait un clic sans réponse.
+            const autres = Object.entries(erreurs)
+                .filter(([champ]) => !(champStockAffiche && CHAMPS_STOCK.includes(champ)))
+                .flatMap(([, messages]) => messages);
+            if (autres.length > 0) {
+                setError(autres.join(' '));
+            } else if (Object.keys(erreurs).length === 0) {
+                setError(t('Enregistrement impossible.'));
+            }
         },
     });
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         setError(null);
+        setErreursChamps({});
+        setEnvoiRetenu(false);
         const payload = toPayload(form, isEdit);
         if (form.type === 'kit') {
             payload.composants = composants
                 .filter((c) => c.produit_id !== '' && parseFloat(c.quantite) > 0)
                 .map((c) => ({ produit_id: parseInt(c.produit_id, 10), quantite: parseFloat(c.quantite) }));
         }
+        // Revenu à « service » ou « kit », la quantité saisie reste en mémoire
+        // (comme les seuils de réappro) mais ne part pas : le serveur la
+        // refuserait, un service n'ayant pas de stock. Idem quand le champ a
+        // cédé la place à la consigne « aucun dépôt actif ».
+        if (champStockAffiche && stockInitial !== '') {
+            // Liste des dépôts pas encore là (lente, ou en échec) : sans
+            // entrepot_id, le serveur rangerait la quantité dans le dépôt par
+            // défaut, que l'écran n'a jamais montré. On retient l'envoi.
+            // Le message en découle au rendu, et s'efface seul dès que la
+            // liste arrive.
+            if (entrepots === undefined) {
+                setEnvoiRetenu(true);
+                return;
+            }
+            payload.stock_initial = parseFloat(stockInitial);
+            // Aucun dépôt du tout : rien d'envoyé, le serveur crée le dépôt principal.
+            if (depotRetenu !== '') {
+                payload.entrepot_id = parseInt(depotRetenu, 10);
+            }
+        }
         mutation.mutate(payload);
     };
+
+    /**
+     * Sous un champ du stock initial : son refus, lié au champ pour les
+     * lecteurs d'écran, et annoncé dès qu'il paraît — le bandeau du haut ne
+     * le reprend pas.
+     */
+    const erreurSous = (champ: string, idErreur: string) =>
+        erreursChamps[champ] ? (
+            <p id={idErreur} role="alert" className="mt-1 text-xs text-red-600">
+                {erreursChamps[champ].join(' ')}
+            </p>
+        ) : null;
+
+    const decritPar = (champ: string, idErreur: string, ...autres: (string | null)[]) =>
+        [...autres, idAideStock, erreursChamps[champ] ? idErreur : null].filter(Boolean).join(' ');
+
+    const unite = form.unit.trim();
 
     const text =
         (key: keyof ProduitFormData) =>
@@ -447,6 +578,154 @@ export default function ProduitForm() {
                                 />
                             </div>
                         </div>
+                    </fieldset>
+                )}
+
+                {form.type === 'product' && peutAlimenter && (
+                    <fieldset className="min-w-0 rounded-xl bg-white p-5 shadow-sm">
+                        <legend className="sr-only">{t('Stock initial')}</legend>
+                        <h2 className="mb-1 font-medium text-slate-900">{t('Stock initial')}</h2>
+                        <p id={idAideStock} className="mb-4 text-xs text-slate-500">
+                            {t('Crée une entrée de stock. Ensuite, le stock se corrige par un mouvement ou un inventaire.')}
+                        </p>
+                        {tousDepotsInactifs ? (
+                            // Des dépôts, tous désactivés : le serveur refuserait
+                            // chacun d'eux. On le dit plutôt que d'offrir un champ
+                            // voué au refus — et l'on indique le seul geste que
+                            // l'écran Stock permet : aucun n'y réactive un dépôt.
+                            <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                {t('Aucun dépôt actif : ajoutez-en un dans Stock, onglet Entrepôts, pour saisir un stock initial.')}{' '}
+                                <Link to="/stock" className="font-medium underline">
+                                    {t('Ouvrir le stock →')}
+                                </Link>
+                            </p>
+                        ) : (
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="min-w-0">
+                                    <label htmlFor={idQuantite} className={label}>
+                                        {t('Quantité')}{' '}
+                                        <span className="font-normal text-slate-400">{t('(facultatif)')}</span>
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            ref={refQuantite}
+                                            id={idQuantite}
+                                            type="number"
+                                            inputMode="decimal"
+                                            step="0.001"
+                                            min="0.001"
+                                            max="999999999"
+                                            value={stockInitial}
+                                            onChange={(e) => setStockInitial(e.target.value)}
+                                            dir="ltr"
+                                            aria-invalid={erreursChamps.stock_initial ? true : undefined}
+                                            // L'unité d'abord : c'est elle qui donne son sens au nombre.
+                                            aria-describedby={decritPar(
+                                                'stock_initial',
+                                                idErreurQuantite,
+                                                unite !== '' ? idUnite : null,
+                                            )}
+                                            className={`${input} min-w-0 flex-1 text-end tabular-nums`}
+                                        />
+                                        {unite !== '' && (
+                                            <span id={idUnite} className="max-w-24 shrink-0 truncate text-sm text-slate-500">
+                                                <bdi>{unite}</bdi>
+                                            </span>
+                                        )}
+                                    </div>
+                                    {erreurSous('stock_initial', idErreurQuantite)}
+                                </div>
+                                <div className="min-w-0">
+                                    {depotsActifs.length > 1 ? (
+                                        <>
+                                            <label htmlFor={idDepot} className={label}>
+                                                {t('Dépôt')}
+                                            </label>
+                                            <select
+                                                ref={refDepot}
+                                                id={idDepot}
+                                                value={depotRetenu}
+                                                onChange={(e) => setDepotChoisi(e.target.value)}
+                                                aria-invalid={erreursChamps.entrepot_id ? true : undefined}
+                                                aria-describedby={decritPar('entrepot_id', idErreurDepot)}
+                                                className={input}
+                                            >
+                                                {depotsActifs.map((depot) => (
+                                                    <option key={depot.id} value={depot.id}>
+                                                        {depot.is_default
+                                                            ? t('{depot} (par défaut)', { depot: depot.name })
+                                                            : depot.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </>
+                                    ) : (
+                                        // Un seul dépôt (ou aucun encore) : rien à choisir,
+                                        // on dit seulement où la quantité entrera.
+                                        <>
+                                            <span className={label}>{t('Dépôt')}</span>
+                                            <p className="break-words py-2 text-sm text-slate-700">
+                                                {entrepots === undefined && depotsEnEchec ? (
+                                                    // Sans liste, aucun dépôt à montrer : l'envoi
+                                                    // d'une quantité est retenu (handleSubmit).
+                                                    <span className="text-red-600">
+                                                        {t('Liste des dépôts indisponible.')}{' '}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => relireDepots()}
+                                                            disabled={depotsEnLecture}
+                                                            className="font-medium text-emerald-600 hover:underline disabled:opacity-60"
+                                                        >
+                                                            {depotsEnLecture ? t('Chargement…') : t('Réessayer')}
+                                                        </button>
+                                                    </span>
+                                                ) : entrepots === undefined ? (
+                                                    t('Chargement…')
+                                                ) : depotPropose ? (
+                                                    <bdi>{depotPropose.name}</bdi>
+                                                ) : (
+                                                    t("Entrepôt principal, créé à l'enregistrement")
+                                                )}
+                                            </p>
+                                        </>
+                                    )}
+                                    {erreurSous('entrepot_id', idErreurDepot)}
+                                    {envoiRetenu && entrepots === undefined && (
+                                        <p role="alert" className="mt-1 text-xs text-red-600">
+                                            {depotsEnEchec
+                                                ? t(
+                                                      "La liste des dépôts n'a pas pu être chargée : réessayez, ou videz la quantité pour créer l'article sans stock.",
+                                                  )
+                                                : t('La liste des dépôts se charge encore : enregistrez dans un instant.')}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </fieldset>
+                )}
+
+                {isEdit && form.type === 'product' && stockActuel && (
+                    <fieldset className="min-w-0 rounded-xl bg-white p-5 shadow-sm">
+                        <legend className="sr-only">{t('Stock')}</legend>
+                        <h2 className="mb-1 font-medium text-slate-900">{t('Stock')}</h2>
+                        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                            <span className="text-sm text-slate-500">{t('Stock actuel')}</span>
+                            <span className="text-lg font-semibold tabular-nums text-slate-900">
+                                {parseFloat(stockActuel.total.quantite)}
+                                {stockActuel.produit.unit && (
+                                    <span className="ms-1 text-sm font-normal text-slate-400">
+                                        <bdi>{stockActuel.produit.unit}</bdi>
+                                    </span>
+                                )}
+                            </span>
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500">
+                            {t("Le stock d'un article existant se corrige par un mouvement ou un inventaire.")}{' '}
+                            <Link to="/stock" className="font-medium text-emerald-600 hover:underline">
+                                {t('Ouvrir le stock →')}
+                            </Link>
+                        </p>
                     </fieldset>
                 )}
 

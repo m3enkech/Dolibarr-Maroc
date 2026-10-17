@@ -1,6 +1,7 @@
+import { Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { formatMAD } from '@/lib/format';
+import { formatMAD, origineMouvement } from '@/lib/format';
 import { useT } from '@/lib/langue';
 import type { ProduitDepots } from '@/types';
 
@@ -185,8 +186,17 @@ export default function DetailDepots({ produitId, onFermer }: { produitId: numbe
                                             {parseFloat(mouvement.quantite)}
                                         </span>
                                         <span className="min-w-0 truncate text-xs text-slate-500">
-                                            {mouvement.entrepot}
-                                            {mouvement.reference && ` · ${mouvement.reference}`}
+                                            {[
+                                                mouvement.entrepot,
+                                                ...origineMouvement(mouvement.reference, mouvement.note, t),
+                                            ]
+                                                .filter(Boolean)
+                                                .map((morceau, i) => (
+                                                    <Fragment key={i}>
+                                                        {i > 0 && ' · '}
+                                                        <bdi>{morceau}</bdi>
+                                                    </Fragment>
+                                                ))}
                                         </span>
                                     </li>
                                 ))}

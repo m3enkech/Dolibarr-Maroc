@@ -177,6 +177,38 @@ class ReapproSurVentesTest extends TestCase
         $this->assertLessThan(1.8, (float) $ligne['conso_jour']);
     }
 
+    /**
+     * Un article créé dans la fenêtre n'était pas « en rupture » avant
+     * d'exister. Son stock initial ouvre l'historique : les jours d'avant, où
+     * le niveau reconstitué vaut zéro faute d'article, ne doivent ni écraser
+     * les jours vendables ni gonfler la commande conseillée.
+     */
+    public function test_un_article_jeune_n_est_pas_en_rupture_avant_sa_creation(): void
+    {
+        $this->travelTo(now()->subDays(30));
+        $produit = $this->withToken($this->token)->postJson('/api/v1/produits', [
+            'name' => 'Ciment blanc', 'type' => 'product', 'sell_price' => 95, 'tva_rate' => 20,
+            'stock_initial' => 40, 'entrepot_id' => $this->entrepot['id'],
+        ])->assertCreated()->json('data');
+        $this->travelBack();
+
+        // 30 unités en dix ventes régulières, une par jour en moyenne, sans
+        // que le stock touche jamais zéro.
+        foreach (range(28, 1, 3) as $joursAvant) {
+            $this->vendre($produit['id'], 3, $joursAvant);
+        }
+
+        $ligne = $this->ligneReappro($produit['id']);
+
+        $this->assertNotNull($ligne);
+        $this->assertSame(30, $ligne['fenetre_jours']);
+        $this->assertSame(0, $ligne['jours_rupture'], 'Les 60 jours d\'avant sa création ne sont pas des jours de rupture.');
+        $this->assertSame('ventes', $ligne['origine']);
+        $this->assertEqualsWithDelta(1.0, (float) $ligne['conso_jour'], 0.05, 'Une unité par jour.');
+        // Besoin à 44 jours (44 × 1), moins les 10 encore en stock.
+        $this->assertSame('34.000', $ligne['suggestion']);
+    }
+
     /** Ce qui est déjà commandé au fournisseur vient en déduction. */
     public function test_la_commande_fournisseur_en_cours_est_deduite(): void
     {

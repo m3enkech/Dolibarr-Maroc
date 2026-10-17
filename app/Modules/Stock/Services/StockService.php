@@ -101,6 +101,46 @@ class StockService
         return $this->mouvement($produit, $entrepot, $quantite, MouvementStock::TYPE_ENTREE, note: $note);
     }
 
+    /**
+     * Stock de départ d'un article qu'on vient de créer : une entrée ordinaire,
+     * pas un type à part. Rien ne la distingue d'une entrée manuelle pour les
+     * calculs (réappro, bilan des familles de ventes, inventaire), et les
+     * filtres et libellés des mouvements restent intacts. Ce qui la signale
+     * dans l'historique, c'est sa note « Stock initial » : les écrans du stock
+     * affichent la référence ET la note (traduite à l'affichage — elle est
+     * stockée en français, comme les autres notes posées par le système).
+     *
+     * Sans dépôt désigné, celui par défaut, créé s'il n'en existe aucun. Un
+     * dépôt désactivé est refusé, même par défaut : y déposer le stock d'un
+     * article neuf le rendrait invisible des écrans qui ne listent que les
+     * dépôts actifs.
+     *
+     * Appelée DANS la transaction de création de l'article (ProduitService) :
+     * si l'entrée échoue, l'article, son numéro de séquence et un éventuel
+     * dépôt créé à la volée disparaissent avec elle.
+     */
+    public function entreeInitiale(Produit $produit, float $quantite, ?int $entrepotId = null): MouvementStock
+    {
+        $entrepot = $entrepotId !== null
+            ? Entrepot::findOrFail($entrepotId)
+            : $this->entrepotParDefaut();
+
+        if (! $entrepot->is_active) {
+            throw ValidationException::withMessages([
+                'entrepot_id' => __('Ce dépôt est désactivé : choisissez un dépôt actif.'),
+            ]);
+        }
+
+        return $this->mouvement(
+            $produit,
+            $entrepot,
+            $quantite,
+            MouvementStock::TYPE_ENTREE,
+            reference: $produit->code,
+            note: 'Stock initial',
+        );
+    }
+
     public function sortie(Produit $produit, Entrepot $entrepot, float $quantite, ?string $note = null): MouvementStock
     {
         return $this->mouvement($produit, $entrepot, -$quantite, MouvementStock::TYPE_SORTIE, note: $note);

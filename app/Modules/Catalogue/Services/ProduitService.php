@@ -5,6 +5,7 @@ namespace App\Modules\Catalogue\Services;
 use App\Core\Sequences\SequenceService;
 use App\Modules\Catalogue\Models\KitComposant;
 use App\Modules\Catalogue\Models\Produit;
+use App\Modules\Stock\Services\StockService;
 use Illuminate\Support\Facades\DB;
 
 class ProduitService
@@ -15,7 +16,10 @@ class ProduitService
         Produit::TYPE_KIT => 'KT',
     ];
 
-    public function __construct(private SequenceService $sequences) {}
+    public function __construct(
+        private SequenceService $sequences,
+        private StockService $stock,
+    ) {}
 
     public function create(array $data): Produit
     {
@@ -27,12 +31,27 @@ class ProduitService
             $data['code'] ??= $this->sequences->next(self::PREFIXES[$type] ?? 'PR');
 
             $composants = $data['composants'] ?? null;
-            unset($data['composants']);
+            $stockInitial = $data['stock_initial'] ?? null;
+            $entrepotId = $data['entrepot_id'] ?? null;
+            unset($data['composants'], $data['stock_initial'], $data['entrepot_id']);
 
             $produit = Produit::create($data);
 
             if ($produit->isKit() && $composants !== null) {
                 $this->syncComposants($produit, $composants);
+            }
+
+            // Stock de départ (StoreProduitRequest l'a réservé aux produits et
+            // à qui peut écrire le stock). Dans la MÊME transaction : une entrée
+            // refusée ou en panne annule l'article, et la séquence — imbriquée
+            // en point de sauvegarde — rend son numéro. Jamais un article créé
+            // sans le stock qu'on croyait lui avoir donné.
+            if ($stockInitial !== null) {
+                $this->stock->entreeInitiale(
+                    $produit,
+                    (float) $stockInitial,
+                    $entrepotId !== null ? (int) $entrepotId : null,
+                );
             }
 
             return $produit->load('composants.composant');

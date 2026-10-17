@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { origineMouvement } from '@/lib/format';
 import type { Entrepot, MouvementStock, Paginated } from '@/types';
 import { useT } from '@/lib/langue';
 
@@ -11,7 +12,12 @@ const TYPE_BADGES: Record<MouvementStock['type'], { label: string; classes: stri
     vente: { label: 'Vente', classes: 'bg-sky-100 text-sky-700' },
     achat: { label: 'Achat', classes: 'bg-teal-100 text-teal-700' },
     transfert: { label: 'Transfert', classes: 'bg-indigo-100 text-indigo-700' },
+    // Écrit par un avoir validé : la marchandise revient en stock.
+    retour: { label: 'Retour', classes: 'bg-rose-100 text-rose-700' },
 };
+
+// Un type ajouté côté serveur sans badge ne doit pas casser tout l'onglet.
+const BADGE_INCONNU = { label: '', classes: 'bg-slate-100 text-slate-600' };
 
 export default function StockMouvements({ entrepots }: { entrepots: Entrepot[] }) {
     const t = useT();
@@ -74,8 +80,9 @@ export default function StockMouvements({ entrepots }: { entrepots: Entrepot[] }
                             </tr>
                         )}
                         {data?.data.map((mouvement) => {
-                            const badge = TYPE_BADGES[mouvement.type];
+                            const badge = TYPE_BADGES[mouvement.type] ?? { ...BADGE_INCONNU, label: mouvement.type };
                             const quantiteNum = parseFloat(mouvement.quantite);
+                            const origine = origineMouvement(mouvement.reference, mouvement.note, t);
                             return (
                                 <tr key={mouvement.id} className="hover:bg-slate-50">
                                     <td className="px-4 py-3 text-slate-600">
@@ -105,7 +112,14 @@ export default function StockMouvements({ entrepots }: { entrepots: Entrepot[] }
                                         {parseFloat(mouvement.quantite_apres)}
                                     </td>
                                     <td className="px-4 py-3 text-slate-500">
-                                        {mouvement.reference ?? mouvement.note ?? '—'}
+                                        {origine.length === 0
+                                            ? '—'
+                                            : origine.map((morceau, i) => (
+                                                  <Fragment key={i}>
+                                                      {i > 0 && ' · '}
+                                                      <bdi>{morceau}</bdi>
+                                                  </Fragment>
+                                              ))}
                                     </td>
                                 </tr>
                             );

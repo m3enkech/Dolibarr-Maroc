@@ -52,7 +52,7 @@ export default function StockPage() {
                             tab === key ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
                         }`}
                     >
-                        {label}
+                        {t(label)}
                     </button>
                 ))}
             </div>

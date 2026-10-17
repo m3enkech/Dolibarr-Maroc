@@ -194,7 +194,7 @@ export interface Entrepot {
 
 export interface MouvementStock {
     id: number;
-    type: 'entree' | 'sortie' | 'ajustement' | 'vente' | 'achat' | 'transfert';
+    type: 'entree' | 'sortie' | 'ajustement' | 'vente' | 'achat' | 'transfert' | 'retour';
     quantite: string;
     quantite_apres: string;
     reference: string | null;
