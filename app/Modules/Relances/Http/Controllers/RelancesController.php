@@ -85,7 +85,7 @@ class RelancesController extends Controller
         abort_unless(
             $request->user()->tenant->hasFeature('relances'),
             403,
-            'Le module Relances est désactivé dans les paramètres.',
+            __('Le module Relances est désactivé dans les paramètres.'),
         );
     }
 }

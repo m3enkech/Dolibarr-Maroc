@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { Link } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { formatMAD, formatTva } from '@/lib/format';
 import { etatEcheance } from '@/lib/echeance';
 import Surcouche from '@/components/Surcouche';
+import { abandonnerBrouillonsWhatsApp, BoutonWhatsApp, PanneauWhatsApp } from '@/components/EnvoiWhatsApp';
 import { statutClasses, statutLabel, TYPE_LABELS } from '@/pages/ventes/common';
 import type { DocumentVente } from '@/types';
 import { useT } from '@/lib/langue';
@@ -32,6 +33,10 @@ import { useT } from '@/lib/langue';
  * `surcouche` : panneau posé par-dessus l'écran à TOUTES les largeurs. C'est
  * la forme de la fiche tiers, déjà colonne de droite d'une vue liste + fiche :
  * le panneau latéral y aurait ouvert une troisième colonne de 250 px.
+ *
+ * L'envoi par WhatsApp prend la place du contenu, dans le même panneau, avec
+ * un « Retour » : une surcouche ouverte sur une surcouche se disputerait Échap
+ * et le focus, et doublerait le voile.
  */
 export default function ApercuVente({
     id,
@@ -47,6 +52,29 @@ export default function ApercuVente({
 }) {
     const t = useT();
     const titre = useId();
+    // La pièce dont on prépare l'envoi, et celle dont on revient (pour rendre
+    // le focus à son bouton).
+    const [envoiPour, setEnvoiPour] = useState<number | null>(null);
+    const [retourDe, setRetourDe] = useState<number | null>(null);
+
+    // Une autre pièce choisie dans la liste remet l'aperçu à zéro : revenir
+    // ensuite sur la première rouvre son APERÇU, pas un panneau WhatsApp neuf,
+    // et son bouton ne reprend pas le focus d'un retour périmé. (Ajusté au
+    // rendu plutôt que dans un effet : sinon un rendu montrerait encore le
+    // panneau de la pièce précédente.)
+    const [piece, setPiece] = useState(id);
+    if (piece !== id) {
+        setPiece(id);
+        setEnvoiPour(null);
+        setRetourDe(null);
+    }
+
+    // Échap, le voile, ✕ : un message retouché dans le panneau WhatsApp ne
+    // disparaît pas sans confirmation. (Changer de ligne dans la liste pose la
+    // même question, côté liste.)
+    const fermer = () => {
+        if (abandonnerBrouillonsWhatsApp()) onFermer();
+    };
 
     const { data: doc, isLoading, isError, error, refetch, isFetching } = useQuery({
         queryKey: ['vente', id],
@@ -77,7 +105,7 @@ export default function ApercuVente({
                     </div>
                 </div>
                 <button
-                    onClick={onFermer}
+                    onClick={fermer}
                     className="shrink-0 rounded-md px-2 py-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                     aria-label={t('Fermer')}
                 >
@@ -212,23 +240,51 @@ export default function ApercuVente({
                                 {t('Voir le client')}
                             </Link>
                         )}
+                        {(doc.type === 'facture' || doc.type === 'devis') && doc.statut !== 'brouillon' && (
+                            <BoutonWhatsApp
+                                cible={{ type: doc.type, documentId: doc.id, code: doc.code }}
+                                onOuvrir={() => setEnvoiPour(doc.id)}
+                                // Au retour du panneau, le focus revient ici plutôt
+                                // que sur <body> : le bouton est remonté à neuf.
+                                autoFocus={retourDe === doc.id}
+                            />
+                        )}
                     </div>
                 </>
             )}
         </>
     );
 
+    const affiche =
+        doc && envoiPour === doc.id ? (
+            <PanneauWhatsApp
+                cible={{ type: doc.type as 'facture' | 'devis', documentId: doc.id, code: doc.code }}
+                integre
+                titreId={titre}
+                onFermer={() => {
+                    setEnvoiPour(null);
+                    setRetourDe(doc.id);
+                }}
+            />
+        ) : (
+            contenu
+        );
+
     if (surcouche) {
         return (
-            <Surcouche onFermer={onFermer} etiquettePar={titre}>
-                {contenu}
+            <Surcouche onFermer={fermer} etiquettePar={titre}>
+                {affiche}
             </Surcouche>
         );
     }
 
+    // Au bureau, la colonne colle au haut de l'écran : plus haute que lui, son
+    // bas (« Ouvrir WhatsApp », les derniers totaux) restait sous le bord tant
+    // que la liste n'était pas défilée jusqu'au bout — et défiler la page ne le
+    // découvrait pas, puisqu'elle la suit. Bornée à l'écran, elle défile seule.
     return (
-        <aside className="fixed inset-x-0 bottom-0 z-40 max-h-[75vh] overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-4 lg:z-auto lg:max-h-none lg:self-start lg:rounded-xl lg:shadow-sm">
-            {contenu}
+        <aside className="fixed inset-x-0 bottom-0 z-40 max-h-[75vh] overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-4 lg:z-auto lg:max-h-[calc(100vh-2rem)] lg:self-start lg:rounded-xl lg:shadow-sm">
+            {affiche}
         </aside>
     );
 }

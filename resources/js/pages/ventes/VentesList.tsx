@@ -9,6 +9,7 @@ import Pagination from '@/components/Pagination';
 import SelecteurAnnee from '@/components/SelecteurAnnee';
 import { etatEcheance } from '@/lib/echeance';
 import ApercuVente from '@/pages/ventes/ApercuVente';
+import { abandonnerBrouillonsWhatsApp } from '@/components/EnvoiWhatsApp';
 import { statutClasses, statutLabel, TYPE_LABELS, TYPE_LABELS_PLURAL } from '@/pages/ventes/common';
 import type { DocumentType, DocumentVente, Paginated } from '@/types';
 
@@ -99,9 +100,17 @@ export default function VentesList() {
         setPage(1);
     };
 
+    // L'aperçu peut porter un message WhatsApp retouché : changer d'onglet ou
+    // de ligne le ferait disparaître sans un mot.
     const switchTab = (tab: DocumentType) => {
+        if (!abandonnerBrouillonsWhatsApp()) return;
         setSearchParams({ type: tab });
         setApercu(null);
+    };
+
+    const ouvrirApercu = (documentId: number) => {
+        if (documentId !== apercu && !abandonnerBrouillonsWhatsApp()) return;
+        setApercu(documentId);
     };
 
     const filtresActifs = [annee, statut, dateDebut, dateFin, montantMin, echeance].filter(Boolean).length;
@@ -300,7 +309,7 @@ export default function VentesList() {
                                 {data?.data.map((doc) => (
                                     <tr
                                         key={doc.id}
-                                        onClick={() => setApercu(doc.id)}
+                                        onClick={() => ouvrirApercu(doc.id)}
                                         className={`cursor-pointer transition ${
                                             apercu === doc.id ? 'bg-emerald-50' : 'hover:bg-slate-50'
                                         }`}

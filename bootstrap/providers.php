@@ -1,22 +1,23 @@
 <?php
 
 use App\Core\CoreServiceProvider;
-use App\Modules\Catalogue\CatalogueServiceProvider;
-use App\Modules\Tiers\TiersServiceProvider;
 use App\Modules\Achats\AchatsServiceProvider;
+use App\Modules\Catalogue\CatalogueServiceProvider;
+use App\Modules\Communications\CommunicationsServiceProvider;
 use App\Modules\Compta\ComptaServiceProvider;
 use App\Modules\Crm\CrmServiceProvider;
 use App\Modules\Dashboard\DashboardServiceProvider;
-use App\Modules\Integrations\IntegrationsServiceProvider;
-use App\Modules\Pilotage\PilotageServiceProvider;
 use App\Modules\Effets\EffetsServiceProvider;
-use App\Modules\Portail\PortailServiceProvider;
 use App\Modules\Equipe\EquipeServiceProvider;
+use App\Modules\Integrations\IntegrationsServiceProvider;
 use App\Modules\Parametres\ParametresServiceProvider;
+use App\Modules\Pilotage\PilotageServiceProvider;
+use App\Modules\Portail\PortailServiceProvider;
 use App\Modules\Pos\PosServiceProvider;
 use App\Modules\Relances\RelancesServiceProvider;
-use App\Modules\Superadmin\SuperadminServiceProvider;
 use App\Modules\Stock\StockServiceProvider;
+use App\Modules\Superadmin\SuperadminServiceProvider;
+use App\Modules\Tiers\TiersServiceProvider;
 use App\Modules\Ventes\VentesServiceProvider;
 use App\Providers\AppServiceProvider;
 
@@ -42,4 +43,5 @@ return [
     IntegrationsServiceProvider::class,
     SuperadminServiceProvider::class,
     PortailServiceProvider::class,
+    CommunicationsServiceProvider::class,
 ];

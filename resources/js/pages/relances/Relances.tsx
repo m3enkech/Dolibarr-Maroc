@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatMAD } from '@/lib/format';
+import { BoutonWhatsApp } from '@/components/EnvoiWhatsApp';
 import type { RelanceLigne } from '@/types';
 
 const NIVEAUX: Record<number, { label: string; classes: string }> = {
@@ -9,6 +10,20 @@ const NIVEAUX: Record<number, { label: string; classes: string }> = {
     2: { label: 'Relance ferme', classes: 'bg-orange-100 text-orange-700' },
     3: { label: 'Mise en demeure', classes: 'bg-red-100 text-red-700' },
 };
+
+/** Miroir de Relance::CANAUX : la ligne dit par où est partie la dernière relance. */
+const CANAUX: Record<string, string> = {
+    courrier: 'Courrier',
+    email: 'E-mail',
+    telephone: 'Téléphone',
+    whatsapp: 'WhatsApp',
+    autre: 'Autre',
+};
+
+/** « 2026-10-18 » → « 18/10/2026 », sans passer par Date (fuseau). */
+function dateCourte(iso: string): string {
+    return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+}
 
 function retardClasses(jours: number): string {
     if (jours > 90) return 'text-red-600 font-semibold';
@@ -18,7 +33,12 @@ function retardClasses(jours: number): string {
 
 function RelanceRow({ ligne, onDone }: { ligne: RelanceLigne; onDone: () => void }) {
     const suggested = Math.min(3, (ligne.dernier_niveau ?? 0) + 1);
-    const [niveau, setNiveau] = useState(suggested);
+    // Le choix de l'utilisateur ne vaut que pour l'état de la ligne où il l'a
+    // fait : une fois la relance passée (WhatsApp ou ✓), la liste relue avance
+    // le dernier niveau, et la suggestion suivante reprend la main.
+    const [choisi, setChoisi] = useState<{ pour: number | null; niveau: number } | null>(null);
+    const niveau = choisi !== null && choisi.pour === ligne.dernier_niveau ? choisi.niveau : suggested;
+    const setNiveau = (n: number) => setChoisi({ pour: ligne.dernier_niveau, niveau: n });
 
     const marquer = useMutation({
         mutationFn: () =>
@@ -51,15 +71,31 @@ function RelanceRow({ ligne, onDone }: { ligne: RelanceLigne; onDone: () => void
             </td>
             <td className="px-4 py-2.5">
                 {ligne.dernier_niveau ? (
-                    <span className={`rounded px-1.5 py-0.5 text-xs ${NIVEAUX[ligne.dernier_niveau].classes}`}>
-                        {NIVEAUX[ligne.dernier_niveau].label} ({ligne.nb_relances})
-                    </span>
+                    <>
+                        <span className={`rounded px-1.5 py-0.5 text-xs ${NIVEAUX[ligne.dernier_niveau].classes}`}>
+                            {NIVEAUX[ligne.dernier_niveau].label} ({ligne.nb_relances})
+                        </span>
+                        {ligne.derniere_relance && (
+                            <div className="mt-1 whitespace-nowrap text-xs text-slate-500">
+                                {dateCourte(ligne.derniere_relance)}
+                                {ligne.dernier_canal && ` · ${CANAUX[ligne.dernier_canal] ?? ligne.dernier_canal}`}
+                            </div>
+                        )}
+                    </>
                 ) : (
                     <span className="text-xs text-slate-400">jamais relancé</span>
                 )}
             </td>
             <td className="px-4 py-2.5">
                 <div className="flex items-center justify-end gap-2">
+                    {/* Le niveau choisi sur la ligne sert de point de départ ; le
+                        panneau permet encore d'en changer. Écran resté en
+                        français : traduire={false}. */}
+                    <BoutonWhatsApp
+                        cible={{ type: 'relance', documentId: ligne.document_vente_id, code: ligne.code, niveau }}
+                        traduire={false}
+                        compact
+                    />
                     <select
                         value={niveau}
                         onChange={(e) => setNiveau(parseInt(e.target.value, 10))}

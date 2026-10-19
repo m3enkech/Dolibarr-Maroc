@@ -165,6 +165,32 @@ class LimitesDeDebit
         // il coupe l'aspiration méthodique.
         RateLimiter::for('portail-grossiste', fn (Request $r) => Limit::perMinute(120)
             ->by(self::acheteurOuSource($r))->response(self::refus()));
+
+        // --- Lien public vers le PDF d'une facture ou d'un devis. ---
+        //
+        // Ouvert à un anonyme : le client qui touche le lien reçu sur WhatsApp
+        // n'a pas de compte. Deviner un lien est hors de portée (signature
+        // HMAC) ; le danger est le rendu du PDF, la route la plus chère de
+        // l'application, offert à quiconque détient UN lien valable et le
+        // rejoue en boucle. Un client ouvre sa facture une ou deux fois ; un
+        // comptable qui pointe ses fournisseurs, une dizaine dans la minute.
+        // Compté par adresse, échecs compris : une signature fausse ne coûte
+        // qu'un HMAC, mais celui qui en essaie mille n'a rien à faire ici.
+        //
+        // Et compté par PIÈCE, car l'adresse seule ne borne rien pour qui fait
+        // tourner les siennes (un /64 IPv6, des fonctions cloud) avec un lien
+        // transféré dans un groupe : chaque adresse aurait ses 200 rendus.
+        // Seuls les SUCCÈS remplissent ce seau-là — sinon un tiers fermerait
+        // la facture d'un client à coups de signatures fausses, sans jamais
+        // détenir son lien. Trente ouvertures réussies d'une même pièce dans
+        // l'heure, c'est déjà bien plus qu'un client et son comptable.
+        RateLimiter::for('lien-document-public', fn (Request $r) => [
+            Limit::perMinute(20)->by((string) $r->ip())->response(self::refusEnTexte()),
+            Limit::perHour(200)->by((string) $r->ip())->response(self::refusEnTexte()),
+            Limit::perHour(30)->by('document:'.$r->route('document'))
+                ->after(fn (Response $reponse) => $reponse->getStatusCode() === Response::HTTP_OK)
+                ->response(self::refusEnTexte()),
+        ]);
     }
 
     /**
@@ -242,5 +268,20 @@ class LimitesDeDebit
                 ]),
             ], Response::HTTP_TOO_MANY_REQUESTS, $entetes);
         };
+    }
+
+    /**
+     * Le refus pour une page que lit un CLIENT dans son navigateur, pas une
+     * interface : du texte brut, dans les deux langues. Le JSON de l'API
+     * afficherait l'arabe en codes d'échappement illisibles sur un téléphone,
+     * et on ne connaît pas la langue de ce client.
+     */
+    private static function refusEnTexte(): callable
+    {
+        return fn (Request $request, array $entetes) => response(
+            "Trop de demandes. Réessayez dans quelques minutes.\nطلبات كثيرة جدا. أعد المحاولة بعد بضع دقائق.\n",
+            Response::HTTP_TOO_MANY_REQUESTS,
+            $entetes + ['Content-Type' => 'text/plain; charset=UTF-8', 'Cache-Control' => 'no-store'],
+        );
     }
 }

@@ -24,8 +24,13 @@ api.interceptors.request.use((config) => {
         config.headers.Authorization = `Bearer ${token}`;
     }
     // Les messages du serveur (validation, refus) s'affichent tels quels : ils
-    // doivent suivre la langue choisie, pas celle du navigateur.
-    config.headers['Accept-Language'] = langueCourante();
+    // doivent suivre la langue choisie, pas celle du navigateur. Sauf langue
+    // fixée par l'appelant : un composant partagé posé sur un écran resté en
+    // français (facturation) demande ses libellés en français, sans quoi ils
+    // arriveraient en arabe au milieu d'une page qui ne l'est pas.
+    if (!config.headers.has('Accept-Language')) {
+        config.headers['Accept-Language'] = langueCourante();
+    }
     return config;
 });
 

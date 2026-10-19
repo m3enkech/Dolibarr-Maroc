@@ -67,6 +67,10 @@ class RelanceService
                     'dernier_niveau' => $historique?->max('niveau'),
                     'nb_relances' => $historique?->count() ?? 0,
                     'derniere_relance' => $historique?->max('created_at')?->format('Y-m-d'),
+                    // Le canal de la PLUS RÉCENTE (par identifiant, l'ordre
+                    // d'écriture) : la ligne dit « WhatsApp » juste après une
+                    // relance par WhatsApp, même si un courrier l'a précédée.
+                    'dernier_canal' => $historique?->sortByDesc('id')->first()?->canal,
                 ];
             })
             ->filter()
@@ -105,6 +109,7 @@ class RelanceService
                 'niveau' => $r->niveau,
                 'niveau_label' => Relance::NIVEAUX[$r->niveau] ?? (string) $r->niveau,
                 'canal' => $r->canal,
+                'canal_label' => Relance::CANAUX[$r->canal] ?? $r->canal,
                 'note' => $r->note,
                 'date' => $r->created_at?->format('Y-m-d'),
             ])

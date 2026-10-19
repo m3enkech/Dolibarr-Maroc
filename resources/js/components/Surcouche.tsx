@@ -66,14 +66,28 @@ export default function Surcouche({
 
             const premier = elements[0];
             const dernier = elements[elements.length - 1];
-            const dedans = panneau.current.contains(document.activeElement);
+            const actif = document.activeElement;
+            const dedans = panneau.current.contains(actif);
 
-            if (e.shiftKey && (document.activeElement === premier || document.activeElement === panneau.current || !dedans)) {
+            // Un groupe de boutons radio ne fait qu'UN arrêt de tabulation :
+            // Tab depuis n'importe lequel de ses boutons quitte le groupe. Si le
+            // groupe ferme le panneau, « est-on sur le dernier ? » doit donc
+            // valoir pour tout le groupe — sinon Tab depuis le premier bouton
+            // sortait de la surcouche, vers la page masquée.
+            const groupe = (el: Element | null) =>
+                el instanceof HTMLInputElement && el.type === 'radio' && el.name !== '' ? el.name : null;
+            const memeArret = (el: Element | null, borne: HTMLElement) =>
+                el === borne || (groupe(el) !== null && groupe(el) === groupe(borne));
+            // Entrer dans un groupe, c'est arriver sur son bouton coché s'il en a un.
+            const entree = (borne: HTMLElement) =>
+                elements.find((el) => groupe(borne) !== null && groupe(el) === groupe(borne) && (el as HTMLInputElement).checked) ?? borne;
+
+            if (e.shiftKey && (memeArret(actif, premier) || actif === panneau.current || !dedans)) {
                 e.preventDefault();
-                dernier.focus();
-            } else if (!e.shiftKey && (document.activeElement === dernier || !dedans)) {
+                entree(dernier).focus();
+            } else if (!e.shiftKey && (memeArret(actif, dernier) || !dedans)) {
                 e.preventDefault();
-                premier.focus();
+                entree(premier).focus();
             }
         };
 

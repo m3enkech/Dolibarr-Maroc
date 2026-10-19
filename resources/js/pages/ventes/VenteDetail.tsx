@@ -5,12 +5,16 @@ import { api } from '@/lib/api';
 import { formatMAD, formatTva } from '@/lib/format';
 import { MODES_PAIEMENT, statutClasses, statutLabel, TYPE_LABELS } from '@/pages/ventes/common';
 import { useFeatures } from '@/lib/features';
+import { useAuth } from '@/lib/auth';
+import { etatEcheance } from '@/lib/echeance';
+import { BoutonWhatsApp, HistoriqueEnvoisWhatsApp } from '@/components/EnvoiWhatsApp';
 import type { DocumentVente } from '@/types';
 
 export default function VenteDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { features } = useFeatures();
+    const { can } = useAuth();
     const queryClient = useQueryClient();
     const [error, setError] = useState<string | null>(null);
     const [montant, setMontant] = useState('');
@@ -131,6 +135,22 @@ export default function VenteDetail() {
         return <div className="py-12 text-center text-slate-400">Chargement…</div>;
     }
 
+    /*
+     * WhatsApp : seules la facture et le devis VALIDÉS partent chez le client
+     * (un brouillon peut encore changer, le serveur le refuse). La relance ne
+     * se propose que sur une facture due ET échue — l'échéance effective étant
+     * la date de pièce quand aucune n'est saisie, comme côté serveur. Les
+     * boutons vérifient eux-mêmes le droit d'écriture et le module Relances.
+     * Écran resté en français : traduire={false}.
+     */
+    const partageable = ['facture', 'devis'].includes(doc.type) && doc.statut !== 'brouillon';
+    const relancable =
+        doc.type === 'facture' &&
+        doc.statut === 'valide' &&
+        parseFloat(doc.reste_a_payer ?? doc.total_ttc) > 0.009 &&
+        etatEcheance(doc.date_echeance ?? doc.date_document)?.depassee === true;
+    const confirmerPaiements = doc.type === 'facture' && can('ventes', 'write');
+
     const btn = 'rounded-md px-3 py-1.5 text-sm font-medium transition';
     const btnPrimary = `${btn} bg-emerald-600 text-white hover:bg-emerald-700`;
     const btnSecondary = `${btn} border border-slate-300 text-slate-700 hover:bg-slate-50`;
@@ -142,11 +162,15 @@ export default function VenteDetail() {
                 <Link to={`/ventes?type=${doc.type}`} className="text-sm text-emerald-600 hover:underline">
                     ← Retour aux {TYPE_LABELS[doc.type].toLowerCase()}s
                 </Link>
-                <div className="mt-2 flex items-center justify-between">
-                    <div>
+                {/* `flex-wrap` : quand les actions ne tiennent plus à côté du
+                    titre (boutons WhatsApp compris), elles passent dessous au
+                    lieu d'écraser le titre — le code de la pièce se coupait
+                    sur son tiret. */}
+                <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
                         <div className="flex items-center gap-3">
                             <h1 className="text-xl font-semibold text-slate-900">
-                                {TYPE_LABELS[doc.type]} {doc.code}
+                                {TYPE_LABELS[doc.type]} <span className="whitespace-nowrap">{doc.code}</span>
                             </h1>
                             <span className={`rounded px-2 py-0.5 text-xs ${statutClasses(doc.statut)}`}>
                                 {statutLabel(doc)}
@@ -262,6 +286,18 @@ export default function VenteDetail() {
                                     🧾 Tirer un effet
                                 </button>
                             )}
+                        {partageable && (
+                            <BoutonWhatsApp
+                                cible={{ type: doc.type as 'facture' | 'devis', documentId: doc.id, code: doc.code }}
+                                traduire={false}
+                            />
+                        )}
+                        {relancable && (
+                            <BoutonWhatsApp
+                                cible={{ type: 'relance', documentId: doc.id, code: doc.code }}
+                                traduire={false}
+                            />
+                        )}
                         <button onClick={telechargerPdf} className={btnSecondary}>
                             ⬇ PDF
                         </button>
@@ -351,28 +387,50 @@ export default function VenteDetail() {
                     </div>
 
                     {(doc.paiements?.length ?? 0) > 0 && (
-                        <table className="mb-4 w-full text-left text-sm">
-                            <thead className="text-xs uppercase tracking-wide text-slate-500">
-                                <tr>
-                                    <th className="pb-2">Date</th>
-                                    <th className="pb-2">Mode</th>
-                                    <th className="pb-2">Référence</th>
-                                    <th className="pb-2 text-right">Montant</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {doc.paiements?.map((paiement) => (
-                                    <tr key={paiement.id}>
-                                        <td className="py-2 text-slate-600">{paiement.date_paiement}</td>
-                                        <td className="py-2 text-slate-600">{MODES_PAIEMENT[paiement.mode] ?? paiement.mode}</td>
-                                        <td className="py-2 text-slate-500">{paiement.reference ?? '—'}</td>
-                                        <td className="py-2 text-right tabular-nums font-medium text-slate-900">
-                                            {formatMAD(paiement.montant)}
-                                        </td>
+                        // Défilant : la colonne WhatsApp élargit le tableau au-delà d'un téléphone.
+                        <div className="mb-4 overflow-x-auto">
+                            <table className="w-full text-start text-sm">
+                                <thead className="text-xs uppercase tracking-wide text-slate-500">
+                                    <tr>
+                                        <th className="pb-2 text-start">Date</th>
+                                        <th className="pb-2 text-start">Mode</th>
+                                        <th className="pb-2 text-start">Référence</th>
+                                        <th className="pb-2 text-end">Montant</th>
+                                        {confirmerPaiements && (
+                                            <th className="relative pb-2">
+                                                <span className="sr-only">Confirmer au client</span>
+                                            </th>
+                                        )}
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {doc.paiements?.map((paiement) => (
+                                        <tr key={paiement.id}>
+                                            <td className="whitespace-nowrap py-2 pe-3 text-slate-600">{paiement.date_paiement}</td>
+                                            <td className="py-2 pe-3 text-slate-600">{MODES_PAIEMENT[paiement.mode] ?? paiement.mode}</td>
+                                            <td className="py-2 pe-3 text-slate-500">{paiement.reference ?? '—'}</td>
+                                            <td className="whitespace-nowrap py-2 text-end tabular-nums font-medium text-slate-900">
+                                                {formatMAD(paiement.montant)}
+                                            </td>
+                                            {confirmerPaiements && (
+                                                <td className="py-2 ps-3 text-end">
+                                                    <BoutonWhatsApp
+                                                        cible={{
+                                                            type: 'paiement',
+                                                            documentId: doc.id,
+                                                            code: doc.code,
+                                                            paiementId: paiement.id,
+                                                        }}
+                                                        traduire={false}
+                                                        compact
+                                                    />
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     )}
 
                     {doc.statut !== 'paye' && (
@@ -419,6 +477,8 @@ export default function VenteDetail() {
                     )}
                 </div>
             )}
+
+            {partageable && <HistoriqueEnvoisWhatsApp documentId={doc.id} traduire={false} />}
 
             {doc.notes && (
                 <div className="rounded-xl bg-white p-5 shadow-sm">

@@ -23,7 +23,7 @@ class StoreRelanceRequest extends FormRequest
                 }
             }],
             'niveau' => ['required', 'integer', Rule::in(array_keys(Relance::NIVEAUX))],
-            'canal' => ['nullable', Rule::in(['courrier', 'email', 'telephone', 'autre'])],
+            'canal' => ['nullable', Rule::in(array_keys(Relance::CANAUX))],
             'note' => ['nullable', 'string', 'max:255'],
         ];
     }

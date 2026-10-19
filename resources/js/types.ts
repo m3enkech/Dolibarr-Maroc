@@ -897,6 +897,96 @@ export interface RelanceLigne {
     dernier_niveau: number | null;
     nb_relances: number;
     derniere_relance: string | null;
+    /** Canal de la relance la plus récente : courrier, email, telephone, whatsapp, autre. */
+    dernier_canal: string | null;
+}
+
+/* --- Envois WhatsApp (module Communications) --- */
+
+export type TypeEnvoiWhatsApp = 'facture' | 'devis' | 'paiement' | 'relance';
+
+export type LangueMessage = 'fr' | 'ar';
+
+export interface DestinataireWhatsApp {
+    /** Chiffres seuls, indicatif compris : 212661000000. */
+    numero: string;
+    /** « +212 6 61 00 00 00 ». */
+    affichage: string;
+    /** « Karim Alami · mobile », déjà dans la langue demandée. */
+    libelle: string;
+    nom: string;
+    source: 'contact_mobile' | 'tiers_telephone' | 'contact_telephone';
+    contact_id: number | null;
+    nature: 'mobile' | 'fixe' | 'etranger';
+    /** « fixe — WhatsApp peu probable », ou null. */
+    avertissement: string | null;
+    selectionne: boolean;
+}
+
+export interface NumeroIgnoreWhatsApp {
+    libelle: string;
+    saisie: string;
+    raison: string;
+}
+
+export interface NiveauRelanceWhatsApp {
+    niveau: number;
+    label: string;
+    /** Faux avant l'échéance pour les niveaux 2 et 3 : le serveur les refuserait. */
+    possible: boolean;
+    suggere: boolean;
+}
+
+export interface PreparationWhatsApp {
+    type: TypeEnvoiWhatsApp;
+    document: {
+        id: number;
+        type: DocumentType;
+        code: string;
+        statut: DocumentStatut;
+        date_document: string | null;
+        date_echeance: string | null;
+        total_ttc: string;
+        reste_a_payer: string;
+        tiers: { id: number; nom: string } | null;
+        /** Relance seulement. */
+        echue?: boolean;
+        jours_retard?: number;
+    };
+    paiement_id: number | null;
+    niveau: number | null;
+    niveau_label: string | null;
+    niveaux: NiveauRelanceWhatsApp[] | null;
+    destinataires: DestinataireWhatsApp[];
+    numeros_ignores: NumeroIgnoreWhatsApp[];
+    numero_selectionne: string | null;
+    messages: Record<LangueMessage, string>;
+    lien_document: { url: string; expire_le: string };
+    liens_whatsapp: Record<LangueMessage, string>;
+}
+
+/** Une ligne du journal : WhatsApp OUVERT avec le message prêt, pas un envoi confirmé. */
+export interface EnvoiWhatsApp {
+    id: number;
+    canal: string;
+    type: TypeEnvoiWhatsApp;
+    niveau: number | null;
+    document_vente_id: number;
+    paiement_id: number | null;
+    relance_id: number | null;
+    tiers_id: number | null;
+    destinataire: string | null;
+    destinataire_affichage: string | null;
+    langue: LangueMessage;
+    message: string;
+    auteur: { id: number | null; nom: string | null };
+    etat: 'whatsapp_ouvert';
+    etat_libelle: string;
+    created_at: string;
+    /** Réponse du journal seulement : le lien tel que le serveur l'aurait construit. */
+    lien_whatsapp?: string;
+    /** Relance seulement ; null si la Relance a disparu depuis (rejeu d'un envoi ancien). */
+    relance?: { id: number; niveau: number; niveau_label: string; canal: string } | null;
 }
 
 export type EffetType = 'recevoir' | 'payer';
